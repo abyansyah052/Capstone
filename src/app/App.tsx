@@ -5,20 +5,19 @@ import { Dashboard } from "./components/Dashboard"
 import { PatientRegistration } from "./components/PatientRegistration"
 import { AppointmentScheduling } from "./components/AppointmentScheduling"
 import { MedicalHistory } from "./components/MedicalHistory"
-import { LabResults } from "./components/LabResults"
 import { DoctorNotes } from "./components/DoctorNotes"
-import { Home, Users, Calendar, FileText, TestTube, Stethoscope } from "lucide-react"
+import { Home, Users, Calendar, FileText, Activity, Stethoscope } from "lucide-react"
+
 
 export default function App() {
   const [activeModule, setActiveModule] = useState("dashboard")
 
   const navigationItems = [
     { id: "dashboard", label: "Dashboard", icon: Home },
-    { id: "patients", label: "Patient Registration", icon: Users },
-    { id: "history", label: "Medical History", icon: FileText },
-    { id: "appointments", label: "Appointments", icon: Calendar },
-    { id: "lab-results", label: "Lab Results", icon: TestTube },
-    { id: "notes", label: "Doctor Notes", icon: Stethoscope },
+    { id: "patients", label: "Registrasi Pasien", icon: Users },
+    { id: "history", label: "Riwayat Psikologis", icon: Activity },
+    { id: "appointments", label: "Janji Temu", icon: Calendar },
+    { id: "notes", label: "Laporan Psikologis", icon: FileText },
   ]
 
   const renderActiveModule = () => {
@@ -27,7 +26,6 @@ export default function App() {
       case "patients": return <PatientRegistration />
       case "history": return <MedicalHistory />
       case "appointments": return <AppointmentScheduling />
-      case "lab-results": return <LabResults />
       case "notes": return <DoctorNotes />
       default: return <Dashboard onNavigate={setActiveModule} />
     }
@@ -64,42 +62,39 @@ export default function App() {
       <div className="flex h-screen w-full">
         {/* Sidebar — Navy #1C243B */}
         <Sidebar style={{ backgroundColor: "#1C243B" }} className="border-r border-[#2d3a55]">
-          <SidebarHeader className="border-b border-[#2d3a55] px-6 py-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E5B55C] shadow-lg">
-                <Stethoscope className="h-5 w-5 text-[#1C243B]" />
-              </div>
-              <div>
-                <h2 className="font-semibold text-white">Asisya IHMS</h2>
-                <p className="text-xs text-[#E5B55C]">Healthcare Management</p>
-              </div>
-            </div>
+          <SidebarHeader className="px-4 pt-5 pb-4">
+            {/* Logo full, tanpa teks apapun */}
+            <img
+              src="/SI Capstone 1 Group 2.svg"
+              alt="Asisya IHMS"
+              className="h-18 w-auto object-contain"
+            />
+
+            {/* Divider */}
+            <div className="mt-4 h-px w-full bg-gradient-to-r from-transparent via-white/20 to-transparent" />
           </SidebarHeader>
 
-          <SidebarContent className="px-4 py-6">
-            <nav className="space-y-1">
+          <SidebarContent className="px-3 py-4">
+            <nav className="flex flex-col gap-0.5">
               {navigationItems.map((item) => {
                 const Icon = item.icon
                 const isActive = activeModule === item.id
                 return (
-                  <Button
+                  <button
                     key={item.id}
-                    variant="ghost"
-                    style={isActive ? {
-                      backgroundColor: "#243050",
-                      color: "#E5B55C",
-                      borderLeft: "3px solid #E5B55C"
-                    } : {
-                      color: "#94a3b8",
-                    }}
-                    className={`w-full justify-start gap-3 h-11 transition-all duration-200 rounded-lg ${
-                      !isActive ? "hover:bg-[#243050] hover:text-white" : ""
-                    }`}
                     onClick={() => setActiveModule(item.id)}
+                    className={`
+                      w-full flex items-center gap-3 px-3 h-11 rounded-lg text-sm font-medium
+                      transition-all duration-150 text-left
+                      ${isActive
+                        ? "bg-white/10 text-[#E5B55C] border-l-2 border-[#E5B55C] pl-[10px]"
+                        : "text-white hover:text-white hover:bg-white/10 border-l-2 border-transparent pl-[10px]"
+                      }
+                    `}
                   >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
-                  </Button>
+                    <Icon className={`h-4 w-4 flex-shrink-0 ${isActive ? "text-[#E5B55C]" : "text-white/80"}`} />
+                    <span>{item.label}</span>
+                  </button>
                 )
               })}
             </nav>

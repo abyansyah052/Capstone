@@ -85,7 +85,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             Selamat Datang di Asisya Consulting IPMS
           </h2>
           <p className="text-slate-300 text-sm leading-relaxed">
-            IEMS adalah Internal Psychological management system untuk mengatur informasi pasien, janji temu, dan
+            IPMS adalah Internal Psychological management system untuk mengatur informasi pasien, janji temu, dan
             data psikologis dengan aman dan mudah.
           </p>
         </div>
