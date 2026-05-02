@@ -43,7 +43,7 @@ const MOCK_PATIENTS: Patient[] = [
   { id: "3", name: "Sarah Lin", email: "slin_design@example.com", idNumber: "PT-4421-B", age: 29, gender: "F", phone: "(555) 333-2211", lastVisit: "Aug 19, 2023", hasPhoto: true, initials: "SL" },
 ]
 
-const FILTER_TABS = ["All Patients", "Recently Added", "Require Follow-up"]
+
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -80,7 +80,6 @@ const disabledCls = "px-3.5 py-2.5 rounded-lg border border-slate-100 bg-slate-5
 
 function PatientDirectory({ onNew }: { onNew: () => void }) {
   const [search, setSearch] = useState("")
-  const [activeTab, setActiveTab] = useState("All Patients")
 
   const filtered = MOCK_PATIENTS.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -113,8 +112,8 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
 
       {/* Table card */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-        {/* Search + Tabs */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 border-b border-slate-100">
+        {/* Search */}
+        <div className="flex items-center gap-3 p-4 border-b border-slate-100">
           <div className="relative flex-1">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -123,21 +122,6 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
               placeholder="Search patients by name, ID, or phone..."
               className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-slate-50 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#1a3a6b]/50 focus:ring-2 focus:ring-[#1a3a6b]/8 transition-all"
             />
-          </div>
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-            {FILTER_TABS.map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
-                  activeTab === tab
-                    ? "bg-[#1a3a6b] text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
           </div>
         </div>
 
