@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from "react"
 import {
   Camera, CheckCircle2, Calendar as CalendarIcon,
-  ChevronDown, Plus, Search, MoreVertical, Filter,
-  ArrowLeft, Building2, X
+  ChevronDown, Plus, Search, Filter,
+  ArrowLeft, Building2, X, Pencil, Trash2, AlertTriangle
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Tipe Data ───────────────────────────────────────────────────────────────────
 
 type Batch = { id: string; name: string; company: string; color: string }
 
@@ -19,7 +19,7 @@ type Patient = {
   gender: string
   phone: string
   lastVisit: string
-  registeredAt: string   // ISO date string for sorting
+  registeredAt: string
   hasPhoto: boolean
   initials: string
   batchId: string
@@ -40,7 +40,7 @@ type FormData = {
   batchId: string
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+// ─── Data Master ───────────────────────────────────────────────────────────────
 
 const BATCHES: Batch[] = [
   { id: "B001", name: "Batch Mandiri Q1 2025",   company: "PT Bank Mandiri",    color: "#1a3a6b" },
@@ -49,17 +49,17 @@ const BATCHES: Batch[] = [
   { id: "B004", name: "Batch Individual",         company: "—",                  color: "#64748b" },
 ]
 
-const MOCK_PATIENTS: Patient[] = [
-  { id: "1", name: "Eleanor James",  email: "eleanor.j@example.com",  idNumber: "PT-8842-A", age: 42, gender: "F", phone: "(555) 123-4567", lastVisit: "Oct 12, 2023", registeredAt: "2023-10-01", hasPhoto: false, initials: "EJ", batchId: "B001" },
-  { id: "2", name: "Marcus Chen",    email: "m.chen99@example.com",   idNumber: "PT-9105-C", age: 58, gender: "M", phone: "(555) 987-6543", lastVisit: "Sep 04, 2023", registeredAt: "2023-08-20", hasPhoto: true,  initials: "MC", batchId: "B002" },
-  { id: "3", name: "Sarah Lin",      email: "slin_design@example.com",idNumber: "PT-4421-B", age: 29, gender: "F", phone: "(555) 333-2211", lastVisit: "Aug 19, 2023", registeredAt: "2023-07-15", hasPhoto: true,  initials: "SL", batchId: "B001" },
-  { id: "4", name: "Budi Santoso",   email: "budi.s@example.com",     idNumber: "PT-6631-D", age: 35, gender: "M", phone: "+62 812 0011 2233", lastVisit: "Jan 05, 2024", registeredAt: "2024-01-02", hasPhoto: false, initials: "BS", batchId: "B003" },
-  { id: "5", name: "Rina Kartika",   email: "rina.k@example.com",     idNumber: "PT-7720-E", age: 27, gender: "F", phone: "+62 811 9988 7766", lastVisit: "Mar 22, 2024", registeredAt: "2024-03-10", hasPhoto: false, initials: "RK", batchId: "B004" },
+const INIT_PATIENTS: Patient[] = [
+  { id: "1", name: "Eleanor James",  email: "eleanor.j@example.com",   idNumber: "PT-8842-A", age: 42, gender: "F", phone: "(555) 123-4567",     lastVisit: "12 Okt 2023", registeredAt: "2023-10-01", hasPhoto: false, initials: "EJ", batchId: "B001" },
+  { id: "2", name: "Marcus Chen",    email: "m.chen99@example.com",    idNumber: "PT-9105-C", age: 58, gender: "M", phone: "(555) 987-6543",     lastVisit: "4 Sep 2023",  registeredAt: "2023-08-20", hasPhoto: true,  initials: "MC", batchId: "B002" },
+  { id: "3", name: "Sarah Lin",      email: "slin_design@example.com", idNumber: "PT-4421-B", age: 29, gender: "F", phone: "(555) 333-2211",     lastVisit: "19 Ags 2023", registeredAt: "2023-07-15", hasPhoto: true,  initials: "SL", batchId: "B001" },
+  { id: "4", name: "Budi Santoso",   email: "budi.s@example.com",      idNumber: "PT-6631-D", age: 35, gender: "M", phone: "+62 812 0011 2233", lastVisit: "5 Jan 2024",  registeredAt: "2024-01-02", hasPhoto: false, initials: "BS", batchId: "B003" },
+  { id: "5", name: "Rina Kartika",   email: "rina.k@example.com",      idNumber: "PT-7720-E", age: 27, gender: "F", phone: "+62 811 9988 7766", lastVisit: "22 Mar 2024", registeredAt: "2024-03-10", hasPhoto: false, initials: "RK", batchId: "B004" },
 ]
 
 const BATCH_COLORS: Record<string, string> = Object.fromEntries(BATCHES.map(b => [b.id, b.color]))
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 
 const calcAge = (dob: string) => {
   if (!dob) return 0
@@ -71,7 +71,7 @@ const formatDate = (dob: string) => {
   return new Date(dob).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
 }
 
-// ─── Shared field wrapper ─────────────────────────────────────────────────────
+// ─── Komponen Field ──────────────────────────────────────────────────────────
 
 function Field({ label, id, required, children }: {
   label: string; id?: string; required?: boolean; children: React.ReactNode
@@ -89,7 +89,7 @@ function Field({ label, id, required, children }: {
 const inputCls = "px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#1a3a6b] focus:ring-2 focus:ring-[#1a3a6b]/10 transition-all"
 const disabledCls = "px-3.5 py-2.5 rounded-lg border border-slate-100 bg-slate-50 text-sm text-slate-400 italic cursor-not-allowed"
 
-// ─── Batch Badge ──────────────────────────────────────────────────────────────
+// ─── Batch Badge ───────────────────────────────────────────────────────────────
 
 function BatchBadge({ batchId }: { batchId: string }) {
   const batch = BATCHES.find(b => b.id === batchId)
@@ -105,14 +105,131 @@ function BatchBadge({ batchId }: { batchId: string }) {
   )
 }
 
-// ─── Filter Panel ─────────────────────────────────────────────────────────────
+// ─── Checkbox ─────────────────────────────────────────────────────────────────────
+
+function Checkbox({ checked, indeterminate = false, onChange, label }: {
+  checked: boolean
+  indeterminate?: boolean
+  onChange: () => void
+  label?: string
+}) {
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate
+  }, [indeterminate])
+  return (
+    <label className="flex items-center cursor-pointer" aria-label={label}>
+      <input
+        ref={ref}
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="w-4 h-4 rounded border-slate-300 text-[#1a3a6b] accent-[#1a3a6b] cursor-pointer"
+      />
+    </label>
+  )
+}
+
+// ─── Modal Konfirmasi Hapus ─────────────────────────────────────────────────────
+
+const CONFIRM_WORD = "D3L3T3"
+
+function DeleteModal({
+  count,
+  context,
+  onConfirm,
+  onCancel,
+}: {
+  count: number
+  context: string
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const [input, setInput] = useState("")
+  const valid = input === CONFIRM_WORD
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+        onClick={onCancel}
+      />
+      {/* Panel */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 12 }}
+        transition={{ duration: 0.18 }}
+        className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 flex flex-col gap-5"
+      >
+        {/* Ikon peringatan */}
+        <div className="flex items-start gap-4">
+          <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
+            <AlertTriangle size={20} className="text-red-500" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Konfirmasi Hapus Peserta</h2>
+            <p className="text-sm text-slate-500 mt-1">
+              Anda akan menghapus <span className="font-bold text-slate-700">{count} peserta</span>
+              {context ? <> dari <span className="font-bold text-slate-700">{context}</span></> : ""}.
+              Tindakan ini <span className="text-red-500 font-semibold">tidak dapat dibatalkan</span>.
+            </p>
+          </div>
+        </div>
+
+        {/* Input konfirmasi */}
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-semibold text-slate-700">
+            Ketik <span className="font-mono font-bold text-red-500 tracking-wider">{CONFIRM_WORD}</span> untuk melanjutkan
+          </label>
+          <input
+            autoFocus
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder={`Ketik ${CONFIRM_WORD}`}
+            className={`${inputCls} font-mono tracking-widest ${
+              input.length > 0 && !valid ? "border-red-300 focus:border-red-400 focus:ring-red-100" : ""
+            }`}
+          />
+          {input.length > 0 && !valid && (
+            <p className="text-xs text-red-400">Kata konfirmasi tidak sesuai.</p>
+          )}
+        </div>
+
+        {/* Tombol aksi */}
+        <div className="flex gap-2.5 justify-end">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-all"
+          >
+            Batal
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={!valid}
+            className={`px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${
+              valid
+                ? "bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/20"
+                : "bg-slate-100 text-slate-400 cursor-not-allowed"
+            }`}
+          >
+            <Trash2 size={15} />
+            Hapus {count} Peserta
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+// ─── Panel Filter ──────────────────────────────────────────────────────────────
 
 type SortOption = "newest" | "oldest" | "name_az" | "name_za"
 type FilterState = { sort: SortOption; batchId: string }
 
-function FilterPanel({
-  filter, onChange, onClose
-}: {
+function FilterPanel({ filter, onChange, onClose }: {
   filter: FilterState
   onChange: (f: FilterState) => void
   onClose: () => void
@@ -133,7 +250,6 @@ function FilterPanel({
         </button>
       </div>
 
-      {/* Sort */}
       <div className="flex flex-col gap-2">
         <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Urutkan</span>
         <div className="grid grid-cols-2 gap-1.5">
@@ -143,56 +259,43 @@ function FilterPanel({
             { val: "name_az", label: "Nama A–Z" },
             { val: "name_za", label: "Nama Z–A" },
           ] as { val: SortOption; label: string }[]).map(opt => (
-            <button
-              key={opt.val}
-              onClick={() => update("sort", opt.val)}
+            <button key={opt.val} onClick={() => update("sort", opt.val)}
               className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                filter.sort === opt.val
-                  ? "bg-[#1a3a6b] text-white"
-                  : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-              }`}
-            >
+                filter.sort === opt.val ? "bg-[#1a3a6b] text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+              }`}>
               {opt.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Batch */}
       <div className="flex flex-col gap-2">
         <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Batch / Perusahaan</span>
         <div className="flex flex-col gap-1">
-          <button
-            onClick={() => update("batchId", "")}
+          <button onClick={() => update("batchId", "")}
             className={`px-3 py-2 rounded-lg text-xs font-semibold text-left transition-all ${
               filter.batchId === "" ? "bg-[#1a3a6b] text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-            }`}
-          >
+            }`}>
             Semua Batch
           </button>
           {BATCHES.map(b => (
-            <button
-              key={b.id}
-              onClick={() => update("batchId", b.id)}
+            <button key={b.id} onClick={() => update("batchId", b.id)}
               className={`px-3 py-2 rounded-lg text-xs font-semibold text-left transition-all flex items-center justify-between ${
                 filter.batchId === b.id ? "text-white" : "bg-slate-50 text-slate-700 hover:bg-slate-100"
               }`}
-              style={filter.batchId === b.id ? { backgroundColor: b.color } : {}}
-            >
+              style={filter.batchId === b.id ? { backgroundColor: b.color } : {}}>
               <span>{b.name}</span>
-              <span className={`text-[10px] ${
-                filter.batchId === b.id ? "text-white/70" : "text-slate-400"
-              }`}>{b.company}</span>
+              <span className={`text-[10px] ${filter.batchId === b.id ? "text-white/70" : "text-slate-400"}`}>
+                {b.company}
+              </span>
             </button>
           ))}
         </div>
       </div>
 
       {(filter.sort !== "newest" || filter.batchId !== "") && (
-        <button
-          onClick={() => onChange({ sort: "newest", batchId: "" })}
-          className="text-xs text-slate-400 hover:text-[#1a3a6b] font-semibold transition-all self-start"
-        >
+        <button onClick={() => onChange({ sort: "newest", batchId: "" })}
+          className="text-xs text-slate-400 hover:text-[#1a3a6b] font-semibold transition-all self-start">
           Atur ulang filter
         </button>
       )}
@@ -200,18 +303,23 @@ function FilterPanel({
   )
 }
 
-// ─── Patient Directory ────────────────────────────────────────────────────────
+// ─── Direktori Pasien ───────────────────────────────────────────────────────────
 
 function PatientDirectory({ onNew }: { onNew: () => void }) {
+  const [patients, setPatients]     = useState<Patient[]>(INIT_PATIENTS)
   const [search, setSearch]         = useState("")
   const [showFilter, setShowFilter] = useState(false)
   const [filter, setFilter]         = useState<FilterState>({ sort: "newest", batchId: "" })
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [deleteTarget, setDeleteTarget] = useState<string[] | null>(null) // null = modal tertutup
 
   const activeFilters = (filter.sort !== "newest" ? 1 : 0) + (filter.batchId !== "" ? 1 : 0)
 
-  const processed = MOCK_PATIENTS
+  // Daftar yang tampil setelah filter & sort
+  const processed = patients
     .filter(p => {
-      const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
+      const matchSearch =
+        p.name.toLowerCase().includes(search.toLowerCase()) ||
         p.idNumber.toLowerCase().includes(search.toLowerCase()) ||
         p.phone.includes(search)
       const matchBatch = filter.batchId === "" || p.batchId === filter.batchId
@@ -224,6 +332,54 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
       if (filter.sort === "name_za") return b.name.localeCompare(a.name)
       return 0
     })
+
+  const processedIds = processed.map(p => p.id)
+  const selectedInView = processedIds.filter(id => selectedIds.has(id))
+  const allSelected = processedIds.length > 0 && selectedInView.length === processedIds.length
+  const someSelected = selectedInView.length > 0 && !allSelected
+
+  const toggleOne = (id: string) =>
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        processedIds.forEach(id => next.delete(id))
+        return next
+      })
+    } else {
+      setSelectedIds(prev => new Set([...prev, ...processedIds]))
+    }
+  }
+
+  const openDeleteModal = (ids: string[]) => setDeleteTarget(ids)
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return
+    setPatients(prev => prev.filter(p => !deleteTarget.includes(p.id)))
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      deleteTarget.forEach(id => next.delete(id))
+      return next
+    })
+    setDeleteTarget(null)
+  }
+
+  // Konteks hapus untuk modal
+  const deleteContextLabel = () => {
+    if (!deleteTarget) return ""
+    const batches = new Set(patients.filter(p => deleteTarget.includes(p.id)).map(p => p.batchId))
+    if (batches.size === 1) {
+      const b = BATCHES.find(b => b.id === [...batches][0])
+      return b ? b.company : ""
+    }
+    return ""
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -253,11 +409,7 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
             </button>
             <AnimatePresence>
               {showFilter && (
-                <FilterPanel
-                  filter={filter}
-                  onChange={setFilter}
-                  onClose={() => setShowFilter(false)}
-                />
+                <FilterPanel filter={filter} onChange={setFilter} onClose={() => setShowFilter(false)} />
               )}
             </AnimatePresence>
           </div>
@@ -271,7 +423,7 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
         </div>
       </div>
 
-      {/* Active filter pill */}
+      {/* Filter aktif pill */}
       <AnimatePresence>
         {filter.batchId !== "" && (
           <motion.div
@@ -293,7 +445,40 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
         )}
       </AnimatePresence>
 
-      {/* Table card */}
+      {/* Toolbar seleksi — muncul saat ada yang dipilih */}
+      <AnimatePresence>
+        {selectedInView.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.15 }}
+            className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-[#1a3a6b]/5 border border-[#1a3a6b]/20"
+          >
+            <span className="text-sm font-semibold text-[#1a3a6b]">
+              {selectedInView.length} peserta dipilih
+              {filter.batchId !== "" && (
+                <span className="text-[#1a3a6b]/60 font-normal"> dari filter aktif</span>
+              )}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:bg-slate-100 transition-all"
+              >
+                Batalkan pilihan
+              </button>
+              <button
+                onClick={() => openDeleteModal(selectedInView)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100 transition-all"
+              >
+                <Trash2 size={13} />
+                Hapus {selectedInView.length} Peserta
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tabel */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
         <div className="flex items-center gap-3 p-4 border-b border-slate-100">
           <div className="relative flex-1">
@@ -301,7 +486,7 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Cari pasien berdasarkan nama, ID, atau telepon..."
+              placeholder="Cari pasien berdasarkan nama, ID, atau nomor telepon..."
               className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-slate-50 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#1a3a6b]/50 transition-all"
             />
           </div>
@@ -310,67 +495,126 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100">
-              {["Detail Pasien", "Nomor ID", "Batch", "Usia/Jenis Kelamin", "Kontak", "Kunjungan Terakhir", "Aksi"].map(h => (
+              {/* Kolom checkbox */}
+              <th className="pl-4 pr-2 py-3 w-10">
+                <Checkbox
+                  checked={allSelected}
+                  indeterminate={someSelected}
+                  onChange={toggleAll}
+                  label="Pilih semua"
+                />
+              </th>
+              {["Detail Pasien", "Nomor ID", "Batch", "Usia/JK", "Kontak", "Kunjungan Terakhir"].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wider">{h}</th>
               ))}
+              {/* Kolom aksi — tanpa judul */}
+              <th className="px-4 py-3 w-20" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
             {processed.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-5 py-12 text-center text-sm text-slate-400">
+                <td colSpan={8} className="px-5 py-12 text-center text-sm text-slate-400">
                   Tidak ada pasien yang sesuai filter.
                 </td>
               </tr>
-            ) : processed.map(p => (
-              <tr key={p.id} className="hover:bg-slate-50/80 transition-colors group">
-                <td className="px-4 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 bg-[#1a3a6b]">
-                      {p.initials}
+            ) : processed.map(p => {
+              const isSelected = selectedIds.has(p.id)
+              return (
+                <tr
+                  key={p.id}
+                  className={`transition-colors group ${
+                    isSelected ? "bg-[#1a3a6b]/4" : "hover:bg-slate-50/80"
+                  }`}
+                >
+                  {/* Checkbox per baris */}
+                  <td className="pl-4 pr-2 py-4 w-10">
+                    <Checkbox
+                      checked={isSelected}
+                      onChange={() => toggleOne(p.id)}
+                      label={`Pilih ${p.name}`}
+                    />
+                  </td>
+
+                  {/* Detail */}
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 bg-[#1a3a6b]">
+                        {p.initials}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-800">{p.name}</p>
+                        <p className="text-xs text-slate-400">{p.email}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold text-slate-800">{p.name}</p>
-                      <p className="text-xs text-slate-400">{p.email}</p>
+                  </td>
+
+                  <td className="px-4 py-4 font-mono text-slate-600 text-xs">{p.idNumber}</td>
+                  <td className="px-4 py-4"><BatchBadge batchId={p.batchId} /></td>
+                  <td className="px-4 py-4 text-slate-600">{p.age} • {p.gender}</td>
+                  <td className="px-4 py-4 text-slate-600">{p.phone}</td>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                      <span className="text-slate-600">{p.lastVisit}</span>
                     </div>
-                  </div>
-                </td>
-                <td className="px-4 py-4 font-mono text-slate-600 text-xs">{p.idNumber}</td>
-                <td className="px-4 py-4"><BatchBadge batchId={p.batchId} /></td>
-                <td className="px-4 py-4 text-slate-600">{p.age} • {p.gender}</td>
-                <td className="px-4 py-4 text-slate-600">{p.phone}</td>
-                <td className="px-4 py-4">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                    <span className="text-slate-600">{p.lastVisit}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-4">
-                  <button className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all">
-                    <MoreVertical size={16} />
-                  </button>
-                </td>
-              </tr>
-            ))}
+                  </td>
+
+                  {/* Kolom aksi — tombol Edit + Hapus individual */}
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                      <button
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-semibold hover:bg-[#1a3a6b] hover:text-white transition-all"
+                        onClick={() => {/* TODO: buka form edit pasien */}}
+                      >
+                        <Pencil size={12} />
+                        Edit
+                      </button>
+                      <button
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                        onClick={() => openDeleteModal([p.id])}
+                        title="Hapus peserta ini"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
 
         <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/50">
-          <p className="text-xs text-slate-500">Menampilkan {processed.length} dari {MOCK_PATIENTS.length} data</p>
+          <p className="text-xs text-slate-500">Menampilkan {processed.length} dari {patients.length} data</p>
           <div className="flex items-center gap-1">
             <button className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-all text-xs">‹</button>
             {[1, 2, 3].map(n => (
-              <button key={n} className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-semibold transition-all ${n === 1 ? "bg-[#1a3a6b] text-white" : "text-slate-500 hover:bg-slate-200"}`}>{n}</button>
+              <button key={n} className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-semibold transition-all ${
+                n === 1 ? "bg-[#1a3a6b] text-white" : "text-slate-500 hover:bg-slate-200"
+              }`}>{n}</button>
             ))}
             <button className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-all text-xs">›</button>
           </div>
         </div>
       </div>
+
+      {/* Modal konfirmasi hapus */}
+      <AnimatePresence>
+        {deleteTarget !== null && (
+          <DeleteModal
+            count={deleteTarget.length}
+            context={deleteContextLabel()}
+            onConfirm={confirmDelete}
+            onCancel={() => setDeleteTarget(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
 
-// ─── Registration Form ────────────────────────────────────────────────────────
+// ─── Form Registrasi ───────────────────────────────────────────────────────────
 
 function RegistrationForm({ onBack }: { onBack: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null)
@@ -406,10 +650,7 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start gap-4">
-        <button
-          onClick={onBack}
-          className="mt-1 p-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all"
-        >
+        <button onClick={onBack} className="mt-1 p-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all">
           <ArrowLeft size={16} />
         </button>
         <div>
@@ -419,10 +660,9 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
       </div>
 
       <form className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pb-20" onSubmit={e => e.preventDefault()}>
-        {/* Left Column */}
         <div className="lg:col-span-8 flex flex-col gap-6">
 
-          {/* Personal Details */}
+          {/* Data Pribadi */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col gap-5">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-100">Data Pribadi</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -430,26 +670,20 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
                 <input id="fullName" value={form.fullName} onChange={e => set("fullName", e.target.value)}
                   placeholder="contoh: Budi Santoso" className={inputCls} />
               </Field>
-
               <Field label="Tanggal Lahir" id="dob" required>
                 <div className="relative">
-                  <input id="dob" type="date" value={form.dateOfBirth}
-                    onChange={e => set("dateOfBirth", e.target.value)}
+                  <input id="dob" type="date" value={form.dateOfBirth} onChange={e => set("dateOfBirth", e.target.value)}
                     className={`${inputCls} w-full pr-10`} />
                   <CalendarIcon size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
               </Field>
-
               <Field label="Usia">
                 <div className="flex items-center gap-2">
                   <input disabled value={age !== null ? `${age} tahun` : ""} placeholder="Terhitung otomatis"
                     className={`${disabledCls} flex-1`} />
-                  {age !== null && (
-                    <span className="text-xs text-slate-400 whitespace-nowrap">{formatDate(form.dateOfBirth)}</span>
-                  )}
+                  {age !== null && <span className="text-xs text-slate-400 whitespace-nowrap">{formatDate(form.dateOfBirth)}</span>}
                 </div>
               </Field>
-
               <Field label="Jenis Kelamin" id="gender" required>
                 <div className="relative">
                   <select id="gender" value={form.gender} onChange={e => set("gender", e.target.value)}
@@ -462,7 +696,6 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
                   <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
               </Field>
-
               <Field label="Pekerjaan / Instansi" id="occupation">
                 <input id="occupation" value={form.occupation} onChange={e => set("occupation", e.target.value)}
                   placeholder="Jabatan, Nama instansi" className={inputCls} />
@@ -470,15 +703,13 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
             </div>
           </div>
 
-          {/* Batch */}
+          {/* Batch / Grup */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col gap-5">
             <div className="flex items-center justify-between pb-1 border-b border-slate-100">
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Batch / Grup</h3>
               {selectedBatch && (
-                <span
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-white"
-                  style={{ backgroundColor: selectedBatch.color }}
-                >
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-white"
+                  style={{ backgroundColor: selectedBatch.color }}>
                   <Building2 size={10} />
                   {selectedBatch.id} — {selectedBatch.company}
                 </span>
@@ -509,7 +740,7 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
             </div>
           </div>
 
-          {/* Contact Information */}
+          {/* Informasi Kontak */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col gap-5">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-100">Informasi Kontak</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -524,7 +755,7 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
             </div>
           </div>
 
-          {/* Address */}
+          {/* Alamat */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col gap-5">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-100">Alamat</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -535,7 +766,7 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
                     <option value="">Pilih negara</option>
                     <option value="ID">Indonesia</option>
                     <option value="MY">Malaysia</option>
-                    <option value="SG">Singapore</option>
+                    <option value="SG">Singapura</option>
                   </select>
                   <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
@@ -557,10 +788,9 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        {/* Right Column */}
+        {/* Kolom Kanan */}
         <div className="lg:col-span-4 flex flex-col gap-4 sticky top-6">
-
-          {/* Photo Upload */}
+          {/* Foto Pasien */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col gap-3">
             <div>
               <h3 className="font-bold text-slate-800 text-sm">Foto Pasien</h3>
@@ -587,7 +817,7 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
             </div>
           </div>
 
-          {/* Registration Summary */}
+          {/* Ringkasan Registrasi */}
           <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 flex flex-col gap-4">
             <h3 className="text-[10px] font-bold text-[#1a3a6b] uppercase tracking-widest">Ringkasan Registrasi</h3>
             <div className="space-y-3 text-sm">
@@ -604,10 +834,8 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
               {selectedBatch && (
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500 font-medium">Batch</span>
-                  <span
-                    className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
-                    style={{ backgroundColor: selectedBatch.color }}
-                  >
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+                    style={{ backgroundColor: selectedBatch.color }}>
                     {selectedBatch.id}
                   </span>
                 </div>
@@ -628,7 +856,7 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
             </div>
           </div>
 
-          {/* Actions */}
+          {/* Tombol Aksi */}
           <div className="flex flex-col gap-2.5">
             <button type="submit"
               className="w-full py-3.5 rounded-xl bg-[#1a3a6b] text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-[#1a3a6b]/90 transition-all shadow-lg shadow-[#1a3a6b]/20 active:scale-[0.99]">
@@ -646,7 +874,7 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
   )
 }
 
-// ─── Main Export ──────────────────────────────────────────────────────────────
+// ─── Ekspor Utama ───────────────────────────────────────────────────────────────
 
 export function PatientRegistration() {
   const [view, setView] = useState<"list" | "form">("list")
