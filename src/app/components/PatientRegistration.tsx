@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from "react"
 import {
   Camera, CheckCircle2, Calendar as CalendarIcon,
   ChevronDown, Plus, Search, MoreVertical, Filter,
-  ArrowLeft, User
+  ArrowLeft, Building2, X
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Batch = { id: string; name: string; company: string; color: string }
 
 type Patient = {
   id: string
@@ -17,8 +19,10 @@ type Patient = {
   gender: string
   phone: string
   lastVisit: string
+  registeredAt: string   // ISO date string for sorting
   hasPhoto: boolean
   initials: string
+  batchId: string
 }
 
 type FormData = {
@@ -33,36 +37,45 @@ type FormData = {
   city: string
   fullAddress: string
   photo: string | null
+  batchId: string
 }
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
-const MOCK_PATIENTS: Patient[] = [
-  { id: "1", name: "Eleanor James", email: "eleanor.j@example.com", idNumber: "PT-8842-A", age: 42, gender: "F", phone: "(555) 123-4567", lastVisit: "Oct 12, 2023", hasPhoto: false, initials: "EJ" },
-  { id: "2", name: "Marcus Chen", email: "m.chen99@example.com", idNumber: "PT-9105-C", age: 58, gender: "M", phone: "(555) 987-6543", lastVisit: "Sep 04, 2023", hasPhoto: true, initials: "MC" },
-  { id: "3", name: "Sarah Lin", email: "slin_design@example.com", idNumber: "PT-4421-B", age: 29, gender: "F", phone: "(555) 333-2211", lastVisit: "Aug 19, 2023", hasPhoto: true, initials: "SL" },
+const BATCHES: Batch[] = [
+  { id: "B001", name: "Batch Mandiri Q1 2025",   company: "PT Bank Mandiri",    color: "#1a3a6b" },
+  { id: "B002", name: "Batch Telkom April 2025",  company: "PT Telkom Indonesia", color: "#0f766e" },
+  { id: "B003", name: "Batch BCA Mei 2025",       company: "PT Bank BCA",        color: "#7c3aed" },
+  { id: "B004", name: "Batch Individual",         company: "—",                  color: "#64748b" },
 ]
 
+const MOCK_PATIENTS: Patient[] = [
+  { id: "1", name: "Eleanor James",  email: "eleanor.j@example.com",  idNumber: "PT-8842-A", age: 42, gender: "F", phone: "(555) 123-4567", lastVisit: "Oct 12, 2023", registeredAt: "2023-10-01", hasPhoto: false, initials: "EJ", batchId: "B001" },
+  { id: "2", name: "Marcus Chen",    email: "m.chen99@example.com",   idNumber: "PT-9105-C", age: 58, gender: "M", phone: "(555) 987-6543", lastVisit: "Sep 04, 2023", registeredAt: "2023-08-20", hasPhoto: true,  initials: "MC", batchId: "B002" },
+  { id: "3", name: "Sarah Lin",      email: "slin_design@example.com",idNumber: "PT-4421-B", age: 29, gender: "F", phone: "(555) 333-2211", lastVisit: "Aug 19, 2023", registeredAt: "2023-07-15", hasPhoto: true,  initials: "SL", batchId: "B001" },
+  { id: "4", name: "Budi Santoso",   email: "budi.s@example.com",     idNumber: "PT-6631-D", age: 35, gender: "M", phone: "+62 812 0011 2233", lastVisit: "Jan 05, 2024", registeredAt: "2024-01-02", hasPhoto: false, initials: "BS", batchId: "B003" },
+  { id: "5", name: "Rina Kartika",   email: "rina.k@example.com",     idNumber: "PT-7720-E", age: 27, gender: "F", phone: "+62 811 9988 7766", lastVisit: "Mar 22, 2024", registeredAt: "2024-03-10", hasPhoto: false, initials: "RK", batchId: "B004" },
+]
 
+const BATCH_COLORS: Record<string, string> = Object.fromEntries(BATCHES.map(b => [b.id, b.color]))
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const calcAge = (dob: string): number => {
+const calcAge = (dob: string) => {
   if (!dob) return 0
-  const diff = Date.now() - new Date(dob).getTime()
-  return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25))
+  return Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365.25))
 }
 
-const formatDate = (dob: string): string => {
+const formatDate = (dob: string) => {
   if (!dob) return ""
   return new Date(dob).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
 }
 
-// ─── Input component ─────────────────────────────────────────────────────────
+// ─── Shared field wrapper ─────────────────────────────────────────────────────
 
-function Field({
-  label, id, required, children
-}: { label: string; id?: string; required?: boolean; children: React.ReactNode }) {
+function Field({ label, id, required, children }: {
+  label: string; id?: string; required?: boolean; children: React.ReactNode
+}) {
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-sm font-semibold text-slate-700">
@@ -76,16 +89,141 @@ function Field({
 const inputCls = "px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#1a3a6b] focus:ring-2 focus:ring-[#1a3a6b]/10 transition-all"
 const disabledCls = "px-3.5 py-2.5 rounded-lg border border-slate-100 bg-slate-50 text-sm text-slate-400 italic cursor-not-allowed"
 
+// ─── Batch Badge ──────────────────────────────────────────────────────────────
+
+function BatchBadge({ batchId }: { batchId: string }) {
+  const batch = BATCHES.find(b => b.id === batchId)
+  if (!batch) return null
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white whitespace-nowrap"
+      style={{ backgroundColor: batch.color }}
+    >
+      <Building2 size={9} />
+      {batch.id}
+    </span>
+  )
+}
+
+// ─── Filter Panel ─────────────────────────────────────────────────────────────
+
+type SortOption = "newest" | "oldest" | "name_az" | "name_za"
+type FilterState = { sort: SortOption; batchId: string }
+
+function FilterPanel({
+  filter, onChange, onClose
+}: {
+  filter: FilterState
+  onChange: (f: FilterState) => void
+  onClose: () => void
+}) {
+  const update = (key: keyof FilterState, val: string) =>
+    onChange({ ...filter, [key]: val })
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.15 }}
+      className="absolute right-0 top-full mt-2 z-30 w-72 bg-white rounded-2xl border border-slate-200 shadow-xl p-4 flex flex-col gap-4"
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold text-slate-700 uppercase tracking-widest">Filter & Sort</span>
+        <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
+          <X size={14} />
+        </button>
+      </div>
+
+      {/* Sort */}
+      <div className="flex flex-col gap-2">
+        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Urutkan</span>
+        <div className="grid grid-cols-2 gap-1.5">
+          {([
+            { val: "newest",  label: "Terbaru" },
+            { val: "oldest",  label: "Terlama" },
+            { val: "name_az", label: "Nama A–Z" },
+            { val: "name_za", label: "Nama Z–A" },
+          ] as { val: SortOption; label: string }[]).map(opt => (
+            <button
+              key={opt.val}
+              onClick={() => update("sort", opt.val)}
+              className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                filter.sort === opt.val
+                  ? "bg-[#1a3a6b] text-white"
+                  : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Batch */}
+      <div className="flex flex-col gap-2">
+        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Batch / Perusahaan</span>
+        <div className="flex flex-col gap-1">
+          <button
+            onClick={() => update("batchId", "")}
+            className={`px-3 py-2 rounded-lg text-xs font-semibold text-left transition-all ${
+              filter.batchId === "" ? "bg-[#1a3a6b] text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            Semua Batch
+          </button>
+          {BATCHES.map(b => (
+            <button
+              key={b.id}
+              onClick={() => update("batchId", b.id)}
+              className={`px-3 py-2 rounded-lg text-xs font-semibold text-left transition-all flex items-center justify-between ${
+                filter.batchId === b.id ? "text-white" : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+              }`}
+              style={filter.batchId === b.id ? { backgroundColor: b.color } : {}}
+            >
+              <span>{b.name}</span>
+              <span className={`text-[10px] ${
+                filter.batchId === b.id ? "text-white/70" : "text-slate-400"
+              }`}>{b.company}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {(filter.sort !== "newest" || filter.batchId !== "") && (
+        <button
+          onClick={() => onChange({ sort: "newest", batchId: "" })}
+          className="text-xs text-slate-400 hover:text-[#1a3a6b] font-semibold transition-all self-start"
+        >
+          Reset filter
+        </button>
+      )}
+    </motion.div>
+  )
+}
+
 // ─── Patient Directory ────────────────────────────────────────────────────────
 
 function PatientDirectory({ onNew }: { onNew: () => void }) {
-  const [search, setSearch] = useState("")
+  const [search, setSearch]         = useState("")
+  const [showFilter, setShowFilter] = useState(false)
+  const [filter, setFilter]         = useState<FilterState>({ sort: "newest", batchId: "" })
 
-  const filtered = MOCK_PATIENTS.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.idNumber.toLowerCase().includes(search.toLowerCase()) ||
-    p.phone.includes(search)
-  )
+  const activeFilters = (filter.sort !== "newest" ? 1 : 0) + (filter.batchId !== "" ? 1 : 0)
+
+  const processed = MOCK_PATIENTS
+    .filter(p => {
+      const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
+        p.idNumber.toLowerCase().includes(search.toLowerCase()) ||
+        p.phone.includes(search)
+      const matchBatch = filter.batchId === "" || p.batchId === filter.batchId
+      return matchSearch && matchBatch
+    })
+    .sort((a, b) => {
+      if (filter.sort === "newest")  return new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime()
+      if (filter.sort === "oldest")  return new Date(a.registeredAt).getTime() - new Date(b.registeredAt).getTime()
+      if (filter.sort === "name_az") return a.name.localeCompare(b.name)
+      if (filter.sort === "name_za") return b.name.localeCompare(a.name)
+      return 0
+    })
 
   return (
     <div className="flex flex-col gap-6">
@@ -96,10 +234,33 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
           <p className="text-sm text-slate-500 mt-0.5">Manage and view registered patient records.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all">
-            <Filter size={15} />
-            Filter
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowFilter(v => !v)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
+                activeFilters > 0
+                  ? "border-[#1a3a6b] bg-[#1a3a6b]/5 text-[#1a3a6b]"
+                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <Filter size={15} />
+              Filter
+              {activeFilters > 0 && (
+                <span className="w-4 h-4 rounded-full bg-[#1a3a6b] text-white text-[10px] font-bold flex items-center justify-center">
+                  {activeFilters}
+                </span>
+              )}
+            </button>
+            <AnimatePresence>
+              {showFilter && (
+                <FilterPanel
+                  filter={filter}
+                  onChange={setFilter}
+                  onClose={() => setShowFilter(false)}
+                />
+              )}
+            </AnimatePresence>
+          </div>
           <button
             onClick={onNew}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1a3a6b] text-white text-sm font-semibold hover:bg-[#1a3a6b]/90 transition-all shadow-md shadow-[#1a3a6b]/20"
@@ -110,9 +271,30 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
         </div>
       </div>
 
+      {/* Active filter pill */}
+      <AnimatePresence>
+        {filter.batchId !== "" && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+            className="flex items-center gap-2"
+          >
+            <span className="text-xs text-slate-500">Menampilkan:</span>
+            <span
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-white"
+              style={{ backgroundColor: BATCH_COLORS[filter.batchId] }}
+            >
+              <Building2 size={11} />
+              {BATCHES.find(b => b.id === filter.batchId)?.name}
+              <button onClick={() => setFilter(f => ({ ...f, batchId: "" }))} className="ml-0.5 opacity-70 hover:opacity-100">
+                <X size={11} />
+              </button>
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Table card */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-        {/* Search */}
         <div className="flex items-center gap-3 p-4 border-b border-slate-100">
           <div className="relative flex-1">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -120,28 +302,31 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search patients by name, ID, or phone..."
-              className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-slate-50 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#1a3a6b]/50 focus:ring-2 focus:ring-[#1a3a6b]/8 transition-all"
+              className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-slate-50 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#1a3a6b]/50 transition-all"
             />
           </div>
         </div>
 
-        {/* Table */}
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100">
-              {["Patient Details", "ID Number", "Age/Gender", "Contact", "Last Visit", "Actions"].map(h => (
-                <th key={h} className="px-5 py-3 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wider">{h}</th>
+              {["Patient Details", "ID Number", "Batch", "Age/Gender", "Contact", "Last Visit", "Actions"].map(h => (
+                <th key={h} className="px-4 py-3 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {filtered.map(p => (
+            {processed.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-5 py-12 text-center text-sm text-slate-400">
+                  Tidak ada pasien yang sesuai filter.
+                </td>
+              </tr>
+            ) : processed.map(p => (
               <tr key={p.id} className="hover:bg-slate-50/80 transition-colors group">
-                <td className="px-5 py-4">
+                <td className="px-4 py-4">
                   <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${
-                      p.hasPhoto ? "bg-slate-600" : "bg-[#1a3a6b]"
-                    }`}>
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 bg-[#1a3a6b]">
                       {p.initials}
                     </div>
                     <div>
@@ -150,16 +335,17 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
                     </div>
                   </div>
                 </td>
-                <td className="px-5 py-4 font-mono text-slate-600 text-xs">{p.idNumber}</td>
-                <td className="px-5 py-4 text-slate-600">{p.age} • {p.gender}</td>
-                <td className="px-5 py-4 text-slate-600">{p.phone}</td>
-                <td className="px-5 py-4">
+                <td className="px-4 py-4 font-mono text-slate-600 text-xs">{p.idNumber}</td>
+                <td className="px-4 py-4"><BatchBadge batchId={p.batchId} /></td>
+                <td className="px-4 py-4 text-slate-600">{p.age} • {p.gender}</td>
+                <td className="px-4 py-4 text-slate-600">{p.phone}</td>
+                <td className="px-4 py-4">
                   <div className="flex items-center gap-1.5">
-                    <span className={`w-1.5 h-1.5 rounded-full ${p.lastVisit.includes("Oct") ? "bg-[#1a3a6b]" : "bg-slate-300"}`} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
                     <span className="text-slate-600">{p.lastVisit}</span>
                   </div>
                 </td>
-                <td className="px-5 py-4">
+                <td className="px-4 py-4">
                   <button className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all">
                     <MoreVertical size={16} />
                   </button>
@@ -169,15 +355,12 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
           </tbody>
         </table>
 
-        {/* Pagination */}
         <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/50">
-          <p className="text-xs text-slate-500">Showing 1 to {filtered.length} of 124 entries</p>
+          <p className="text-xs text-slate-500">Showing {processed.length} of {MOCK_PATIENTS.length} entries</p>
           <div className="flex items-center gap-1">
             <button className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-all text-xs">‹</button>
             {[1, 2, 3].map(n => (
-              <button key={n} className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-semibold transition-all ${n === 1 ? "bg-[#1a3a6b] text-white" : "text-slate-500 hover:bg-slate-200"}`}>
-                {n}
-              </button>
+              <button key={n} className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-semibold transition-all ${n === 1 ? "bg-[#1a3a6b] text-white" : "text-slate-500 hover:bg-slate-200"}`}>{n}</button>
             ))}
             <button className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-all text-xs">›</button>
           </div>
@@ -195,7 +378,7 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
     fullName: "", dateOfBirth: "", gender: "",
     occupation: "", phone: "", email: "",
     country: "", province: "", city: "", fullAddress: "",
-    photo: null
+    photo: null, batchId: ""
   })
   const [completeness, setCompleteness] = useState(0)
 
@@ -218,9 +401,10 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
     reader.readAsDataURL(file)
   }
 
+  const selectedBatch = BATCHES.find(b => b.id === form.batchId)
+
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
       <div className="flex items-start gap-4">
         <button
           onClick={onBack}
@@ -235,14 +419,12 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
       </div>
 
       <form className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pb-20" onSubmit={e => e.preventDefault()}>
-        {/* ── Left Column ── */}
+        {/* Left Column */}
         <div className="lg:col-span-8 flex flex-col gap-6">
 
           {/* Personal Details */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col gap-5">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-100">
-              Personal Details
-            </h3>
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-100">Personal Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <Field label="Full Name" id="fullName" required>
                 <input id="fullName" value={form.fullName} onChange={e => set("fullName", e.target.value)}
@@ -283,16 +465,53 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
 
               <Field label="Occupation / Employer" id="occupation">
                 <input id="occupation" value={form.occupation} onChange={e => set("occupation", e.target.value)}
-                  placeholder="Job title, Company name" className={`${inputCls} md:col-span-2`} />
+                  placeholder="Job title, Company name" className={inputCls} />
               </Field>
+            </div>
+          </div>
+
+          {/* Batch */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col gap-5">
+            <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Batch / Group</h3>
+              {selectedBatch && (
+                <span
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-white"
+                  style={{ backgroundColor: selectedBatch.color }}
+                >
+                  <Building2 size={10} />
+                  {selectedBatch.id} — {selectedBatch.company}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 gap-5">
+              <Field label="Batch" id="batchId">
+                <div className="relative">
+                  <select id="batchId" value={form.batchId} onChange={e => set("batchId", e.target.value)}
+                    className={`${inputCls} w-full appearance-none pr-9`}>
+                    <option value="">— Pilih batch (opsional) —</option>
+                    {BATCHES.map(b => (
+                      <option key={b.id} value={b.id}>{b.name} ({b.company})</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              </Field>
+              {selectedBatch && (
+                <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-100">
+                  <Building2 size={16} className="mt-0.5 flex-shrink-0" style={{ color: selectedBatch.color }} />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">{selectedBatch.name}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Perusahaan: {selectedBatch.company}</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Contact Information */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col gap-5">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-100">
-              Contact Information
-            </h3>
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-100">Contact Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <Field label="Phone Number" id="phone" required>
                 <input id="phone" type="tel" value={form.phone} onChange={e => set("phone", e.target.value)}
@@ -307,9 +526,7 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
 
           {/* Address */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col gap-5">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-100">
-              Address
-            </h3>
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-100">Address</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <Field label="Country" id="country">
                 <div className="relative">
@@ -340,7 +557,7 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        {/* ── Right Column ── */}
+        {/* Right Column */}
         <div className="lg:col-span-4 flex flex-col gap-4 sticky top-6">
 
           {/* Photo Upload */}
@@ -353,7 +570,7 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
               <motion.div
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                 onClick={() => fileRef.current?.click()}
-                className="w-40 h-40 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center bg-slate-50 hover:border-[#1a3a6b]/40 hover:bg-slate-100/50 transition-all cursor-pointer overflow-hidden relative"
+                className="w-40 h-40 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center bg-slate-50 hover:border-[#1a3a6b]/40 hover:bg-slate-100/50 transition-all cursor-pointer overflow-hidden"
               >
                 {form.photo ? (
                   <img src={form.photo} alt="preview" className="w-full h-full object-cover" />
@@ -376,7 +593,7 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
             <div className="space-y-3 text-sm">
               <div className="flex justify-between items-center">
                 <span className="text-slate-500 font-medium">Status</span>
-                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-tight">Draft</span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold uppercase">Draft</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-500 font-medium">Date</span>
@@ -384,6 +601,17 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
                   {new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
                 </span>
               </div>
+              {selectedBatch && (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Batch</span>
+                  <span
+                    className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+                    style={{ backgroundColor: selectedBatch.color }}
+                  >
+                    {selectedBatch.id}
+                  </span>
+                </div>
+              )}
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between text-xs">
                   <span className="text-slate-500 font-medium">Completeness</span>
