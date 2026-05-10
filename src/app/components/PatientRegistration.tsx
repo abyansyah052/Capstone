@@ -127,7 +127,7 @@ function FilterPanel({
       className="absolute right-0 top-full mt-2 z-30 w-72 bg-white rounded-2xl border border-slate-200 shadow-xl p-4 flex flex-col gap-4"
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-slate-700 uppercase tracking-widest">Filter & Sort</span>
+        <span className="text-xs font-bold text-slate-700 uppercase tracking-widest">Filter & Urutkan</span>
         <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
           <X size={14} />
         </button>
@@ -193,7 +193,7 @@ function FilterPanel({
           onClick={() => onChange({ sort: "newest", batchId: "" })}
           className="text-xs text-slate-400 hover:text-[#1a3a6b] font-semibold transition-all self-start"
         >
-          Reset filter
+          Atur ulang filter
         </button>
       )}
     </motion.div>
@@ -230,8 +230,8 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Patient Directory</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Manage and view registered patient records.</p>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Direktori Pasien</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Kelola dan lihat data pasien yang terdaftar.</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -266,7 +266,7 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1a3a6b] text-white text-sm font-semibold hover:bg-[#1a3a6b]/90 transition-all shadow-md shadow-[#1a3a6b]/20"
           >
             <Plus size={15} />
-            New Patient
+            Pasien Baru
           </button>
         </div>
       </div>
@@ -301,7 +301,7 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search patients by name, ID, or phone..."
+              placeholder="Cari pasien berdasarkan nama, ID, atau telepon..."
               className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-slate-50 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#1a3a6b]/50 transition-all"
             />
           </div>
@@ -310,7 +310,7 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100">
-              {["Patient Details", "ID Number", "Batch", "Age/Gender", "Contact", "Last Visit", "Actions"].map(h => (
+              {["Detail Pasien", "Nomor ID", "Batch", "Usia/Jenis Kelamin", "Kontak", "Kunjungan Terakhir", "Aksi"].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
@@ -356,7 +356,7 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
         </table>
 
         <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/50">
-          <p className="text-xs text-slate-500">Showing {processed.length} of {MOCK_PATIENTS.length} entries</p>
+          <p className="text-xs text-slate-500">Menampilkan {processed.length} dari {MOCK_PATIENTS.length} data</p>
           <div className="flex items-center gap-1">
             <button className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-all text-xs">‹</button>
             {[1, 2, 3].map(n => (
@@ -413,8 +413,8 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
           <ArrowLeft size={16} />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">New Patient Registration</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Fill in the patient's information. Fields marked * are required.</p>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Registrasi Pasien Baru</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Isi data pasien. Kolom bertanda * wajib diisi.</p>
         </div>
       </div>
 
@@ -424,14 +424,14 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
 
           {/* Personal Details */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col gap-5">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-100">Personal Details</h3>
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-100">Data Pribadi</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <Field label="Full Name" id="fullName" required>
+              <Field label="Nama Lengkap" id="fullName" required>
                 <input id="fullName" value={form.fullName} onChange={e => set("fullName", e.target.value)}
-                  placeholder="e.g. Budi Santoso" className={inputCls} />
+                  placeholder="contoh: Budi Santoso" className={inputCls} />
               </Field>
 
-              <Field label="Date of Birth" id="dob" required>
+              <Field label="Tanggal Lahir" id="dob" required>
                 <div className="relative">
                   <input id="dob" type="date" value={form.dateOfBirth}
                     onChange={e => set("dateOfBirth", e.target.value)}
@@ -440,9 +440,9 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
                 </div>
               </Field>
 
-              <Field label="Age">
+              <Field label="Usia">
                 <div className="flex items-center gap-2">
-                  <input disabled value={age !== null ? `${age} years old` : ""} placeholder="Auto-calculated"
+                  <input disabled value={age !== null ? `${age} tahun` : ""} placeholder="Terhitung otomatis"
                     className={`${disabledCls} flex-1`} />
                   {age !== null && (
                     <span className="text-xs text-slate-400 whitespace-nowrap">{formatDate(form.dateOfBirth)}</span>
@@ -450,22 +450,22 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
                 </div>
               </Field>
 
-              <Field label="Gender" id="gender" required>
+              <Field label="Jenis Kelamin" id="gender" required>
                 <div className="relative">
                   <select id="gender" value={form.gender} onChange={e => set("gender", e.target.value)}
                     className={`${inputCls} w-full appearance-none pr-9`}>
-                    <option value="" disabled>Select gender</option>
-                    <option value="female">Female</option>
-                    <option value="male">Male</option>
-                    <option value="other">Other</option>
+                    <option value="" disabled>Pilih jenis kelamin</option>
+                    <option value="female">Perempuan</option>
+                    <option value="male">Laki-laki</option>
+                    <option value="other">Lainnya</option>
                   </select>
                   <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
               </Field>
 
-              <Field label="Occupation / Employer" id="occupation">
+              <Field label="Pekerjaan / Instansi" id="occupation">
                 <input id="occupation" value={form.occupation} onChange={e => set("occupation", e.target.value)}
-                  placeholder="Job title, Company name" className={inputCls} />
+                  placeholder="Jabatan, Nama instansi" className={inputCls} />
               </Field>
             </div>
           </div>
@@ -473,7 +473,7 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
           {/* Batch */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col gap-5">
             <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Batch / Group</h3>
+              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Batch / Grup</h3>
               {selectedBatch && (
                 <span
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-white"
@@ -511,13 +511,13 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
 
           {/* Contact Information */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col gap-5">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-100">Contact Information</h3>
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-100">Informasi Kontak</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <Field label="Phone Number" id="phone" required>
+              <Field label="Nomor Telepon" id="phone" required>
                 <input id="phone" type="tel" value={form.phone} onChange={e => set("phone", e.target.value)}
                   placeholder="+62 812 0000 0000" className={inputCls} />
               </Field>
-              <Field label="Email Address" id="email">
+              <Field label="Alamat Email" id="email">
                 <input id="email" type="email" value={form.email} onChange={e => set("email", e.target.value)}
                   placeholder="pasien@example.com" className={inputCls} />
               </Field>
@@ -526,13 +526,13 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
 
           {/* Address */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col gap-5">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-100">Address</h3>
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-100">Alamat</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <Field label="Country" id="country">
+              <Field label="Negara" id="country">
                 <div className="relative">
                   <select id="country" value={form.country} onChange={e => set("country", e.target.value)}
                     className={`${inputCls} w-full appearance-none pr-9`}>
-                    <option value="">Select country</option>
+                    <option value="">Pilih negara</option>
                     <option value="ID">Indonesia</option>
                     <option value="MY">Malaysia</option>
                     <option value="SG">Singapore</option>
@@ -540,16 +540,16 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
                   <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
               </Field>
-              <Field label="Province" id="province">
+              <Field label="Provinsi" id="province">
                 <input id="province" value={form.province} onChange={e => set("province", e.target.value)}
-                  placeholder="e.g. Jawa Timur" className={inputCls} />
+                  placeholder="contoh: Jawa Timur" className={inputCls} />
               </Field>
-              <Field label="City" id="city" required>
+              <Field label="Kota" id="city" required>
                 <input id="city" value={form.city} onChange={e => set("city", e.target.value)}
-                  placeholder="e.g. Surabaya" className={inputCls} />
+                  placeholder="contoh: Surabaya" className={inputCls} />
               </Field>
             </div>
-            <Field label="Full Address" id="fullAddress" required>
+            <Field label="Alamat Lengkap" id="fullAddress" required>
               <textarea id="fullAddress" value={form.fullAddress} onChange={e => set("fullAddress", e.target.value)}
                 placeholder="Jl. Raya No. 123, Kec. ..." rows={3}
                 className={`${inputCls} resize-none`} />
@@ -563,8 +563,8 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
           {/* Photo Upload */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col gap-3">
             <div>
-              <h3 className="font-bold text-slate-800 text-sm">Patient Photo</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Optional. For internal identification only.</p>
+              <h3 className="font-bold text-slate-800 text-sm">Foto Pasien</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Opsional. Hanya untuk identifikasi internal.</p>
             </div>
             <div className="flex justify-center py-2">
               <motion.div
@@ -579,7 +579,7 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
                     <div className="w-11 h-11 rounded-full bg-white shadow-sm border border-slate-100 flex items-center justify-center">
                       <Camera size={20} className="text-[#1a3a6b]" />
                     </div>
-                    <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Upload Photo</span>
+                    <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Unggah Foto</span>
                   </div>
                 )}
               </motion.div>
@@ -589,14 +589,14 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
 
           {/* Registration Summary */}
           <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 flex flex-col gap-4">
-            <h3 className="text-[10px] font-bold text-[#1a3a6b] uppercase tracking-widest">Registration Summary</h3>
+            <h3 className="text-[10px] font-bold text-[#1a3a6b] uppercase tracking-widest">Ringkasan Registrasi</h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between items-center">
                 <span className="text-slate-500 font-medium">Status</span>
-                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold uppercase">Draft</span>
+                <span className="text-slate-700 text-[10px] font-bold uppercase">Draft</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 font-medium">Date</span>
+                <span className="text-slate-500 font-medium">Tanggal</span>
                 <span className="font-bold text-slate-700 text-xs">
                   {new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
                 </span>
@@ -614,7 +614,7 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
               )}
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between text-xs">
-                  <span className="text-slate-500 font-medium">Completeness</span>
+                  <span className="text-slate-500 font-medium">Kelengkapan</span>
                   <span className="font-bold text-slate-600">{completeness}%</span>
                 </div>
                 <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
@@ -633,11 +633,11 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
             <button type="submit"
               className="w-full py-3.5 rounded-xl bg-[#1a3a6b] text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-[#1a3a6b]/90 transition-all shadow-lg shadow-[#1a3a6b]/20 active:scale-[0.99]">
               <CheckCircle2 size={16} />
-              Complete Registration
+              Selesaikan Registrasi
             </button>
             <button type="button"
               className="w-full py-3.5 rounded-xl bg-white border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-all active:scale-[0.99]">
-              Save as Draft
+              Simpan sebagai Draft
             </button>
           </div>
         </div>
