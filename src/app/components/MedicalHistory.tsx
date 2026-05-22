@@ -1,8 +1,8 @@
-import { useState } from "react"
-import { FileText, Plus, ChevronDown, Brain } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { FileText, Plus, Search, X, Brain } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 type RecordType = "kondisi" | "terapi" | "pemicu" | "obat"
 type RecordStatus = "Aktif" | "Selesai" | "Kronik"
@@ -25,7 +25,7 @@ interface PsychPatient {
   records: PsychRecord[]
 }
 
-// ─── Seed Data ───────────────────────────────────────────────────────────────
+// ─── Seed Data ────────────────────────────────────────────────────────────────
 
 const PATIENTS: PsychPatient[] = [
   {
@@ -76,7 +76,7 @@ const PATIENTS: PsychPatient[] = [
   },
 ]
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const TYPE_LABEL: Record<RecordType, string> = {
   kondisi: "Kondisi",
@@ -108,12 +108,137 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "obat",      label: "Obat-Obatan" },
 ]
 
-// ─── Record Card ─────────────────────────────────────────────────────────────
+// highlight matched text
+function Highlight({ text, query }: { text: string; query: string }) {
+  if (!query.trim()) return <>{text}</>
+  const idx = text.toLowerCase().indexOf(query.toLowerCase())
+  if (idx === -1) return <>{text}</>
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="bg-amber-100 text-amber-800 rounded-[2px] px-0">{text.slice(idx, idx + query.length)}</mark>
+      {text.slice(idx + query.length)}
+    </>
+  )
+}
+
+// ─── Patient Search ───────────────────────────────────────────────────────────
+
+function PatientSearch({
+  patients,
+  selectedId,
+  onSelect,
+}: {
+  patients: PsychPatient[]
+  selectedId: string
+  onSelect: (id: string) => void
+}) {
+  const [query, setQuery] = useState("")
+  const [open, setOpen] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const filtered = query.trim()
+    ? patients.filter(
+        p =>
+          p.name.toLowerCase().includes(query.toLowerCase()) ||
+          p.patientId.toLowerCase().includes(query.toLowerCase())
+      )
+    : patients
+
+  // close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
+
+  const handleSelect = (id: string) => {
+    onSelect(id)
+    setQuery("")
+    setOpen(false)
+  }
+
+  const selected = patients.find(p => p.id === selectedId)
+
+  return (
+    <div ref={containerRef} className="relative">
+      {/* Search input */}
+      <div className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg border bg-white transition-all ${
+        open ? "border-slate-400 ring-2 ring-slate-100" : "border-slate-200 hover:border-slate-300"
+      }`}>
+        <Search size={14} className="text-slate-400 flex-shrink-0" />
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={e => { setQuery(e.target.value); setOpen(true) }}
+          onFocus={() => setOpen(true)}
+          placeholder={selected ? selected.name : "Cari nama atau ID pasien…"}
+          className="flex-1 min-w-0 text-sm text-slate-800 placeholder:text-slate-400 bg-transparent focus:outline-none"
+        />
+        {query && (
+          <button
+            onClick={() => { setQuery(""); inputRef.current?.focus() }}
+            className="text-slate-300 hover:text-slate-500 flex-shrink-0 transition-colors"
+            aria-label="Hapus pencarian"
+          >
+            <X size={13} />
+          </button>
+        )}
+      </div>
+
+      {/* Dropdown results */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.12 }}
+            className="absolute top-full mt-1.5 left-0 right-0 z-30 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden"
+          >
+            {filtered.length === 0 ? (
+              <div className="px-4 py-5 text-center">
+                <p className="text-sm text-slate-400">Pasien tidak ditemukan</p>
+                <p className="text-xs text-slate-300 mt-0.5">Coba nama atau ID lain</p>
+              </div>
+            ) : (
+              <div className="max-h-52 overflow-y-auto divide-y divide-slate-50">
+                {filtered.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => handleSelect(p.id)}
+                    className={`w-full text-left px-4 py-3 text-sm transition-colors ${
+                      p.id === selectedId ? "bg-slate-50" : "hover:bg-slate-50"
+                    }`}
+                  >
+                    <p className="font-medium text-slate-800">
+                      <Highlight text={p.name} query={query} />
+                    </p>
+                    <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                      <Highlight text={p.patientId} query={query} />
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+// ─── Record Card ──────────────────────────────────────────────────────────────
 
 function RecordCard({ record }: { record: PsychRecord }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-      {/* header row */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
         <div className="flex items-center gap-3 min-w-0">
           <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap ${TYPE_STYLE[record.type]}`}>
@@ -125,11 +250,9 @@ function RecordCard({ record }: { record: PsychRecord }) {
           {record.status}
         </span>
       </div>
-      {/* description */}
       <div className="px-5 py-3 border-b border-slate-50">
         <p className="text-sm text-slate-500 leading-relaxed">{record.description}</p>
       </div>
-      {/* notes */}
       <div className="px-5 py-3">
         <p className="text-sm text-slate-700 leading-relaxed">{record.notes}</p>
       </div>
@@ -244,7 +367,6 @@ export function MedicalHistory() {
   const [selectedId, setSelectedId] = useState("1")
   const [activeTab, setActiveTab] = useState<TabKey>("ringkasan")
   const [showAdd, setShowAdd] = useState(false)
-  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const patient = patients.find(p => p.id === selectedId)!
   const records = patient.records
@@ -252,10 +374,10 @@ export function MedicalHistory() {
   const byType = (t: RecordType) => records.filter(r => r.type === t)
 
   const summaryCards = [
-    { label: "Kondisi", count: byType("kondisi").length },
-    { label: "Terapi",  count: byType("terapi").length  },
-    { label: "Pemicu/Resiko", count: byType("pemicu").length },
-    { label: "Obat-Obatan", count: byType("obat").length },
+    { label: "Kondisi",       count: byType("kondisi").length },
+    { label: "Terapi",        count: byType("terapi").length  },
+    { label: "Pemicu/Resiko", count: byType("pemicu").length  },
+    { label: "Obat-Obatan",   count: byType("obat").length    },
   ]
 
   const handleAdd = (rec: Omit<PsychRecord, "id">) => {
@@ -265,6 +387,11 @@ export function MedicalHistory() {
         ? { ...p, records: [...p.records, { ...rec, id }] }
         : p
     ))
+  }
+
+  const handleSelectPatient = (id: string) => {
+    setSelectedId(id)
+    setActiveTab("ringkasan")
   }
 
   const tabRecords: PsychRecord[] =
@@ -287,50 +414,28 @@ export function MedicalHistory() {
           <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col gap-5">
             <div>
               <p className="text-sm font-semibold text-slate-700">Pilih Pasien</p>
-              <p className="text-xs text-slate-400 mt-0.5">Pilih pasien untuk melihat riwayat psikologis</p>
+              <p className="text-xs text-slate-400 mt-0.5">Cari nama atau ID pasien</p>
             </div>
 
-            {/* Custom dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setDropdownOpen(v => !v)}
-                className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 hover:border-slate-300 transition-all focus:outline-none"
-              >
-                <div className="text-left min-w-0">
-                  <p className="font-medium truncate">{patient.name}</p>
-                  <p className="text-[11px] text-slate-400 font-mono">{patient.patientId}</p>
-                </div>
-                <ChevronDown size={14} className={`text-slate-400 flex-shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
-              </button>
-              <AnimatePresence>
-                {dropdownOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.12 }}
-                    className="absolute top-full mt-1.5 left-0 right-0 z-20 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden"
-                  >
-                    {patients.map(p => (
-                      <button key={p.id} onClick={() => { setSelectedId(p.id); setDropdownOpen(false); setActiveTab("ringkasan") }}
-                        className={`w-full text-left px-4 py-3 text-sm transition-colors ${p.id === selectedId ? "bg-slate-50" : "hover:bg-slate-50"}`}>
-                        <p className="font-medium text-slate-800">{p.name}</p>
-                        <p className="text-[11px] text-slate-400 font-mono mt-0.5">{p.patientId}</p>
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+            {/* Search field */}
+            <PatientSearch
+              patients={patients}
+              selectedId={selectedId}
+              onSelect={handleSelectPatient}
+            />
 
             {/* Patient meta */}
-            <div className="flex flex-col gap-2 pt-1">
-              <div className="text-sm">
+            <div className="flex flex-col gap-2 pt-1 border-t border-slate-100">
+              <div className="text-sm mt-2">
                 <span className="text-amber-600 font-medium">ID Pasien:</span>
                 <span className="ml-1 font-mono text-slate-700 text-xs">{patient.patientId}</span>
               </div>
               <div className="text-sm text-slate-600">
                 Tanggal Lahir: {new Date(patient.dateOfBirth).toLocaleDateString("id-ID")}
               </div>
-              <div className="text-sm text-slate-600">Total Riwayat</div>
+              <div className="text-sm text-slate-500">
+                Total Riwayat: <span className="font-semibold text-slate-700">{records.length}</span>
+              </div>
             </div>
 
             <button
@@ -357,7 +462,6 @@ export function MedicalHistory() {
 
           {/* Tabs */}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            {/* Tab bar */}
             <div className="flex border-b border-slate-100 px-2 pt-2 gap-0.5 overflow-x-auto">
               {TABS.map(tab => (
                 <button
@@ -379,7 +483,6 @@ export function MedicalHistory() {
             </div>
 
             <div className="p-5 flex flex-col gap-4">
-              {/* Summary cards — only on Ringkasan */}
               {activeTab === "ringkasan" && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {summaryCards.map(s => (
@@ -391,17 +494,15 @@ export function MedicalHistory() {
                 </div>
               )}
 
-              {/* Section header */}
               <div>
                 <p className="text-[15px] font-semibold text-slate-800">
                   {activeTab === "ringkasan" ? "Riwayat Psikologis Terkini" : TYPE_LABEL[activeTab as RecordType]}
                 </p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {activeTab === "ringkasan" ? "Lorem Ipsum" : `${tabRecords.length} catatan`}
+                  {activeTab === "ringkasan" ? `${tabRecords.length} catatan` : `${tabRecords.length} catatan`}
                 </p>
               </div>
 
-              {/* Record list */}
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeTab}
@@ -423,7 +524,6 @@ export function MedicalHistory() {
         </div>
       </div>
 
-      {/* Add modal */}
       <AnimatePresence>
         {showAdd && (
           <AddRecordModal
