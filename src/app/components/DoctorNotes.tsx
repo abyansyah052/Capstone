@@ -1,11 +1,11 @@
 import { useState, useRef } from "react"
 import {
-  Folder, FolderOpen, FileText, Plus, Trash2, Upload,
-  ChevronRight, Home, MoreVertical, FilePlus, FolderPlus, X, Download, Eye
+  Folder, FolderOpen, FileText, Trash2, Upload,
+  ChevronRight, Home, MoreVertical, FilePlus, FolderPlus, X, Download,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface FsFile {
   id: string
@@ -14,7 +14,6 @@ interface FsFile {
   mimeType: "application/pdf"
   size: string
   createdAt: string
-  dataUrl?: string
 }
 
 interface FsFolder {
@@ -57,10 +56,12 @@ const INIT_TREE: FsNode[] = [
   {
     id: "f1", kind: "folder", name: "PT PLN (Persero)", createdAt: "2026-01-10",
     children: [
-      { id: "f1-1", kind: "folder", name: "Batch 2026", createdAt: "2026-01-15", children: [
-        { id: "p1", kind: "file", name: "Laporan_Andi Firmansyah.pdf", mimeType: "application/pdf", size: "245 KB", createdAt: "2026-02-03" },
-        { id: "p2", kind: "file", name: "Laporan_Siti Rahayu.pdf", mimeType: "application/pdf", size: "198 KB", createdAt: "2026-02-05" },
-      ]},
+      {
+        id: "f1-1", kind: "folder", name: "Batch 2026", createdAt: "2026-01-15", children: [
+          { id: "p1", kind: "file", name: "Laporan_Andi Firmansyah.pdf", mimeType: "application/pdf", size: "245 KB", createdAt: "2026-02-03" },
+          { id: "p2", kind: "file", name: "Laporan_Siti Rahayu.pdf", mimeType: "application/pdf", size: "198 KB", createdAt: "2026-02-05" },
+        ]
+      },
     ]
   },
   {
@@ -69,10 +70,7 @@ const INIT_TREE: FsNode[] = [
       { id: "p3", kind: "file", name: "Laporan_Budi Santoso.pdf", mimeType: "application/pdf", size: "312 KB", createdAt: "2026-02-20" },
     ]
   },
-  {
-    id: "f3", kind: "folder", name: "Bank Mandiri", createdAt: "2026-03-05",
-    children: []
-  },
+  { id: "f3", kind: "folder", name: "Bank Mandiri", createdAt: "2026-03-05", children: [] },
 ]
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -95,10 +93,10 @@ function insertNode(nodes: FsNode[], path: string[], node: FsNode): FsNode[] {
   })
 }
 
-function deleteNode(nodes: FsNode[], targetId: string): FsNode[] {
+function deleteNodeFromTree(nodes: FsNode[], targetId: string): FsNode[] {
   return nodes
     .filter(n => n.id !== targetId)
-    .map(n => n.kind === "folder" ? { ...n, children: deleteNode(n.children, targetId) } : n)
+    .map(n => n.kind === "folder" ? { ...n, children: deleteNodeFromTree(n.children, targetId) } : n)
 }
 
 function getPathFolders(nodes: FsNode[], path: string[]): FsFolder[] {
@@ -113,46 +111,65 @@ function getPathFolders(nodes: FsNode[], path: string[]): FsFolder[] {
   return result
 }
 
-// ─── PDF Preview (in-app) ─────────────────────────────────────────────────────────
+// ─── PDF Preview ──────────────────────────────────────────────────────────────
+// Colors: black (#111827) and dark navy (#1e3a5f) only — no other hues
 
 function ReportPreview({ form }: { form: ReportForm }) {
   const today = new Date().toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+
   const row = (label: string, value: string) => (
-    <tr className="border-b border-gray-200">
-      <td className="py-1.5 pr-4 font-semibold text-[11px] text-gray-800 w-40 align-top">{label}</td>
-      <td className="py-1.5 text-[11px] text-gray-700">{value || <span className="text-gray-300">—</span>}</td>
+    <tr style={{ borderBottom: "1px solid #d1d5db" }}>
+      <td style={{ padding: "5px 12px 5px 0", fontWeight: 700, fontSize: "11px", color: "#111827", width: "160px", verticalAlign: "top" }}>{label}</td>
+      <td style={{ padding: "5px 0", fontSize: "11px", color: value ? "#1e3a5f" : "#9ca3af" }}>{value || "—"}</td>
     </tr>
   )
 
+  const sectionBox = (content: string | undefined, placeholder: string) => (
+    <div style={{ border: "1px solid #374151", borderRadius: "4px", padding: "10px 12px", minHeight: "64px", marginBottom: "14px" }}>
+      <p style={{ fontSize: "10px", color: content ? "#1e3a5f" : "#9ca3af", whiteSpace: "pre-wrap", lineHeight: 1.6, margin: 0 }}>
+        {content || placeholder}
+      </p>
+    </div>
+  )
+
   return (
-    <div className="bg-white border border-gray-300 shadow-sm mx-auto" style={{ width: "595px", minHeight: "842px", fontFamily: "'Times New Roman', serif", padding: "48px 52px" }}>
+    <div style={{
+      background: "#ffffff",
+      border: "1px solid #d1d5db",
+      boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+      width: "595px",
+      minHeight: "842px",
+      fontFamily: "'Times New Roman', 'Georgia', serif",
+      padding: "52px 56px",
+      color: "#111827",
+    }}>
       {/* Letterhead */}
-      <div className="flex items-center gap-4 mb-4">
-        <div className="flex flex-col items-center">
-          {/* Logo placeholder — leaf/plant mark */}
-          <svg width="44" height="52" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M22 48 C22 48 4 36 4 20 C4 10 12 2 22 2 C32 2 40 10 40 20 C40 36 22 48 22 48Z" fill="#1a2a1a" />
-            <path d="M22 48 C22 48 10 38 10 25 C10 18 15 13 22 13 C29 13 34 18 34 25 C34 38 22 48 22 48Z" fill="#3a5a2a" />
-            <line x1="22" y1="48" x2="22" y2="30" stroke="#a8c89a" strokeWidth="1.5" />
-          </svg>
-          <p className="text-[9px] font-bold tracking-widest text-gray-700 mt-0.5">ASISYA</p>
-          <p className="text-[7px] tracking-widest text-gray-500">CONSULTING</p>
-        </div>
-        <div className="text-center flex-1">
-          <p className="text-[13px] font-bold tracking-widest text-gray-900">ASISYA PSYCHOLOGICAL CENTER</p>
-          <p className="text-[10px] text-gray-600">Ruko Grand City Regency A7 - A8 Jl. Rungkut Madya</p>
-          <p className="text-[10px] text-gray-600">Tlp: 0813-3501-005</p>
-          <p className="text-[10px] text-gray-600">Surabaya - Jawa Timur</p>
+      <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "14px" }}>
+        {/* Asisya logo — use the actual navbar SVG asset */}
+        <img
+          src="/SI Capstone 1 Group 2.svg"
+          alt="Asisya Psychological Center"
+          style={{ width: "64px", height: "64px", objectFit: "contain", flexShrink: 0 }}
+        />
+        <div style={{ flex: 1, textAlign: "center" }}>
+          <p style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.1em", color: "#111827", margin: "0 0 2px" }}>
+            ASISYA PSYCHOLOGICAL CENTER
+          </p>
+          <p style={{ fontSize: "10px", color: "#374151", margin: "0 0 1px" }}>Ruko Grand City Regency A7 - A8 Jl. Rungkut Madya</p>
+          <p style={{ fontSize: "10px", color: "#374151", margin: "0 0 1px" }}>Tlp: 0813-3501-005</p>
+          <p style={{ fontSize: "10px", color: "#374151", margin: 0 }}>Surabaya - Jawa Timur</p>
         </div>
       </div>
-      <hr className="border-gray-800 mb-3" />
 
-      <p className="text-center text-[12px] font-bold tracking-wider text-gray-900 mb-4">FORM KONSELING PSIKOLOGIS</p>
+      <hr style={{ borderColor: "#111827", borderWidth: "1.5px", marginBottom: "10px" }} />
+      <p style={{ textAlign: "center", fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em", color: "#111827", marginBottom: "18px" }}>
+        FORM KONSELING PSIKOLOGIS
+      </p>
 
       {/* Biodata */}
-      <p className="text-[12px] font-bold text-gray-900 mb-1">Biodata</p>
-      <hr className="border-gray-400 mb-2" />
-      <table className="w-full mb-4">
+      <p style={{ fontSize: "13px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>Biodata</p>
+      <hr style={{ borderColor: "#6b7280", marginBottom: "8px" }} />
+      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "18px" }}>
         <tbody>
           {row("Nama Lengkap:", form.namaLengkap)}
           {row("Tempat/Tanggal Lahir", `${form.tempatLahir}${form.tempatLahir && form.tanggalLahir ? " / " : ""}${form.tanggalLahir}`)}
@@ -164,47 +181,36 @@ function ReportPreview({ form }: { form: ReportForm }) {
         </tbody>
       </table>
 
-      {/* Permasalahan */}
-      <p className="text-[12px] font-bold text-gray-900 mb-1">Permasalahan Saat Ini</p>
-      <hr className="border-gray-400 mb-2" />
-      <div className="border border-gray-300 rounded p-3 mb-4 min-h-[60px]">
-        <p className="text-[10px] text-gray-700 whitespace-pre-wrap leading-relaxed">{form.permasalahan || <span className="text-gray-300">(Data deskripsi keluhan, gejala awal, dan permasalahan utama yang diinput oleh konselor/psikolog pada form digital akan terdokumentasi secara otomatis)</span>}</p>
-      </div>
+      {/* Sections */}
+      <p style={{ fontSize: "13px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>Permasalahan Saat Ini</p>
+      <hr style={{ borderColor: "#6b7280", marginBottom: "8px" }} />
+      {sectionBox(form.permasalahan, "(Data deskripsi keluhan, gejala awal, dan permasalahan utama yang diinput oleh konselor/psikolog pada form digital akan terdokumentasi secara otomatis)")}
 
-      {/* Proses Konseling */}
-      <p className="text-[12px] font-bold text-gray-900 mb-1">Proses Konseling</p>
-      <hr className="border-gray-400 mb-2" />
-      <div className="border border-gray-300 rounded p-3 mb-4 min-h-[60px]">
-        <p className="text-[10px] text-gray-700 whitespace-pre-wrap leading-relaxed">{form.prosesKonseling || <span className="text-gray-300">(Catatan perkembangan sesi konseling, dinamika psikologis, metode pendekatan intervensi yang diterapkan, serta respons klien sepanjang sesi akan terdokumentasi secara otomatis)</span>}</p>
-      </div>
+      <p style={{ fontSize: "13px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>Proses Konseling</p>
+      <hr style={{ borderColor: "#6b7280", marginBottom: "8px" }} />
+      {sectionBox(form.prosesKonseling, "(Catatan perkembangan sesi konseling, dinamika psikologis, metode pendekatan intervensi yang diterapkan, serta respons klien sepanjang sesi akan terdokumentasi secara otomatis)")}
 
-      {/* Diagnosis Klinis */}
-      <p className="text-[12px] font-bold text-gray-900 mb-1">Diagnosis Klinis</p>
-      <hr className="border-gray-400 mb-2" />
-      <div className="border border-gray-300 rounded p-3 mb-4 min-h-[50px]">
-        <p className="text-[10px] text-gray-700 whitespace-pre-wrap leading-relaxed">{form.diagnosisKlinis || <span className="text-gray-300">(Diagnosis klinis berdasarkan hasil asesmen psikologis)</span>}</p>
-      </div>
+      <p style={{ fontSize: "13px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>Diagnosis Klinis</p>
+      <hr style={{ borderColor: "#6b7280", marginBottom: "8px" }} />
+      {sectionBox(form.diagnosisKlinis, "(Diagnosis klinis berdasarkan hasil asesmen psikologis)")}
 
-      {/* Saran Pengembangan */}
-      <p className="text-[12px] font-bold text-gray-900 mb-1">Saran Pengembangan dan Intervensi</p>
-      <hr className="border-gray-400 mb-2" />
-      <div className="border border-gray-300 rounded p-3 mb-4 min-h-[60px]">
-        <p className="text-[10px] text-gray-700 whitespace-pre-wrap leading-relaxed">{form.saranPengembangan || <span className="text-gray-300">(Rekomendasi tindak lanjut, rencana intervensi klinis lanjutan, tugas mandiri untuk klien, atau saran pengembangan diri spesifik)</span>}</p>
-      </div>
+      <p style={{ fontSize: "13px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>Saran Pengembangan dan Intervensi</p>
+      <hr style={{ borderColor: "#6b7280", marginBottom: "8px" }} />
+      {sectionBox(form.saranPengembangan, "(Rekomendasi tindak lanjut, rencana intervensi klinis lanjutan, tugas mandiri untuk klien, atau saran pengembangan diri spesifik)")}
 
-      {/* Footer */}
-      <div className="mt-6 text-right">
-        <p className="text-[10px] text-gray-600">Surabaya, {today}</p>
-        <div className="mt-12">
-          <p className="text-[10px] font-semibold text-gray-800">Psikolog / Konselor</p>
-          <p className="text-[10px] text-gray-500">( _________________________ )</p>
+      {/* Signature */}
+      <div style={{ marginTop: "24px", textAlign: "right" }}>
+        <p style={{ fontSize: "10px", color: "#374151" }}>Surabaya, {today}</p>
+        <div style={{ marginTop: "48px" }}>
+          <p style={{ fontSize: "10px", fontWeight: 700, color: "#111827" }}>Psikolog / Konselor</p>
+          <p style={{ fontSize: "10px", color: "#6b7280" }}>( _________________________ )</p>
         </div>
       </div>
     </div>
   )
 }
 
-// ─── Modals ────────────────────────────────────────────────────────────────────
+// ─── Modals ───────────────────────────────────────────────────────────────────
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
@@ -231,16 +237,16 @@ function NewFolderModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
   const [name, setName] = useState("")
   return (
     <Modal title="Folder Baru" onClose={onClose}>
-      <div className="px-5 py-4 flex flex-col gap-4">
+      <div className="px-5 py-4">
         <input autoFocus value={name} onChange={e => setName(e.target.value)}
           onKeyDown={e => e.key === "Enter" && name.trim() && onCreate(name.trim())}
           placeholder="Nama folder (contoh: PT PLN)"
-          className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-all" />
+          className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#01696f] focus:ring-2 focus:ring-[#01696f]/10 transition-all" />
       </div>
       <div className="flex items-center justify-end gap-2 px-5 py-3 bg-slate-50 border-t border-slate-100">
         <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Batal</button>
         <button onClick={() => name.trim() && onCreate(name.trim())}
-          className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition-all">Buat</button>
+          className="px-4 py-2 rounded-lg bg-[#01696f] text-white text-sm font-medium hover:bg-[#0c4e54] transition-all">Buat</button>
       </div>
     </Modal>
   )
@@ -260,7 +266,7 @@ function ConfirmDeleteModal({ name, onClose, onConfirm }: { name: string; onClos
   )
 }
 
-// ─── Context Menu ────────────────────────────────────────────────────────────────
+// ─── Context Menu ─────────────────────────────────────────────────────────────
 
 interface CtxMenu {
   nodeId: string
@@ -268,13 +274,36 @@ interface CtxMenu {
   nodeKind: "folder" | "file"
 }
 
-// ─── Report Creator (full-screen overlay) ─────────────────────────────────────────
+function CtxMenuPanel({ menu, pos, onClose, onDelete }: {
+  menu: CtxMenu; pos: { x: number; y: number }; onClose: () => void; onDelete: () => void
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0 }}
+        style={{ position: "fixed", top: pos.y, left: pos.x, zIndex: 50 }}
+        className="bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 w-44 overflow-hidden"
+      >
+        <button onClick={() => { onDelete(); onClose() }}
+          className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+          <Trash2 size={14} />
+          Hapus
+        </button>
+      </motion.div>
+    </>
+  )
+}
+
+// ─── Report Creator ───────────────────────────────────────────────────────────
 
 function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name: string, form: ReportForm) => void }) {
   const [form, setForm] = useState<ReportForm>(EMPTY_FORM)
   const set = (k: keyof ReportForm, v: string) => setForm(p => ({ ...p, [k]: v }))
 
-  const inputCls = "w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-all"
+  // GSM-aligned input styles: teal focus ring matching --color-primary
+  const inputCls = "w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#01696f] focus:ring-2 focus:ring-[#01696f]/10 transition-all"
   const labelCls = "text-[12px] font-medium text-slate-600 mb-1 block"
   const textareaCls = `${inputCls} resize-none leading-relaxed`
 
@@ -285,8 +314,8 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-50 flex flex-col overflow-hidden">
-      {/* Top bar */}
+    <div className="fixed inset-0 z-50 bg-[#f7f6f2] flex flex-col overflow-hidden">
+      {/* Top bar — GSM surface/border tokens */}
       <div className="flex items-center justify-between px-6 py-3.5 bg-white border-b border-slate-200 flex-shrink-0">
         <div className="flex items-center gap-3">
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 transition-colors"><X size={18} /></button>
@@ -296,32 +325,33 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-all">Batal</button>
-          <button onClick={handleSave} className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition-all flex items-center gap-2">
+          <button onClick={onClose}
+            className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-all">
+            Batal
+          </button>
+          <button onClick={handleSave}
+            className="px-4 py-2 rounded-lg bg-[#01696f] text-white text-sm font-medium hover:bg-[#0c4e54] transition-all flex items-center gap-2">
             <Download size={14} />
             Simpan ke Folder
           </button>
         </div>
       </div>
 
-      {/* Body: form left + preview right */}
+      {/* Split: form left / PDF preview right */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* Left: form */}
-        <div className="w-[420px] flex-shrink-0 overflow-y-auto border-r border-slate-200 bg-white">
+        {/* Left: form panel */}
+        <div className="w-[400px] flex-shrink-0 overflow-y-auto border-r border-slate-200 bg-white">
           <div className="p-6 flex flex-col gap-5">
 
-            {/* Bio data */}
+            {/* Bio data section */}
             <section>
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-5 h-5 rounded-md bg-slate-100 flex items-center justify-center">
-                  <span className="text-[10px] text-slate-500">👤</span>
-                </div>
+                <div className="w-1 h-4 rounded-full bg-[#01696f]" />
                 <p className="text-[13px] font-semibold text-slate-700">Bio data</p>
               </div>
-
               <div className="bg-slate-50 rounded-xl p-4 flex flex-col gap-3">
-                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Profil</p>
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Profil</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
                     <label className={labelCls}>Nama Lengkap</label>
@@ -344,7 +374,7 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
                   <div>
                     <label className={labelCls}>Usia</label>
                     <input value={form.usia} onChange={e => set("usia", e.target.value)}
-                      placeholder="[Usia] Tahun" className={inputCls} />
+                      placeholder="Usia" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Tanggal Lahir</label>
@@ -374,26 +404,23 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
               </div>
             </section>
 
-            {/* Laporan */}
+            {/* Laporan section */}
             <section>
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-5 h-5 rounded-md bg-slate-100 flex items-center justify-center">
-                  <span className="text-[10px] text-slate-500">📋</span>
-                </div>
+                <div className="w-1 h-4 rounded-full bg-[#01696f]" />
                 <p className="text-[13px] font-semibold text-slate-700">Laporan</p>
               </div>
-
               <div className="bg-slate-50 rounded-xl p-4 flex flex-col gap-3">
                 <div>
                   <label className={labelCls}>Permasalahan Saat Ini</label>
                   <textarea value={form.permasalahan} onChange={e => set("permasalahan", e.target.value)}
-                    placeholder="(Data deskripsi keluhan, gejala awal, dan permasalahan utama yang diinput oleh konselor/psikolog pada form digital akan terdokumentasi secara otomatis)"
+                    placeholder="(Data deskripsi keluhan, gejala awal, dan permasalahan utama...)"
                     rows={4} className={textareaCls} />
                 </div>
                 <div>
                   <label className={labelCls}>Proses Konseling</label>
                   <textarea value={form.prosesKonseling} onChange={e => set("prosesKonseling", e.target.value)}
-                    placeholder="(Catatan perkembangan sesi konseling, dinamika psikologis, metode pendekatan intervensi yang diterapkan, serta respons klien sepanjang sesi akan terdokumentasi secara otomatis)"
+                    placeholder="(Catatan perkembangan sesi konseling, dinamika psikologis...)"
                     rows={4} className={textareaCls} />
                 </div>
                 <div>
@@ -405,7 +432,7 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
                 <div>
                   <label className={labelCls}>Saran Pengembangan dan Intervensi</label>
                   <textarea value={form.saranPengembangan} onChange={e => set("saranPengembangan", e.target.value)}
-                    placeholder="(Rekomendasi tindak lanjut, rencana intervensi klinis lanjutan, tugas mandiri untuk klien, atau saran pengembangan diri spesifik)"
+                    placeholder="(Rekomendasi tindak lanjut, rencana intervensi klinis lanjutan...)"
                     rows={4} className={textareaCls} />
                 </div>
               </div>
@@ -413,9 +440,9 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
           </div>
         </div>
 
-        {/* Right: live PDF preview */}
-        <div className="flex-1 overflow-auto bg-slate-200 flex items-start justify-center p-8">
-          <div style={{ transform: "scale(0.92)", transformOrigin: "top center" }}>
+        {/* Right: live PDF preview — zoomed in so it's readable */}
+        <div className="flex-1 overflow-auto bg-slate-300 flex items-start justify-center py-10 px-6">
+          <div style={{ transform: "scale(1.05)", transformOrigin: "top center", marginBottom: "80px" }}>
             <ReportPreview form={form} />
           </div>
         </div>
@@ -424,34 +451,30 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
   )
 }
 
-// ─── File / Folder row in grid ──────────────────────────────────────────────────────
+// ─── Node Card ────────────────────────────────────────────────────────────────
 
-function NodeCard({
-  node, onOpen, onMenuOpen,
-}: {
-  node: FsNode
-  onOpen: () => void
-  onMenuOpen: (e: React.MouseEvent) => void
+function NodeCard({ node, onOpen, onMenuOpen }: {
+  node: FsNode; onOpen: () => void; onMenuOpen: (e: React.MouseEvent) => void
 }) {
   const isFolder = node.kind === "folder"
   return (
     <motion.div
       initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-      className="group flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer"
+      className="group flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-200 bg-white hover:border-[#01696f]/30 hover:shadow-sm transition-all cursor-pointer"
       onDoubleClick={isFolder ? onOpen : undefined}
       onClick={!isFolder ? onOpen : undefined}
     >
       <div className="flex items-center gap-3 min-w-0">
         {isFolder
-          ? <Folder size={20} className="text-slate-400 flex-shrink-0" />
-          : <FileText size={20} className="text-red-400 flex-shrink-0" />
+          ? <Folder size={20} className="text-[#01696f] flex-shrink-0" />
+          : <FileText size={20} className="text-slate-400 flex-shrink-0" />
         }
         <div className="min-w-0">
           <p className="text-sm font-medium text-slate-800 truncate">{node.name}</p>
           <p className="text-[11px] text-slate-400">
             {isFolder
-              ? `${(node as FsFolder).children.length} item • ${node.createdAt}`
-              : `PDF • ${(node as FsFile).size} • ${node.createdAt}`
+              ? `${(node as FsFolder).children.length} item · ${node.createdAt}`
+              : `PDF · ${(node as FsFile).size} · ${node.createdAt}`
             }
           </p>
         </div>
@@ -467,35 +490,6 @@ function NodeCard({
   )
 }
 
-// ─── Floating context menu ───────────────────────────────────────────────────────────
-
-function CtxMenuPanel({
-  menu, pos, onClose, onDelete,
-}: {
-  menu: CtxMenu
-  pos: { x: number; y: number }
-  onClose: () => void
-  onDelete: () => void
-}) {
-  return (
-    <>
-      <div className="fixed inset-0 z-40" onClick={onClose} />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0 }}
-        style={{ position: "fixed", top: pos.y, left: pos.x, zIndex: 50 }}
-        className="bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 w-44 overflow-hidden"
-      >
-        <button onClick={() => { onDelete(); onClose() }}
-          className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
-          <Trash2 size={14} />
-          Hapus
-        </button>
-      </motion.div>
-    </>
-  )
-}
-
 // ─── Main Export ──────────────────────────────────────────────────────────────
 
 export function DoctorNotes() {
@@ -507,23 +501,19 @@ export function DoctorNotes() {
   const [reportOpen, setReportOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // current directory nodes
   const currentNodes: FsNode[] =
-    path.length === 0
-      ? tree
-      : findFolder(tree, path)?.children ?? []
+    path.length === 0 ? tree : findFolder(tree, path)?.children ?? []
 
   const breadcrumbs = getPathFolders(tree, path)
 
-  // Actions
   const createFolder = (name: string) => {
     const node: FsFolder = { id: uid(), kind: "folder", name, createdAt: new Date().toLocaleDateString("id-ID"), children: [] }
     setTree(prev => insertNode(prev, path, node))
     setNewFolderOpen(false)
   }
 
-  const deleteNode_ = (id: string) => {
-    setTree(prev => deleteNode(prev, id))
+  const removeNode = (id: string) => {
+    setTree(prev => deleteNodeFromTree(prev, id))
     setDeleteTarget(null)
   }
 
@@ -542,11 +532,10 @@ export function DoctorNotes() {
     e.target.value = ""
   }
 
-  const handleSaveReport = (name: string, form: ReportForm) => {
+  const handleSaveReport = (name: string, _form: ReportForm) => {
     const node: FsFile = {
       id: uid(), kind: "file", name, mimeType: "application/pdf",
-      size: "—",
-      createdAt: new Date().toLocaleDateString("id-ID"),
+      size: "—", createdAt: new Date().toLocaleDateString("id-ID"),
     }
     setTree(prev => insertNode(prev, path, node))
   }
@@ -560,11 +549,9 @@ export function DoctorNotes() {
     <>
       <div className="p-6 max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-6 flex items-start justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-slate-900">Psychologist Report Bank</h1>
-            <p className="text-sm text-slate-400 mt-0.5">Kelola laporan psikologis per perusahaan atau klien</p>
-          </div>
+        <div className="mb-6">
+          <h1 className="text-xl font-semibold text-slate-900">Psychologist Report Bank</h1>
+          <p className="text-sm text-slate-400 mt-0.5">Kelola laporan psikologis per perusahaan atau klien</p>
         </div>
 
         {/* Toolbar */}
@@ -575,8 +562,8 @@ export function DoctorNotes() {
             Folder Baru
           </button>
           <button onClick={() => setReportOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 font-medium hover:bg-slate-50 hover:border-slate-300 transition-all">
-            <FilePlus size={15} className="text-slate-500" />
+            className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#01696f] text-white text-sm font-medium hover:bg-[#0c4e54] transition-all">
+            <FilePlus size={15} />
             Buat Laporan
           </button>
           <button onClick={() => fileInputRef.current?.click()}
@@ -588,23 +575,20 @@ export function DoctorNotes() {
         </div>
 
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-1 text-sm text-slate-500 mb-4" aria-label="Lokasi folder">
-          <button onClick={() => setPath([])}
-            className="flex items-center gap-1.5 hover:text-slate-800 transition-colors">
+        <nav className="flex items-center gap-1 text-sm text-slate-500 mb-4">
+          <button onClick={() => setPath([])} className="flex items-center gap-1.5 hover:text-[#01696f] transition-colors">
             <Home size={13} />
             <span>Report Bank</span>
           </button>
           {breadcrumbs.map((folder, i) => (
-            <>
-              <ChevronRight key={`sep-${folder.id}`} size={13} className="text-slate-300" />
-              <button key={folder.id}
+            <span key={folder.id} className="flex items-center gap-1">
+              <ChevronRight size={13} className="text-slate-300" />
+              <button
                 onClick={() => setPath(path.slice(0, i + 1))}
-                className={`hover:text-slate-800 transition-colors ${
-                  i === breadcrumbs.length - 1 ? "text-slate-900 font-medium" : ""
-                }`}>
+                className={`hover:text-[#01696f] transition-colors ${i === breadcrumbs.length - 1 ? "text-slate-900 font-medium" : ""}`}>
                 {folder.name}
               </button>
-            </>
+            </span>
           ))}
         </nav>
 
@@ -640,7 +624,7 @@ export function DoctorNotes() {
           <ConfirmDeleteModal
             name={deleteTarget.nodeName}
             onClose={() => setDeleteTarget(null)}
-            onConfirm={() => deleteNode_(deleteTarget.nodeId)}
+            onConfirm={() => removeNode(deleteTarget.nodeId)}
           />
         )}
         {ctxMenu && (
@@ -653,7 +637,7 @@ export function DoctorNotes() {
         )}
       </AnimatePresence>
 
-      {/* Report Creator (full-screen) */}
+      {/* Report Creator full-screen */}
       <AnimatePresence>
         {reportOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50">
