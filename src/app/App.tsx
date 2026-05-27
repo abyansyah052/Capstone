@@ -5,7 +5,7 @@ import { Dashboard } from "./components/Dashboard"
 import { PatientRegistration } from "./components/PatientRegistration"
 import { AppointmentScheduling } from "./components/AppointmentScheduling"
 import { MedicalHistory } from "./components/MedicalHistory"
-import { DoctorNotes } from "./components/DoctorNotes"
+import { LaporanPsikologis } from "./components/LaporanPsikologis"
 import { Home, Users, Calendar, FileText, Activity, Stethoscope } from "lucide-react"
 
 
@@ -26,7 +26,7 @@ export default function App() {
       case "patients": return <PatientRegistration />
       case "history": return <MedicalHistory />
       case "appointments": return <AppointmentScheduling />
-      case "notes": return <DoctorNotes />
+      case "notes": return <LaporanPsikologis />
       default: return <Dashboard onNavigate={setActiveModule} />
     }
   }
