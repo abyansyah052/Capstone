@@ -139,6 +139,24 @@ function sortNodes(nodes: FsNode[], sort: SortKey): FsNode[] {
   })
 }
 
+// ─── Deep / Recursive Search (Windows File Explorer style) ───────────────────
+
+interface SearchHit {
+  node: FsNode
+  parentPath: string[]   // array of folder IDs leading to this node
+}
+
+function collectSubtree(nodes: FsNode[], parentPath: string[] = []): SearchHit[] {
+  const result: SearchHit[] = []
+  for (const node of nodes) {
+    result.push({ node, parentPath })
+    if (node.kind === "folder") {
+      result.push(...collectSubtree(node.children, [...parentPath, node.id]))
+    }
+  }
+  return result
+}
+
 // ─── useKeyClose hook ───────────────────────────────────────────────────────
 
 function useKeyClose(onClose: () => void, enabled = true) {
@@ -322,7 +340,6 @@ function RenameModal({ initialName, nodeKind, onClose, onRename }: {
     const el = inputRef.current
     if (!el) return
     el.focus()
-    // For file names, select text before the extension; for folders select all
     if (nodeKind === "file") {
       const dotIndex = initialName.lastIndexOf(".")
       el.setSelectionRange(0, dotIndex > 0 ? dotIndex : initialName.length)
@@ -478,7 +495,6 @@ function CtxMenuPanel({ menu, pos, onClose, onDelete, onRename }: {
 }) {
   useKeyClose(onClose)
 
-  // Smart viewport flip: keep menu inside window
   const panelWidth = 176
   const panelHeight = 90
   const vw = typeof window !== "undefined" ? window.innerWidth : 1200
@@ -494,9 +510,8 @@ function CtxMenuPanel({ menu, pos, onClose, onDelete, onRename }: {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.13, ease: [0.16, 1, 0.3, 1] }}
-        style={{ position: "fixed", top, left, zIndex: 50 }}
+        style={{ position: "fixed", top, left, zIndex: 50, width: panelWidth }}
         className="bg-white border border-slate-200 rounded-2xl shadow-[0_16px_40px_rgba(15,23,42,0.13)] py-1.5 overflow-hidden"
-        style2={{ width: panelWidth }}
       >
         <button
           onClick={() => { onRename(); onClose() }}
@@ -572,7 +587,7 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
                 <div className="w-1 h-4 rounded-full bg-[#01696f]" />
                 <p className="text-[13px] font-semibold text-slate-700">Bio data</p>
               </div>
-              <div className="bg-[#f8f8f6] rounded-2xl p-4 flex flex-col gap-3">
+              <div className="bg-[#01696f]/[0.045] rounded-2xl p-4 flex flex-col gap-3 border border-[#01696f]/[0.08]">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
                     <label className={labelCls}>Nama Lengkap</label>
@@ -624,7 +639,7 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
                 <div className="w-1 h-4 rounded-full bg-[#01696f]" />
                 <p className="text-[13px] font-semibold text-slate-700">Laporan</p>
               </div>
-              <div className="bg-[#f8f8f6] rounded-2xl p-4 flex flex-col gap-3">
+              <div className="bg-[#01696f]/[0.045] rounded-2xl p-4 flex flex-col gap-3 border border-[#01696f]/[0.08]">
                 <div>
                   <label className={labelCls}>Permasalahan Saat Ini</label>
                   <textarea value={form.permasalahan} onChange={e => set("permasalahan", e.target.value)} placeholder="(Deskripsi keluhan, gejala awal, dan permasalahan utama...)" rows={4} className={textareaCls} />
@@ -660,7 +675,7 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
 // ─── NodeRow ─────────────────────────────────────────────────────────────────
 
 function NodeRow({
-  node, onOpen, onMenuOpen, selectMode, selected, onToggleSelect,
+  node, onOpen, onMenuOpen, selectMode, selected, onToggleSelect, pathLabel,
 }: {
   node: FsNode
   onOpen: () => void
@@ -668,6 +683,7 @@ function NodeRow({
   selectMode: boolean
   selected: boolean
   onToggleSelect: () => void
+  pathLabel?: string
 }) {
   const isFolder = node.kind === "folder"
 
@@ -720,6 +736,11 @@ function NodeRow({
               : `PDF \u00b7 ${(node as FsFile).size}`
             }
           </p>
+          {pathLabel && (
+            <p className="mt-0.5 text-[11px] text-[#01696f]/60 leading-none truncate">
+              \u{1F4C1} {pathLabel}
+            </p>
+          )}
         </div>
       </button>
 
@@ -764,12 +785,30 @@ export function LaporanPsikologis() {
   const currentNodes: FsNode[] =
     path.length === 0 ? tree : findFolder(tree, path)?.children ?? []
 
-  const filteredNodes = sortNodes(
-    currentNodes
-      .filter(n => n.name.toLowerCase().includes(search.toLowerCase()))
-      .filter(n => kindFilter === "all" ? true : n.kind === kindFilter),
-    sort,
-  )
+  // Deep search: bila ada query/filter aktif, cari rekursif di seluruh subtree aktif
+  const isDeepSearch = search.trim() !== "" || kindFilter !== "all"
+
+  const filteredNodes: FsNode[] = isDeepSearch
+    ? sortNodes(
+        collectSubtree(currentNodes, path)
+          .filter(h => h.node.name.toLowerCase().includes(search.toLowerCase()))
+          .filter(h => kindFilter === "all" ? true : h.node.kind === kindFilter)
+          .map(h => h.node),
+        sort,
+      )
+    : sortNodes(
+        currentNodes
+          .filter(n => n.name.toLowerCase().includes(search.toLowerCase()))
+          .filter(n => kindFilter === "all" ? true : n.kind === kindFilter),
+        sort,
+      )
+
+  // Hits dengan info path untuk ditampilkan di NodeRow saat mode deep search
+  const deepHits: SearchHit[] = isDeepSearch
+    ? collectSubtree(currentNodes, path)
+        .filter(h => h.node.name.toLowerCase().includes(search.toLowerCase()))
+        .filter(h => kindFilter === "all" ? true : h.node.kind === kindFilter)
+    : []
 
   const breadcrumbs = getPathFolders(tree, path)
   const activeFilterCount = (sort !== "date-desc" ? 1 : 0) + (kindFilter !== "all" ? 1 : 0)
@@ -918,8 +957,8 @@ export function LaporanPsikologis() {
 
         {/* Search + Filter row */}
         <div className="mb-4 flex gap-2 items-center">
-          {/* Search */}
-          <div className="flex h-11 flex-1 items-center rounded-full border border-[#e4e1dc] bg-[#f5f4f1] px-4 gap-2.5 transition-all focus-within:border-[#01696f]/30 focus-within:ring-2 focus-within:ring-[#01696f]/8">
+          {/* Search — putih bersih */}
+          <div className="flex h-11 flex-1 items-center rounded-full border border-[#d9d6d0] bg-white px-4 gap-2.5 transition-all focus-within:border-[#01696f]/40 focus-within:ring-2 focus-within:ring-[#01696f]/10">
             <Search size={16} className="text-slate-400 flex-shrink-0" />
             <input
               value={search}
@@ -934,15 +973,15 @@ export function LaporanPsikologis() {
             )}
           </div>
 
-          {/* Filter dropdown */}
+          {/* Filter — biru asisya idle */}
           <div className="relative flex-shrink-0">
             <button
               onClick={() => setFilterOpen(v => !v)}
               className={[
                 "relative flex items-center gap-2 h-11 px-4 rounded-full border text-sm font-medium transition-all",
                 filterOpen || activeFilterCount > 0
-                  ? "border-[#01696f]/40 bg-[#01696f]/[0.06] text-[#01696f]"
-                  : "border-[#e4e1dc] bg-[#f5f4f1] text-slate-500 hover:text-[#01696f] hover:border-[#01696f]/20",
+                  ? "border-[#01696f]/40 bg-[#01696f]/[0.10] text-[#01696f]"
+                  : "border-[#01696f]/20 bg-[#01696f]/[0.07] text-[#01696f] hover:bg-[#01696f]/[0.12] hover:border-[#01696f]/30",
               ].join(" ")}
               aria-label="Filter"
               aria-expanded={filterOpen}
@@ -950,7 +989,7 @@ export function LaporanPsikologis() {
               <SlidersHorizontal size={16} />
               <span className="hidden sm:inline">Filter</span>
               {activeFilterCount > 0 && (
-                <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#01696f] text-white text-[10px] font-bold leading-none" style={{ width: 18, height: 18 }}>
+                <span className="flex items-center justify-center rounded-full bg-[#01696f] text-white text-[10px] font-bold leading-none" style={{ width: 18, height: 18 }}>
                   {activeFilterCount}
                 </span>
               )}
@@ -968,14 +1007,14 @@ export function LaporanPsikologis() {
             </AnimatePresence>
           </div>
 
-          {/* Select mode toggle */}
+          {/* Pilih — biru asisya idle */}
           <button
             onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
             className={[
               "flex-shrink-0 h-11 px-4 rounded-full border text-sm font-medium transition-all",
               selectMode
                 ? "border-[#01696f]/40 bg-[#01696f] text-white"
-                : "border-[#e4e1dc] bg-[#f5f4f1] text-slate-500 hover:text-[#01696f] hover:border-[#01696f]/20",
+                : "border-[#01696f]/20 bg-[#01696f]/[0.07] text-[#01696f] hover:bg-[#01696f]/[0.12] hover:border-[#01696f]/30",
             ].join(" ")}
           >
             {selectMode ? "Selesai" : "Pilih"}
@@ -985,7 +1024,9 @@ export function LaporanPsikologis() {
         {/* List header */}
         <div className="mb-2.5 flex items-center justify-between px-1">
           <div className="flex items-center gap-3">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Isi folder</p>
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
+              {isDeepSearch ? "Hasil Pencarian" : "Isi folder"}
+            </p>
             {selectMode && filteredNodes.length > 0 && (
               <button
                 onClick={toggleSelectAll}
@@ -1053,8 +1094,30 @@ export function LaporanPsikologis() {
                 <NodeRow
                   key={node.id}
                   node={node}
+                  pathLabel={isDeepSearch
+                    ? (() => {
+                        const hit = deepHits.find(h => h.node.id === node.id)
+                        if (!hit || hit.parentPath.length === 0) return undefined
+                        return getPathFolders(tree, hit.parentPath).map(f => f.name).join(" / ")
+                      })()
+                    : undefined
+                  }
                   onOpen={() => {
-                    if (!selectMode && node.kind === "folder") setPath([...path, node.id])
+                    if (selectMode) return
+                    if (isDeepSearch) {
+                      const hit = deepHits.find(h => h.node.id === node.id)
+                      if (hit) {
+                        if (node.kind === "folder") {
+                          setPath([...hit.parentPath, node.id])
+                        } else {
+                          setPath(hit.parentPath)
+                        }
+                        setSearch("")
+                        setKindFilter("all")
+                      }
+                    } else {
+                      if (node.kind === "folder") setPath([...path, node.id])
+                    }
                   }}
                   onMenuOpen={e => openCtxMenu({ nodeId: node.id, nodeName: node.name, nodeKind: node.kind }, e)}
                   selectMode={selectMode}
