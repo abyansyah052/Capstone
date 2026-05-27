@@ -1,4 +1,4 @@
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import {
   Folder, FolderOpen, FileText, Trash2, Upload,
   ChevronRight, Home, MoreVertical, FilePlus, FolderPlus, X, Download,
@@ -7,9 +7,7 @@ import {
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
+// ─── Types ──────────────────────────────────────────────────────────────────
 
 interface FsFile {
   id: string
@@ -20,7 +18,6 @@ interface FsFile {
   createdAt: string
 }
 
-
 interface FsFolder {
   id: string
   kind: "folder"
@@ -29,11 +26,9 @@ interface FsFolder {
   children: FsNode[]
 }
 
-
 type FsNode = FsFolder | FsFile
 type SortKey = "date-desc" | "date-asc" | "name-asc" | "name-desc"
 type KindFilter = "all" | "folder" | "file"
-
 
 interface ReportForm {
   namaLengkap: string
@@ -51,7 +46,6 @@ interface ReportForm {
   saranPengembangan: string
 }
 
-
 const EMPTY_FORM: ReportForm = {
   namaLengkap: "", tempatLahir: "", tanggalLahir: "",
   jenisKelamin: "", usia: "", pendidikan: "",
@@ -60,9 +54,7 @@ const EMPTY_FORM: ReportForm = {
   diagnosisKlinis: "", saranPengembangan: "",
 }
 
-
-// ─── Seed Data ────────────────────────────────────────────────────────────────
-
+// ─── Seed Data ───────────────────────────────────────────────────────────────
 
 const INIT_TREE: FsNode[] = [
   {
@@ -85,12 +77,9 @@ const INIT_TREE: FsNode[] = [
   { id: "f3", kind: "folder", name: "Bank Mandiri", createdAt: "2026-03-05", children: [] },
 ]
 
-
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
-
 function uid() { return Math.random().toString(36).slice(2, 10) }
-
 
 function findFolder(nodes: FsNode[], path: string[]): FsFolder | null {
   if (path.length === 0) return null
@@ -100,7 +89,6 @@ function findFolder(nodes: FsNode[], path: string[]): FsFolder | null {
   return findFolder(node.children, path.slice(1))
 }
 
-
 function insertNode(nodes: FsNode[], path: string[], node: FsNode): FsNode[] {
   if (path.length === 0) return [...nodes, node]
   return nodes.map(n => {
@@ -109,20 +97,17 @@ function insertNode(nodes: FsNode[], path: string[], node: FsNode): FsNode[] {
   })
 }
 
-
 function deleteNodeFromTree(nodes: FsNode[], targetId: string): FsNode[] {
   return nodes
     .filter(n => n.id !== targetId)
     .map(n => n.kind === "folder" ? { ...n, children: deleteNodeFromTree(n.children, targetId) } : n)
 }
 
-
 function deleteManyFromTree(nodes: FsNode[], ids: Set<string>): FsNode[] {
   return nodes
     .filter(n => !ids.has(n.id))
     .map(n => n.kind === "folder" ? { ...n, children: deleteManyFromTree(n.children, ids) } : n)
 }
-
 
 function renameNodeInTree(nodes: FsNode[], targetId: string, nextName: string): FsNode[] {
   return nodes.map(n => {
@@ -131,7 +116,6 @@ function renameNodeInTree(nodes: FsNode[], targetId: string, nextName: string): 
     return n
   })
 }
-
 
 function getPathFolders(nodes: FsNode[], path: string[]): FsFolder[] {
   const result: FsFolder[] = []
@@ -145,7 +129,6 @@ function getPathFolders(nodes: FsNode[], path: string[]): FsFolder[] {
   return result
 }
 
-
 function sortNodes(nodes: FsNode[], sort: SortKey): FsNode[] {
   return [...nodes].sort((a, b) => {
     if (sort === "date-desc") return b.createdAt.localeCompare(a.createdAt)
@@ -156,9 +139,20 @@ function sortNodes(nodes: FsNode[], sort: SortKey): FsNode[] {
   })
 }
 
+// ─── useKeyClose hook ───────────────────────────────────────────────────────
 
-// ─── PDF Preview ──────────────────────────────────────────────────────────────
+function useKeyClose(onClose: () => void, enabled = true) {
+  useEffect(() => {
+    if (!enabled) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose()
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [onClose, enabled])
+}
 
+// ─── PDF Preview ─────────────────────────────────────────────────────────────
 
 function ReportPreview({ form }: { form: ReportForm }) {
   const today = new Date().toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
@@ -186,6 +180,7 @@ function ReportPreview({ form }: { form: ReportForm }) {
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "14px" }}>
         <img src="/asisya-consulting.png" alt="Asisya Psychological Center"
+          width={64} height={64}
           style={{ width: "64px", height: "64px", objectFit: "contain", flexShrink: 0 }} />
         <div style={{ flex: 1, textAlign: "center" }}>
           <p style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.1em", color: "#111827", margin: "0 0 2px" }}>ASISYA PSYCHOLOGICAL CENTER</p>
@@ -212,12 +207,15 @@ function ReportPreview({ form }: { form: ReportForm }) {
       <p style={{ fontSize: "13px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>Permasalahan Saat Ini</p>
       <hr style={{ borderColor: "#6b7280", marginBottom: "8px" }} />
       {sectionBox(form.permasalahan, "(Data deskripsi keluhan, gejala awal, dan permasalahan utama yang diinput oleh konselor/psikolog pada form digital akan terdokumentasi secara otomatis)")}
+
       <p style={{ fontSize: "13px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>Proses Konseling</p>
       <hr style={{ borderColor: "#6b7280", marginBottom: "8px" }} />
       {sectionBox(form.prosesKonseling, "(Catatan perkembangan sesi konseling, dinamika psikologis, metode pendekatan intervensi yang diterapkan, serta respons klien sepanjang sesi akan terdokumentasi secara otomatis)")}
+
       <p style={{ fontSize: "13px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>Diagnosis Klinis</p>
       <hr style={{ borderColor: "#6b7280", marginBottom: "8px" }} />
       {sectionBox(form.diagnosisKlinis, "(Diagnosis klinis berdasarkan hasil asesmen psikologis)")}
+
       <p style={{ fontSize: "13px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>Saran Pengembangan dan Intervensi</p>
       <hr style={{ borderColor: "#6b7280", marginBottom: "8px" }} />
       {sectionBox(form.saranPengembangan, "(Rekomendasi tindak lanjut, rencana intervensi klinis lanjutan, tugas mandiri untuk klien, atau saran pengembangan diri spesifik)")}
@@ -233,24 +231,29 @@ function ReportPreview({ form }: { form: ReportForm }) {
   )
 }
 
+// ─── Base Modal shell ──────────────────────────────────────────────────────────
 
-// ─── Modals ───────────────────────────────────────────────────────────────────
-
-
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function Modal({
+  title, onClose, children, danger = false,
+}: {
+  title: string; onClose: () => void; children: React.ReactNode; danger?: boolean
+}) {
+  useKeyClose(onClose)
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={title}>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         className="absolute inset-0 bg-black/25 backdrop-blur-[2px]" onClick={onClose} />
       <motion.div
         initial={{ opacity: 0, scale: 0.97, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.97 }}
+        exit={{ opacity: 0, scale: 0.97, y: 4 }}
         transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-        className="relative z-10 w-full max-w-sm bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden"
+        className="relative z-10 w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-[0_24px_56px_rgba(15,23,42,0.14)] overflow-hidden"
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <p className="text-[14px] font-semibold text-slate-900">{title}</p>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>
+        <div className={`flex items-center justify-between px-5 py-4 border-b ${ danger ? "border-red-100 bg-red-50/60" : "border-slate-100" }`}>
+          <p className={`text-[14px] font-semibold ${ danger ? "text-red-700" : "text-slate-900" }`}>{title}</p>
+          <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors" aria-label="Tutup">
+            <X size={15} />
+          </button>
         </div>
         {children}
       </motion.div>
@@ -258,66 +261,143 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   )
 }
 
+// ─── NewFolderModal ─────────────────────────────────────────────────────────────
 
 function NewFolderModal({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string) => void }) {
   const [name, setName] = useState("")
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { inputRef.current?.focus(); inputRef.current?.select() }, [])
+
+  const submit = useCallback(() => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    onCreate(trimmed)
+  }, [name, onCreate])
+
   return (
     <Modal title="Folder Baru" onClose={onClose}>
       <div className="px-5 py-4">
-        <input autoFocus value={name} onChange={e => setName(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && name.trim() && onCreate(name.trim())}
-          placeholder="Nama folder (contoh: PT PLN)"
-          className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#01696f] focus:ring-2 focus:ring-[#01696f]/10 transition-all" />
+        <label className="block text-[12px] font-medium text-slate-500 mb-1.5">Nama folder</label>
+        <input
+          ref={inputRef}
+          value={name}
+          onChange={e => setName(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") submit() }}
+          placeholder="Contoh: PT PLN (Persero)"
+          maxLength={128}
+          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#01696f] focus:ring-2 focus:ring-[#01696f]/10 transition-all"
+        />
+        {name.length > 100 && (
+          <p className="mt-1 text-[11px] text-slate-400">{name.length}/128</p>
+        )}
       </div>
       <div className="flex items-center justify-end gap-2 px-5 py-3 bg-slate-50 border-t border-slate-100">
-        <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Batal</button>
-        <button onClick={() => name.trim() && onCreate(name.trim())}
-          className="px-4 py-2 rounded-lg bg-[#01696f] text-white text-sm font-medium hover:bg-[#0c4e54] transition-all">Buat</button>
+        <button onClick={onClose} className="px-4 py-2 text-sm text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition-all">Batal</button>
+        <button
+          onClick={submit}
+          disabled={!name.trim()}
+          className="px-4 py-2 rounded-xl bg-[#01696f] text-white text-sm font-medium hover:bg-[#0c4e54] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+        >
+          Buat Folder
+        </button>
       </div>
     </Modal>
   )
 }
 
+// ─── RenameModal ───────────────────────────────────────────────────────────────────
 
-function RenameModal({ initialName, onClose, onRename }: {
-  initialName: string; onClose: () => void; onRename: (name: string) => void
+function RenameModal({ initialName, nodeKind, onClose, onRename }: {
+  initialName: string
+  nodeKind: "folder" | "file"
+  onClose: () => void
+  onRename: (name: string) => void
 }) {
   const [name, setName] = useState(initialName)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const isDirty = name.trim() !== initialName.trim()
+
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.focus()
+    // For file names, select text before the extension; for folders select all
+    if (nodeKind === "file") {
+      const dotIndex = initialName.lastIndexOf(".")
+      el.setSelectionRange(0, dotIndex > 0 ? dotIndex : initialName.length)
+    } else {
+      el.select()
+    }
+  }, [])
+
+  const submit = useCallback(() => {
+    const trimmed = name.trim()
+    if (!trimmed || trimmed === initialName) { onClose(); return }
+    onRename(trimmed)
+  }, [name, initialName, onClose, onRename])
+
   return (
-    <Modal title="Rename" onClose={onClose}>
+    <Modal title={`Rename ${nodeKind === "folder" ? "Folder" : "File"}`} onClose={onClose}>
       <div className="px-5 py-4">
-        <input autoFocus value={name} onChange={e => setName(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && name.trim() && onRename(name.trim())}
-          placeholder="Nama baru"
-          className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#01696f] focus:ring-2 focus:ring-[#01696f]/10 transition-all" />
+        <label className="block text-[12px] font-medium text-slate-500 mb-1.5">Nama baru</label>
+        <input
+          ref={inputRef}
+          value={name}
+          onChange={e => setName(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") submit() }}
+          maxLength={128}
+          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#01696f] focus:ring-2 focus:ring-[#01696f]/10 transition-all"
+        />
       </div>
       <div className="flex items-center justify-end gap-2 px-5 py-3 bg-slate-50 border-t border-slate-100">
-        <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Batal</button>
-        <button onClick={() => name.trim() && onRename(name.trim())}
-          className="px-4 py-2 rounded-lg bg-[#01696f] text-white text-sm font-medium hover:bg-[#0c4e54] transition-all">Simpan</button>
+        <button onClick={onClose} className="px-4 py-2 text-sm text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition-all">Batal</button>
+        <button
+          onClick={submit}
+          disabled={!name.trim() || !isDirty}
+          className="px-4 py-2 rounded-xl bg-[#01696f] text-white text-sm font-medium hover:bg-[#0c4e54] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+        >
+          Simpan
+        </button>
       </div>
     </Modal>
   )
 }
 
+// ─── ConfirmDeleteModal ───────────────────────────────────────────────────────────
 
-function ConfirmDeleteModal({ name, onClose, onConfirm }: { name: string; onClose: () => void; onConfirm: () => void }) {
+function ConfirmDeleteModal({
+  name, nodeKind, onClose, onConfirm,
+}: {
+  name: string; nodeKind: "folder" | "file"; onClose: () => void; onConfirm: () => void
+}) {
+  const label = nodeKind === "folder" ? "folder" : "file PDF"
+  const warning = nodeKind === "folder"
+    ? "Semua sub-folder dan file di dalamnya juga akan terhapus."
+    : "File PDF ini akan dihapus secara permanen."
   return (
-    <Modal title="Hapus Item" onClose={onClose}>
-      <div className="px-5 py-4">
-        <p className="text-sm text-slate-600">Hapus <span className="font-semibold text-slate-900">{name}</span>? Tindakan ini tidak dapat dibatalkan.</p>
+    <Modal title="Konfirmasi Hapus" onClose={onClose} danger>
+      <div className="px-5 py-4 space-y-2">
+        <p className="text-sm text-slate-700">
+          Hapus {label}{" "}
+          <span className="font-semibold text-slate-900 break-all">\u201c{name}\u201d</span>?
+        </p>
+        <p className="text-[12px] text-slate-400">{warning}</p>
       </div>
       <div className="flex items-center justify-end gap-2 px-5 py-3 bg-slate-50 border-t border-slate-100">
-        <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Batal</button>
-        <button onClick={onConfirm} className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-all">Hapus</button>
+        <button onClick={onClose} className="px-4 py-2 text-sm text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition-all">Batal</button>
+        <button
+          onClick={onConfirm}
+          className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 active:scale-[0.97] transition-all"
+        >
+          Hapus Sekarang
+        </button>
       </div>
     </Modal>
   )
 }
-
 
 // ─── Filter Panel ─────────────────────────────────────────────────────────────
-
 
 function FilterPanel({
   sort, onSort, kindFilter, onKindFilter, onClose,
@@ -328,6 +408,7 @@ function FilterPanel({
   onKindFilter: (k: KindFilter) => void
   onClose: () => void
 }) {
+  useKeyClose(onClose)
   const sortOptions: { key: SortKey; label: string }[] = [
     { key: "date-desc", label: "Terbaru" },
     { key: "date-asc",  label: "Terlama" },
@@ -335,7 +416,7 @@ function FilterPanel({
     { key: "name-desc", label: "Nama Z \u2192 A" },
   ]
   const kindOptions: { key: KindFilter; label: string }[] = [
-    { key: "all",    label: "Semua" },
+    { key: "all",    label: "Semua tipe" },
     { key: "folder", label: "Folder saja" },
     { key: "file",   label: "PDF saja" },
   ]
@@ -343,37 +424,38 @@ function FilterPanel({
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 6 }}
+        initial={{ opacity: 0, scale: 0.95, y: 6 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 4 }}
-        transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-        className="absolute right-0 top-full mt-2 z-50 w-64 bg-white rounded-2xl border border-slate-200 shadow-[0_16px_40px_rgba(15,23,42,0.12)] overflow-hidden"
+        exit={{ opacity: 0, scale: 0.95, y: 4 }}
+        transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+        className="absolute right-0 top-full mt-2 z-50 w-56 bg-white rounded-2xl border border-slate-200 shadow-[0_20px_48px_rgba(15,23,42,0.13)] overflow-hidden"
       >
-        <div className="px-4 py-3 border-b border-slate-100">
-          <p className="text-[12px] font-semibold text-slate-400 uppercase tracking-wider">Urutkan</p>
+        <div className="px-4 pt-3 pb-1">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Urutkan</p>
         </div>
-        <div className="py-1">
+        <div className="pb-1">
           {sortOptions.map(o => (
             <button key={o.key} onClick={() => onSort(o.key)}
-              className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center justify-between
-                ${sort === o.key ? "text-[#01696f] font-semibold bg-[#01696f]/5" : "text-slate-700 hover:bg-slate-50"}`}
+              className={`w-full text-left px-4 py-2 text-sm transition-colors flex items-center justify-between gap-3
+                ${sort === o.key ? "text-[#01696f] font-semibold bg-[#01696f]/[0.05]" : "text-slate-700 hover:bg-slate-50"}`}
             >
-              {o.label}
-              {sort === o.key && <span className="w-1.5 h-1.5 rounded-full bg-[#01696f]" />}
+              <span>{o.label}</span>
+              {sort === o.key && <span className="w-1.5 h-1.5 flex-shrink-0 rounded-full bg-[#01696f]" />}
             </button>
           ))}
         </div>
-        <div className="px-4 py-3 border-t border-slate-100">
-          <p className="text-[12px] font-semibold text-slate-400 uppercase tracking-wider">Tipe</p>
+        <div className="mx-4 border-t border-slate-100" />
+        <div className="px-4 pt-3 pb-1">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Tipe</p>
         </div>
-        <div className="py-1 pb-2">
+        <div className="pb-2">
           {kindOptions.map(o => (
             <button key={o.key} onClick={() => onKindFilter(o.key)}
-              className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center justify-between
-                ${kindFilter === o.key ? "text-[#01696f] font-semibold bg-[#01696f]/5" : "text-slate-700 hover:bg-slate-50"}`}
+              className={`w-full text-left px-4 py-2 text-sm transition-colors flex items-center justify-between gap-3
+                ${kindFilter === o.key ? "text-[#01696f] font-semibold bg-[#01696f]/[0.05]" : "text-slate-700 hover:bg-slate-50"}`}
             >
-              {o.label}
-              {kindFilter === o.key && <span className="w-1.5 h-1.5 rounded-full bg-[#01696f]" />}
+              <span>{o.label}</span>
+              {kindFilter === o.key && <span className="w-1.5 h-1.5 flex-shrink-0 rounded-full bg-[#01696f]" />}
             </button>
           ))}
         </div>
@@ -382,9 +464,7 @@ function FilterPanel({
   )
 }
 
-
 // ─── Context Menu ─────────────────────────────────────────────────────────────
-
 
 interface CtxMenu {
   nodeId: string
@@ -392,44 +472,61 @@ interface CtxMenu {
   nodeKind: "folder" | "file"
 }
 
-
 function CtxMenuPanel({ menu, pos, onClose, onDelete, onRename }: {
   menu: CtxMenu; pos: { x: number; y: number }
   onClose: () => void; onDelete: () => void; onRename: () => void
 }) {
+  useKeyClose(onClose)
+
+  // Smart viewport flip: keep menu inside window
+  const panelWidth = 176
+  const panelHeight = 90
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1200
+  const vh = typeof window !== "undefined" ? window.innerHeight : 800
+  const left = pos.x + panelWidth > vw ? pos.x - panelWidth : pos.x
+  const top  = pos.y + panelHeight > vh ? pos.y - panelHeight : pos.y
+
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96 }}
-        style={{ position: "fixed", top: pos.y, left: pos.x, zIndex: 50 }}
-        className="bg-white border border-slate-200 rounded-2xl shadow-[0_12px_32px_rgba(15,23,42,0.12)] py-1.5 w-44 overflow-hidden"
+        initial={{ opacity: 0, scale: 0.95, y: 4 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.13, ease: [0.16, 1, 0.3, 1] }}
+        style={{ position: "fixed", top, left, zIndex: 50 }}
+        className="bg-white border border-slate-200 rounded-2xl shadow-[0_16px_40px_rgba(15,23,42,0.13)] py-1.5 overflow-hidden"
+        style2={{ width: panelWidth }}
       >
-        <button onClick={() => { onRename(); onClose() }}
-          className="w-full text-left flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-[#01696f]/5 transition-colors">
-          <PenLine size={14} />
-          Rename
+        <button
+          onClick={() => { onRename(); onClose() }}
+          className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-[14px] text-slate-700 hover:bg-[#01696f]/[0.05] hover:text-[#01696f] transition-colors"
+        >
+          <PenLine size={15} className="flex-shrink-0" />
+          <span>Rename</span>
         </button>
-        <button onClick={() => { onDelete(); onClose() }}
-          className="w-full text-left flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
-          <Trash2 size={14} />
-          Delete
+        <div className="mx-3 border-t border-slate-100" />
+        <button
+          onClick={() => { onDelete(); onClose() }}
+          className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-[14px] text-red-600 hover:bg-red-50 transition-colors"
+        >
+          <Trash2 size={15} className="flex-shrink-0" />
+          <span>Hapus</span>
         </button>
       </motion.div>
     </>
   )
 }
 
-
 // ─── Report Creator ───────────────────────────────────────────────────────────
-
 
 function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name: string, form: ReportForm) => void }) {
   const [form, setForm] = useState<ReportForm>(EMPTY_FORM)
   const set = (k: keyof ReportForm, v: string) => setForm(p => ({ ...p, [k]: v }))
+  useKeyClose(onClose)
 
-  const inputCls = "w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#01696f] focus:ring-2 focus:ring-[#01696f]/10 transition-all"
-  const labelCls = "text-[12px] font-medium text-slate-600 mb-1 block"
+  const inputCls = "w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#01696f] focus:ring-2 focus:ring-[#01696f]/10 transition-all"
+  const labelCls = "text-[12px] font-medium text-slate-500 mb-1 block"
   const textareaCls = `${inputCls} resize-none leading-relaxed`
 
   const handleSave = () => {
@@ -440,33 +537,42 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
 
   return (
     <div className="fixed inset-0 z-50 bg-[#f7f6f2] flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-3.5 bg-white border-b border-slate-200 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 transition-colors"><X size={18} /></button>
-          <div>
-            <p className="text-[14px] font-semibold text-slate-900">Buat Laporan Psikologis</p>
-            <p className="text-[11px] text-slate-400">Form akan otomatis mengisi preview di sebelah kanan</p>
+      {/* Topbar */}
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 bg-white border-b border-slate-200 flex-shrink-0 gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <button onClick={onClose} className="flex-shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors" aria-label="Tutup">
+            <X size={17} />
+          </button>
+          <div className="min-w-0">
+            <p className="text-[14px] font-semibold text-slate-900 truncate">Buat Laporan Psikologis</p>
+            <p className="text-[11px] text-slate-400 hidden sm:block">Form akan otomatis mengisi preview di sebelah kanan</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-all">Batal</button>
-          <button onClick={handleSave} className="px-4 py-2 rounded-lg bg-[#01696f] text-white text-sm font-medium hover:bg-[#0c4e54] transition-all flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button onClick={onClose} className="hidden sm:flex px-3.5 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-all">Batal</button>
+          <button
+            onClick={handleSave}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#01696f] text-white text-sm font-medium hover:bg-[#0c4e54] active:scale-[0.97] transition-all shadow-sm"
+          >
             <Download size={14} />
-            Simpan ke Folder
+            <span className="hidden sm:inline">Simpan ke Folder</span>
+            <span className="sm:hidden">Simpan</span>
           </button>
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="w-[400px] flex-shrink-0 overflow-y-auto border-r border-slate-200 bg-white">
-          <div className="p-6 flex flex-col gap-5">
+      {/* Body: form + preview side-by-side on lg+, stacked on mobile */}
+      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+        {/* Form panel */}
+        <div className="w-full lg:w-[420px] flex-shrink-0 overflow-y-auto border-b lg:border-b-0 lg:border-r border-slate-200 bg-white">
+          <div className="p-5 sm:p-6 flex flex-col gap-5">
+            {/* Biodata */}
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-1 h-4 rounded-full bg-[#01696f]" />
                 <p className="text-[13px] font-semibold text-slate-700">Bio data</p>
               </div>
-              <div className="bg-slate-50 rounded-xl p-4 flex flex-col gap-3">
-                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Profil</p>
+              <div className="bg-[#f8f8f6] rounded-2xl p-4 flex flex-col gap-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
                     <label className={labelCls}>Nama Lengkap</label>
@@ -474,7 +580,11 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
                   </div>
                   <div>
                     <label className={labelCls}>Tempat Lahir</label>
-                    <input value={form.tempatLahir} onChange={e => set("tempatLahir", e.target.value)} placeholder="Kota Kelahiran" className={inputCls} />
+                    <input value={form.tempatLahir} onChange={e => set("tempatLahir", e.target.value)} placeholder="Kota" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Tanggal Lahir</label>
+                    <input type="date" value={form.tanggalLahir} onChange={e => set("tanggalLahir", e.target.value)} className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Jenis Kelamin</label>
@@ -486,11 +596,7 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
                   </div>
                   <div>
                     <label className={labelCls}>Usia</label>
-                    <input value={form.usia} onChange={e => set("usia", e.target.value)} placeholder="Usia" className={inputCls} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Tanggal Lahir</label>
-                    <input type="date" value={form.tanggalLahir} onChange={e => set("tanggalLahir", e.target.value)} className={inputCls} />
+                    <input value={form.usia} onChange={e => set("usia", e.target.value)} placeholder="Tahun" className={inputCls} />
                   </div>
                   <div className="col-span-2">
                     <label className={labelCls}>Pendidikan Terakhir</label>
@@ -506,20 +612,22 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
                   </div>
                   <div className="col-span-2">
                     <label className={labelCls}>Alamat</label>
-                    <textarea value={form.alamat} onChange={e => set("alamat", e.target.value)} placeholder="[Alamat Lengkap Rumah/Domisili Klien]" rows={2} className={textareaCls} />
+                    <textarea value={form.alamat} onChange={e => set("alamat", e.target.value)} placeholder="[Alamat Lengkap]" rows={2} className={textareaCls} />
                   </div>
                 </div>
               </div>
             </section>
+
+            {/* Laporan */}
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-1 h-4 rounded-full bg-[#01696f]" />
                 <p className="text-[13px] font-semibold text-slate-700">Laporan</p>
               </div>
-              <div className="bg-slate-50 rounded-xl p-4 flex flex-col gap-3">
+              <div className="bg-[#f8f8f6] rounded-2xl p-4 flex flex-col gap-3">
                 <div>
                   <label className={labelCls}>Permasalahan Saat Ini</label>
-                  <textarea value={form.permasalahan} onChange={e => set("permasalahan", e.target.value)} placeholder="(Data deskripsi keluhan, gejala awal, dan permasalahan utama...)" rows={4} className={textareaCls} />
+                  <textarea value={form.permasalahan} onChange={e => set("permasalahan", e.target.value)} placeholder="(Deskripsi keluhan, gejala awal, dan permasalahan utama...)" rows={4} className={textareaCls} />
                 </div>
                 <div>
                   <label className={labelCls}>Proses Konseling</label>
@@ -531,14 +639,16 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
                 </div>
                 <div>
                   <label className={labelCls}>Saran Pengembangan dan Intervensi</label>
-                  <textarea value={form.saranPengembangan} onChange={e => set("saranPengembangan", e.target.value)} placeholder="(Rekomendasi tindak lanjut, rencana intervensi klinis lanjutan...)" rows={4} className={textareaCls} />
+                  <textarea value={form.saranPengembangan} onChange={e => set("saranPengembangan", e.target.value)} placeholder="(Rekomendasi tindak lanjut, rencana intervensi lanjutan...)" rows={4} className={textareaCls} />
                 </div>
               </div>
             </section>
           </div>
         </div>
-        <div className="flex-1 overflow-auto bg-slate-300 flex items-start justify-center py-10 px-6">
-          <div style={{ transform: "scale(1.05)", transformOrigin: "top center", marginBottom: "80px" }}>
+
+        {/* Preview panel */}
+        <div className="flex-1 overflow-auto bg-slate-300/80 flex items-start justify-center py-10 px-4 sm:px-8">
+          <div style={{ transform: "scale(1)", transformOrigin: "top center", marginBottom: "80px" }}>
             <ReportPreview form={form} />
           </div>
         </div>
@@ -547,11 +657,11 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
   )
 }
 
+// ─── NodeRow ─────────────────────────────────────────────────────────────────
 
-// ─── Node Row ─────────────────────────────────────────────────────────────────
-
-
-function NodeRow({ node, onOpen, onMenuOpen, selectMode, selected, onToggleSelect }: {
+function NodeRow({
+  node, onOpen, onMenuOpen, selectMode, selected, onToggleSelect,
+}: {
   node: FsNode
   onOpen: () => void
   onMenuOpen: (e: React.MouseEvent) => void
@@ -563,75 +673,93 @@ function NodeRow({ node, onOpen, onMenuOpen, selectMode, selected, onToggleSelec
 
   return (
     <motion.div
+      layout
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`group flex items-center justify-between gap-4 rounded-2xl border bg-white px-5 py-4 transition-all
-        ${ selected
-          ? "border-[#01696f]/40 bg-[#01696f]/[0.03] shadow-[0_0_0_2px_rgba(1,105,111,0.12)]"
-          : "border-[#d9d6d0] hover:border-[#01696f]/25 hover:shadow-[0_8px_24px_rgba(1,105,111,0.08)]"
-        }`}
+      exit={{ opacity: 0, y: -4 }}
+      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+      className={[
+        "group relative flex items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-3.5 transition-all duration-150",
+        selected
+          ? "border-[#01696f]/40 bg-[#01696f]/[0.025] shadow-[0_0_0_2px_rgba(1,105,111,0.1)]"
+          : "border-[#e2dfd9] hover:border-[#01696f]/20 hover:shadow-[0_4px_16px_rgba(1,105,111,0.07)]",
+      ].join(" ")}
     >
-      {/* Checkbox / Icon */}
+      {/* Main clickable area */}
       <button
         onClick={selectMode ? onToggleSelect : onOpen}
-        className="flex min-w-0 flex-1 items-center gap-4 text-left"
+        className="flex min-w-0 flex-1 items-center gap-3.5 text-left"
+        aria-label={isFolder ? `Buka folder ${node.name}` : `File ${node.name}`}
       >
+        {/* Icon or checkbox */}
         {selectMode ? (
-          <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl transition-colors
-            ${ selected ? "bg-[#01696f] text-white" : "bg-slate-100 text-slate-400" }`}>
-            {selected ? <CheckSquare size={20} strokeWidth={2} /> : <Square size={20} strokeWidth={1.8} />}
+          <div className={[
+            "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl transition-all",
+            selected ? "bg-[#01696f] text-white" : "bg-slate-100 text-slate-400 hover:bg-slate-200",
+          ].join(" ")}>
+            {selected
+              ? <CheckSquare size={19} strokeWidth={2} />
+              : <Square size={19} strokeWidth={1.8} />
+            }
           </div>
         ) : (
-          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#01696f]/[0.07] text-[#01696f]">
-            {isFolder ? <Folder size={22} strokeWidth={1.8} /> : <FileText size={20} strokeWidth={1.8} />}
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#01696f]/[0.07] text-[#01696f]">
+            {isFolder
+              ? <Folder size={20} strokeWidth={1.8} />
+              : <FileText size={19} strokeWidth={1.8} />
+            }
           </div>
         )}
+
+        {/* Name + meta */}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[15px] font-semibold text-slate-900">{node.name}</p>
-          <p className="mt-0.5 text-[12px] text-slate-400">
-            {isFolder ? `${(node as FsFolder).children.length} item` : `PDF \u00b7 ${(node as FsFile).size}`}
+          <p className="truncate text-[14px] font-semibold text-slate-900 leading-snug">{node.name}</p>
+          <p className="mt-0.5 text-[12px] text-slate-400 leading-none">
+            {isFolder
+              ? `${(node as FsFolder).children.length} item`
+              : `PDF \u00b7 ${(node as FsFile).size}`
+            }
           </p>
         </div>
       </button>
 
-      <div className="hidden shrink-0 text-sm font-medium text-slate-400 md:block">
+      {/* Date (hidden on small screens) */}
+      <span className="hidden sm:block flex-shrink-0 text-[12px] text-slate-400 tabular-nums">
         {node.createdAt}
-      </div>
+      </span>
 
+      {/* Menu button — visible on group hover, always accessible via focus */}
       {!selectMode && (
         <button
           onClick={e => { e.stopPropagation(); onMenuOpen(e) }}
-          className="shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-slate-100 hover:text-slate-700 group-hover:text-slate-400"
-          aria-label="Opsi"
+          className="flex-shrink-0 rounded-full p-1.5 text-transparent group-hover:text-slate-400 focus:text-slate-500 hover:!text-slate-700 hover:bg-slate-100 transition-all"
+          aria-label={`Opsi untuk ${node.name}`}
         >
-          <MoreVertical size={18} />
+          <MoreVertical size={17} />
         </button>
       )}
     </motion.div>
   )
 }
 
-
 // ─── Main Export ──────────────────────────────────────────────────────────────
 
-
 export function LaporanPsikologis() {
-  const [tree, setTree] = useState<FsNode[]>(INIT_TREE)
-  const [path, setPath] = useState<string[]>([])
+  const [tree, setTree]                   = useState<FsNode[]>(INIT_TREE)
+  const [path, setPath]                   = useState<string[]>([])
   const [newFolderOpen, setNewFolderOpen] = useState(false)
-  const [renameTarget, setRenameTarget] = useState<CtxMenu | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<CtxMenu | null>(null)
-  const [ctxMenu, setCtxMenu] = useState<{ menu: CtxMenu; pos: { x: number; y: number } } | null>(null)
-  const [reportOpen, setReportOpen] = useState(false)
-  const [search, setSearch] = useState("")
-  const [sort, setSort] = useState<SortKey>("date-desc")
-  const [kindFilter, setKindFilter] = useState<KindFilter>("all")
-  const [filterOpen, setFilterOpen] = useState(false)
-  const [selectMode, setSelectMode] = useState(false)
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [renameTarget, setRenameTarget]   = useState<CtxMenu | null>(null)
+  const [deleteTarget, setDeleteTarget]   = useState<CtxMenu | null>(null)
+  const [ctxMenu, setCtxMenu]             = useState<{ menu: CtxMenu; pos: { x: number; y: number } } | null>(null)
+  const [reportOpen, setReportOpen]       = useState(false)
+  const [search, setSearch]               = useState("")
+  const [sort, setSort]                   = useState<SortKey>("date-desc")
+  const [kindFilter, setKindFilter]       = useState<KindFilter>("all")
+  const [filterOpen, setFilterOpen]       = useState(false)
+  const [selectMode, setSelectMode]       = useState(false)
+  const [selected, setSelected]           = useState<Set<string>>(new Set())
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const filterBtnRef = useRef<HTMLDivElement>(null)
 
   const currentNodes: FsNode[] =
     path.length === 0 ? tree : findFolder(tree, path)?.children ?? []
@@ -640,15 +768,20 @@ export function LaporanPsikologis() {
     currentNodes
       .filter(n => n.name.toLowerCase().includes(search.toLowerCase()))
       .filter(n => kindFilter === "all" ? true : n.kind === kindFilter),
-    sort
+    sort,
   )
 
   const breadcrumbs = getPathFolders(tree, path)
   const activeFilterCount = (sort !== "date-desc" ? 1 : 0) + (kindFilter !== "all" ? 1 : 0)
   const allSelected = filteredNodes.length > 0 && filteredNodes.every(n => selected.has(n.id))
 
+  // ── Actions
   const createFolder = (name: string) => {
-    const node: FsFolder = { id: uid(), kind: "folder", name, createdAt: new Date().toLocaleDateString("id-ID"), children: [] }
+    const node: FsFolder = {
+      id: uid(), kind: "folder", name,
+      createdAt: new Date().toLocaleDateString("id-ID"),
+      children: [],
+    }
     setTree(prev => insertNode(prev, path, node))
     setNewFolderOpen(false)
   }
@@ -679,11 +812,7 @@ export function LaporanPsikologis() {
   }
 
   const toggleSelectAll = () => {
-    if (allSelected) {
-      setSelected(new Set())
-    } else {
-      setSelected(new Set(filteredNodes.map(n => n.id)))
-    }
+    setSelected(allSelected ? new Set() : new Set(filteredNodes.map(n => n.id)))
   }
 
   const handleUploadPdf = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -701,7 +830,7 @@ export function LaporanPsikologis() {
     e.target.value = ""
   }
 
-  const handleSaveReport = (name: string, _form: ReportForm) => {
+  const handleSaveReport = (name: string) => {
     const node: FsFile = {
       id: uid(), kind: "file", name, mimeType: "application/pdf",
       size: "\u2014", createdAt: new Date().toLocaleDateString("id-ID"),
@@ -711,7 +840,7 @@ export function LaporanPsikologis() {
 
   const openCtxMenu = (menu: CtxMenu, e: React.MouseEvent) => {
     e.preventDefault()
-    setCtxMenu({ menu, pos: { x: e.clientX, y: e.clientY } })
+    setCtxMenu({ menu, pos: { x: e.clientX + 4, y: e.clientY + 4 } })
   }
 
   const exitSelectMode = () => {
@@ -721,79 +850,107 @@ export function LaporanPsikologis() {
 
   return (
     <>
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="px-4 sm:px-6 py-6 max-w-5xl mx-auto">
 
-        {/* Header */}
+        {/* Page Header */}
         <div className="mb-6">
-          <h1 className="text-[32px] leading-tight font-semibold tracking-[-0.02em] text-slate-900">
+          <h1 className="text-2xl sm:text-[28px] leading-tight font-semibold tracking-[-0.02em] text-slate-900">
             Psychological Report Bank
           </h1>
-          <p className="text-[15px] text-slate-500 mt-1">Kelola laporan psikologis per perusahaan atau klien</p>
+          <p className="text-[14px] text-slate-500 mt-1">Kelola laporan psikologis per perusahaan atau klien</p>
         </div>
 
         {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-3 mb-5">
-          <button onClick={() => setReportOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#16254c] text-white text-sm font-medium hover:bg-[#0f1a38] transition-all shadow-sm">
-            <FilePlus size={16} />
-            Buat Laporan
+        <div className="flex flex-wrap items-center gap-2 mb-5">
+          <button
+            onClick={() => setReportOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#16254c] text-white text-sm font-medium hover:bg-[#0f1a38] active:scale-[0.97] transition-all shadow-sm"
+          >
+            <FilePlus size={15} />
+            <span>Buat Laporan</span>
           </button>
-          <button onClick={() => setNewFolderOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#d8d5cf] bg-white text-sm text-slate-700 font-medium hover:bg-slate-50 hover:border-[#01696f]/25 transition-all">
-            <FolderPlus size={16} className="text-slate-500" />
-            Folder Baru
+          <button
+            onClick={() => setNewFolderOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#e0ddd7] bg-white text-sm text-slate-700 font-medium hover:bg-slate-50 hover:border-[#01696f]/25 active:scale-[0.97] transition-all"
+          >
+            <FolderPlus size={15} className="text-slate-400" />
+            <span>Folder Baru</span>
           </button>
-          <button onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#d8d5cf] bg-white text-sm text-slate-700 font-medium hover:bg-slate-50 hover:border-[#01696f]/25 transition-all">
-            <Upload size={16} className="text-slate-500" />
-            Upload PDF
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#e0ddd7] bg-white text-sm text-slate-700 font-medium hover:bg-slate-50 hover:border-[#01696f]/25 active:scale-[0.97] transition-all"
+          >
+            <Upload size={15} className="text-slate-400" />
+            <span>Upload PDF</span>
           </button>
           <input ref={fileInputRef} type="file" accept="application/pdf" multiple className="hidden" onChange={handleUploadPdf} />
         </div>
 
         {/* Breadcrumb */}
-        <nav className="flex flex-wrap items-center gap-1 text-sm text-slate-500 mb-5">
-          <button onClick={() => setPath([])} className="flex items-center gap-1.5 hover:text-[#01696f] transition-colors">
-            <Home size={13} /><span>Report Bank</span>
+        <nav aria-label="breadcrumb" className="flex flex-wrap items-center gap-0.5 text-sm text-slate-500 mb-5 min-w-0">
+          <button
+            onClick={() => setPath([])}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-slate-100 hover:text-[#01696f] transition-colors text-slate-500"
+          >
+            <Home size={13} />
+            <span>Report Bank</span>
           </button>
-          {breadcrumbs.map((folder, i) => (
-            <span key={folder.id} className="flex items-center gap-1">
-              <ChevronRight size={13} className="text-slate-300" />
-              <button onClick={() => setPath(path.slice(0, i + 1))}
-                className={`hover:text-[#01696f] transition-colors ${i === breadcrumbs.length - 1 ? "text-slate-900 font-medium" : ""}`}>
-                {folder.name}
-              </button>
-            </span>
-          ))}
+          {breadcrumbs.map((folder, i) => {
+            const isLast = i === breadcrumbs.length - 1
+            return (
+              <span key={folder.id} className="flex items-center gap-0.5 min-w-0">
+                <ChevronRight size={13} className="text-slate-300 flex-shrink-0" />
+                <button
+                  onClick={() => setPath(path.slice(0, i + 1))}
+                  className={[
+                    "px-2 py-1 rounded-lg transition-colors truncate max-w-[180px]",
+                    isLast
+                      ? "text-slate-900 font-semibold cursor-default"
+                      : "text-slate-500 hover:bg-slate-100 hover:text-[#01696f]",
+                  ].join(" ")}
+                >
+                  {folder.name}
+                </button>
+              </span>
+            )
+          })}
         </nav>
 
-        {/* Search bar + filter */}
-        <div className="mb-5 flex gap-3 items-center">
-          <div className="flex h-12 flex-1 items-center rounded-full border border-[#e4e1dc] bg-[#f3f4f6] px-5">
-            <Search size={18} className="text-slate-400 flex-shrink-0" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari Laporan"
-              className="ml-3 h-full w-full bg-transparent text-[15px] text-slate-700 placeholder:text-slate-400 outline-none" />
+        {/* Search + Filter row */}
+        <div className="mb-4 flex gap-2 items-center">
+          {/* Search */}
+          <div className="flex h-11 flex-1 items-center rounded-full border border-[#e4e1dc] bg-[#f5f4f1] px-4 gap-2.5 transition-all focus-within:border-[#01696f]/30 focus-within:ring-2 focus-within:ring-[#01696f]/8">
+            <Search size={16} className="text-slate-400 flex-shrink-0" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Cari laporan atau folder\u2026"
+              className="h-full w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 outline-none"
+            />
             {search && (
-              <button onClick={() => setSearch("")} className="flex-shrink-0 text-slate-400 hover:text-slate-600 transition-colors">
-                <X size={16} />
+              <button onClick={() => setSearch("")} className="flex-shrink-0 rounded-full p-0.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors" aria-label="Hapus pencarian">
+                <X size={14} />
               </button>
             )}
           </div>
 
-          {/* Filter button */}
-          <div className="relative flex-shrink-0" ref={filterBtnRef}>
+          {/* Filter dropdown */}
+          <div className="relative flex-shrink-0">
             <button
               onClick={() => setFilterOpen(v => !v)}
-              className={`relative flex items-center gap-2 h-12 px-5 rounded-full border text-sm font-medium transition-all
-                ${ filterOpen || activeFilterCount > 0
-                  ? "border-[#01696f]/40 bg-[#01696f]/5 text-[#01696f]"
-                  : "border-[#e4e1dc] bg-[#f3f4f6] text-slate-500 hover:text-[#01696f] hover:border-[#01696f]/25"
-                }`}
+              className={[
+                "relative flex items-center gap-2 h-11 px-4 rounded-full border text-sm font-medium transition-all",
+                filterOpen || activeFilterCount > 0
+                  ? "border-[#01696f]/40 bg-[#01696f]/[0.06] text-[#01696f]"
+                  : "border-[#e4e1dc] bg-[#f5f4f1] text-slate-500 hover:text-[#01696f] hover:border-[#01696f]/20",
+              ].join(" ")}
+              aria-label="Filter"
+              aria-expanded={filterOpen}
             >
-              <SlidersHorizontal size={17} />
-              <span>Filter</span>
+              <SlidersHorizontal size={16} />
+              <span className="hidden sm:inline">Filter</span>
               {activeFilterCount > 0 && (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#01696f] text-white text-[11px] font-bold">
+                <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#01696f] text-white text-[10px] font-bold leading-none" style={{ width: 18, height: 18 }}>
                   {activeFilterCount}
                 </span>
               )}
@@ -801,8 +958,10 @@ export function LaporanPsikologis() {
             <AnimatePresence>
               {filterOpen && (
                 <FilterPanel
-                  sort={sort} onSort={s => { setSort(s); setFilterOpen(false) }}
-                  kindFilter={kindFilter} onKindFilter={k => { setKindFilter(k); setFilterOpen(false) }}
+                  sort={sort}
+                  onSort={s => { setSort(s); setFilterOpen(false) }}
+                  kindFilter={kindFilter}
+                  onKindFilter={k => { setKindFilter(k); setFilterOpen(false) }}
                   onClose={() => setFilterOpen(false)}
                 />
               )}
@@ -812,34 +971,37 @@ export function LaporanPsikologis() {
           {/* Select mode toggle */}
           <button
             onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
-            className={`flex-shrink-0 h-12 px-5 rounded-full border text-sm font-medium transition-all
-              ${ selectMode
+            className={[
+              "flex-shrink-0 h-11 px-4 rounded-full border text-sm font-medium transition-all",
+              selectMode
                 ? "border-[#01696f]/40 bg-[#01696f] text-white"
-                : "border-[#e4e1dc] bg-[#f3f4f6] text-slate-500 hover:text-[#01696f] hover:border-[#01696f]/25"
-              }`}
+                : "border-[#e4e1dc] bg-[#f5f4f1] text-slate-500 hover:text-[#01696f] hover:border-[#01696f]/20",
+            ].join(" ")}
           >
             {selectMode ? "Selesai" : "Pilih"}
           </button>
         </div>
 
         {/* List header */}
-        <div className="mb-3 flex items-center justify-between px-2">
+        <div className="mb-2.5 flex items-center justify-between px-1">
           <div className="flex items-center gap-3">
-            <p className="text-[13px] font-semibold text-slate-400 uppercase tracking-wider">Report bank</p>
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Isi folder</p>
             {selectMode && filteredNodes.length > 0 && (
-              <button onClick={toggleSelectAll}
-                className="flex items-center gap-1.5 text-[13px] font-medium text-[#01696f] hover:text-[#0c4e54] transition-colors">
-                <CheckCheck size={14} />
+              <button
+                onClick={toggleSelectAll}
+                className="flex items-center gap-1.5 text-[12px] font-semibold text-[#01696f] hover:text-[#0c4e54] transition-colors"
+              >
+                <CheckCheck size={13} />
                 {allSelected ? "Batal semua" : "Pilih semua"}
               </button>
             )}
           </div>
           <button
             onClick={() => setSort(s => s === "date-desc" ? "date-asc" : "date-desc")}
-            className="flex items-center gap-1.5 text-[13px] font-medium text-slate-400 hover:text-[#01696f] transition-colors"
+            className="flex items-center gap-1.5 text-[12px] font-medium text-slate-400 hover:text-[#01696f] transition-colors px-2 py-1 rounded-lg hover:bg-slate-100"
           >
             <span>Tanggal</span>
-            {sort === "date-desc" ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
+            {sort === "date-desc" ? <ArrowDown size={13} /> : <ArrowUp size={13} />}
           </button>
         </div>
 
@@ -847,83 +1009,129 @@ export function LaporanPsikologis() {
         <AnimatePresence>
           {selectMode && selected.size > 0 && (
             <motion.div
-              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+              initial={{ opacity: 0, y: -6, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: -6, height: 0 }}
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              className="mb-3 flex items-center justify-between px-5 py-3 rounded-2xl bg-red-50 border border-red-200"
+              className="overflow-hidden"
             >
-              <p className="text-sm font-medium text-red-700">{selected.size} item dipilih</p>
-              <button onClick={() => setBulkDeleteOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-all">
-                <Trash2 size={14} />
-                Hapus {selected.size} item
-              </button>
+              <div className="mb-2.5 flex items-center justify-between px-4 py-3 rounded-2xl bg-red-50 border border-red-200">
+                <p className="text-[13px] font-semibold text-red-700">{selected.size} item dipilih</p>
+                <button
+                  onClick={() => setBulkDeleteOpen(true)}
+                  className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 active:scale-[0.97] transition-all"
+                >
+                  <Trash2 size={14} />
+                  Hapus {selected.size} item
+                </button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* Node list */}
-        <div className="space-y-2.5">
-          {filteredNodes.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[#d9d6d0] bg-white py-16 text-center">
-              <FolderOpen size={34} className="mx-auto text-slate-200 mb-3" />
-              <p className="text-sm font-medium text-slate-400">
-                {search ? "Tidak ada laporan yang cocok" : "Folder ini masih kosong"}
-              </p>
-              <p className="text-xs text-slate-300 mt-1">
-                {search ? `"${search}"` : "Buat folder baru, upload PDF, atau buat laporan"}
-              </p>
-            </div>
-          ) : (
-            <AnimatePresence>
-              {filteredNodes.map(node => (
+        <div className="space-y-2">
+          <AnimatePresence mode="popLayout">
+            {filteredNodes.length === 0 ? (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="rounded-2xl border border-dashed border-[#dedad4] bg-white py-14 text-center"
+              >
+                <FolderOpen size={32} className="mx-auto text-slate-200 mb-3" />
+                <p className="text-[14px] font-medium text-slate-400">
+                  {search ? `Tidak ada hasil untuk \u201c${search}\u201d` : "Folder ini masih kosong"}
+                </p>
+                <p className="text-[12px] text-slate-300 mt-1">
+                  {search
+                    ? "Coba kata kunci lain atau hapus filter"
+                    : "Buat folder baru, upload PDF, atau buat laporan psikologis"}
+                </p>
+              </motion.div>
+            ) : (
+              filteredNodes.map(node => (
                 <NodeRow
                   key={node.id}
                   node={node}
-                  onOpen={() => !selectMode && node.kind === "folder" && setPath([...path, node.id])}
+                  onOpen={() => {
+                    if (!selectMode && node.kind === "folder") setPath([...path, node.id])
+                  }}
                   onMenuOpen={e => openCtxMenu({ nodeId: node.id, nodeName: node.name, nodeKind: node.kind }, e)}
                   selectMode={selectMode}
                   selected={selected.has(node.id)}
                   onToggleSelect={() => toggleSelect(node.id)}
                 />
-              ))}
-            </AnimatePresence>
-          )}
+              ))
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
-      {/* Modals */}
+      {/* ─── Modals ───────────────────────────────────────────────── */}
       <AnimatePresence>
-        {newFolderOpen && <NewFolderModal onClose={() => setNewFolderOpen(false)} onCreate={createFolder} />}
+        {newFolderOpen && (
+          <NewFolderModal
+            onClose={() => setNewFolderOpen(false)}
+            onCreate={createFolder}
+          />
+        )}
+
         {renameTarget && (
-          <RenameModal initialName={renameTarget.nodeName} onClose={() => setRenameTarget(null)}
-            onRename={name => renameNode(renameTarget.nodeId, name)} />
+          <RenameModal
+            initialName={renameTarget.nodeName}
+            nodeKind={renameTarget.nodeKind}
+            onClose={() => setRenameTarget(null)}
+            onRename={name => renameNode(renameTarget.nodeId, name)}
+          />
         )}
+
         {deleteTarget && (
-          <ConfirmDeleteModal name={deleteTarget.nodeName} onClose={() => setDeleteTarget(null)}
-            onConfirm={() => removeNode(deleteTarget.nodeId)} />
+          <ConfirmDeleteModal
+            name={deleteTarget.nodeName}
+            nodeKind={deleteTarget.nodeKind}
+            onClose={() => setDeleteTarget(null)}
+            onConfirm={() => removeNode(deleteTarget.nodeId)}
+          />
         )}
+
         {bulkDeleteOpen && (
-          <Modal title="Hapus Item Terpilih" onClose={() => setBulkDeleteOpen(false)}>
-            <div className="px-5 py-4">
-              <p className="text-sm text-slate-600">Hapus <span className="font-semibold text-slate-900">{selected.size} item</span> yang dipilih? Tindakan ini tidak dapat dibatalkan.</p>
+          <Modal title={`Hapus ${selected.size} Item`} onClose={() => setBulkDeleteOpen(false)} danger>
+            <div className="px-5 py-4 space-y-1.5">
+              <p className="text-sm text-slate-700">
+                Hapus{" "}
+                <span className="font-semibold text-slate-900">{selected.size} item</span>{" "}
+                yang dipilih?
+              </p>
+              <p className="text-[12px] text-slate-400">Tindakan ini tidak dapat dibatalkan.</p>
             </div>
             <div className="flex items-center justify-end gap-2 px-5 py-3 bg-slate-50 border-t border-slate-100">
-              <button onClick={() => setBulkDeleteOpen(false)} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Batal</button>
-              <button onClick={removeBulk} className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-all">Hapus</button>
+              <button onClick={() => setBulkDeleteOpen(false)} className="px-4 py-2 text-sm text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition-all">Batal</button>
+              <button onClick={removeBulk} className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 active:scale-[0.97] transition-all">Hapus Sekarang</button>
             </div>
           </Modal>
         )}
+
         {ctxMenu && (
-          <CtxMenuPanel menu={ctxMenu.menu} pos={ctxMenu.pos} onClose={() => setCtxMenu(null)}
+          <CtxMenuPanel
+            menu={ctxMenu.menu}
+            pos={ctxMenu.pos}
+            onClose={() => setCtxMenu(null)}
             onRename={() => setRenameTarget(ctxMenu.menu)}
-            onDelete={() => setDeleteTarget(ctxMenu.menu)} />
+            onDelete={() => setDeleteTarget(ctxMenu.menu)}
+          />
         )}
       </AnimatePresence>
 
-      {/* Report Creator full-screen */}
+      {/* ─── Report Creator (full-screen) ───────────────────── */}
       <AnimatePresence>
         {reportOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed inset-0 z-50"
+          >
             <ReportCreator onClose={() => setReportOpen(false)} onSave={handleSaveReport} />
           </motion.div>
         )}
