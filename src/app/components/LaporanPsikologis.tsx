@@ -2,7 +2,8 @@ import { useState, useRef } from "react"
 import {
   Folder, FolderOpen, FileText, Trash2, Upload,
   ChevronRight, Home, MoreVertical, FilePlus, FolderPlus, X, Download,
-  Search, SlidersHorizontal, ArrowUp, PenLine,
+  Search, SlidersHorizontal, ArrowUp, ArrowDown, PenLine,
+  CheckSquare, Square, CheckCheck,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 
@@ -30,6 +31,8 @@ interface FsFolder {
 
 
 type FsNode = FsFolder | FsFile
+type SortKey = "date-desc" | "date-asc" | "name-asc" | "name-desc"
+type KindFilter = "all" | "folder" | "file"
 
 
 interface ReportForm {
@@ -114,6 +117,13 @@ function deleteNodeFromTree(nodes: FsNode[], targetId: string): FsNode[] {
 }
 
 
+function deleteManyFromTree(nodes: FsNode[], ids: Set<string>): FsNode[] {
+  return nodes
+    .filter(n => !ids.has(n.id))
+    .map(n => n.kind === "folder" ? { ...n, children: deleteManyFromTree(n.children, ids) } : n)
+}
+
+
 function renameNodeInTree(nodes: FsNode[], targetId: string, nextName: string): FsNode[] {
   return nodes.map(n => {
     if (n.id === targetId) return { ...n, name: nextName }
@@ -136,6 +146,17 @@ function getPathFolders(nodes: FsNode[], path: string[]): FsFolder[] {
 }
 
 
+function sortNodes(nodes: FsNode[], sort: SortKey): FsNode[] {
+  return [...nodes].sort((a, b) => {
+    if (sort === "date-desc") return b.createdAt.localeCompare(a.createdAt)
+    if (sort === "date-asc")  return a.createdAt.localeCompare(b.createdAt)
+    if (sort === "name-asc")  return a.name.localeCompare(b.name, "id")
+    if (sort === "name-desc") return b.name.localeCompare(a.name, "id")
+    return 0
+  })
+}
+
+
 // ─── PDF Preview ──────────────────────────────────────────────────────────────
 
 
@@ -145,7 +166,7 @@ function ReportPreview({ form }: { form: ReportForm }) {
   const row = (label: string, value: string) => (
     <tr style={{ borderBottom: "1px solid #d1d5db" }}>
       <td style={{ padding: "5px 12px 5px 0", fontWeight: 700, fontSize: "11px", color: "#111827", width: "160px", verticalAlign: "top" }}>{label}</td>
-      <td style={{ padding: "5px 0", fontSize: "11px", color: value ? "#1e3a5f" : "#9ca3af" }}>{value || "—"}</td>
+      <td style={{ padding: "5px 0", fontSize: "11px", color: value ? "#1e3a5f" : "#9ca3af" }}>{value || "\u2014"}</td>
     </tr>
   )
 
@@ -159,62 +180,44 @@ function ReportPreview({ form }: { form: ReportForm }) {
 
   return (
     <div style={{
-      background: "#ffffff",
-      border: "1px solid #d1d5db",
-      boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
-      width: "595px",
-      minHeight: "842px",
-      fontFamily: "'Times New Roman', 'Georgia', serif",
-      padding: "52px 56px",
-      color: "#111827",
+      background: "#ffffff", border: "1px solid #d1d5db",
+      boxShadow: "0 2px 12px rgba(0,0,0,0.08)", width: "595px", minHeight: "842px",
+      fontFamily: "'Times New Roman', 'Georgia', serif", padding: "52px 56px", color: "#111827",
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "14px" }}>
-        <img
-          src="/asisya-consulting.png"
-          alt="Asisya Psychological Center"
-          style={{ width: "64px", height: "64px", objectFit: "contain", flexShrink: 0 }}
-        />
+        <img src="/asisya-consulting.png" alt="Asisya Psychological Center"
+          style={{ width: "64px", height: "64px", objectFit: "contain", flexShrink: 0 }} />
         <div style={{ flex: 1, textAlign: "center" }}>
-          <p style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.1em", color: "#111827", margin: "0 0 2px" }}>
-            ASISYA PSYCHOLOGICAL CENTER
-          </p>
+          <p style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.1em", color: "#111827", margin: "0 0 2px" }}>ASISYA PSYCHOLOGICAL CENTER</p>
           <p style={{ fontSize: "10px", color: "#374151", margin: "0 0 1px" }}>Ruko Grand City Regency A7 - A8 Jl. Rungkut Madya</p>
           <p style={{ fontSize: "10px", color: "#374151", margin: "0 0 1px" }}>Tlp: 0813-3501-005</p>
           <p style={{ fontSize: "10px", color: "#374151", margin: 0 }}>Surabaya - Jawa Timur</p>
         </div>
       </div>
-
       <hr style={{ borderColor: "#111827", borderWidth: "1.5px", marginBottom: "10px" }} />
-      <p style={{ textAlign: "center", fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em", color: "#111827", marginBottom: "18px" }}>
-        FORM KONSELING PSIKOLOGIS
-      </p>
+      <p style={{ textAlign: "center", fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em", color: "#111827", marginBottom: "18px" }}>FORM KONSELING PSIKOLOGIS</p>
 
       <p style={{ fontSize: "13px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>Biodata</p>
       <hr style={{ borderColor: "#6b7280", marginBottom: "8px" }} />
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "18px" }}>
-        <tbody>
-          {row("Nama Lengkap:", form.namaLengkap)}
-          {row("Tempat/Tanggal Lahir", `${form.tempatLahir}${form.tempatLahir && form.tanggalLahir ? " / " : ""}${form.tanggalLahir}`)}
-          {row("Jenis Kelamin", form.jenisKelamin)}
-          {row("Usia", form.usia ? `${form.usia} Tahun` : "")}
-          {row("Pendidikan Terakhir", form.pendidikan)}
-          {row("Anak Keberapa", form.anakKeberapa || form.jumlahSaudara ? `Anak ke ${form.anakKeberapa} dari ${form.jumlahSaudara} bersaudara` : "")}
-          {row("Alamat", form.alamat)}
-        </tbody>
-      </table>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "18px" }}><tbody>
+        {row("Nama Lengkap:", form.namaLengkap)}
+        {row("Tempat/Tanggal Lahir", `${form.tempatLahir}${form.tempatLahir && form.tanggalLahir ? " / " : ""}${form.tanggalLahir}`)}
+        {row("Jenis Kelamin", form.jenisKelamin)}
+        {row("Usia", form.usia ? `${form.usia} Tahun` : "")}
+        {row("Pendidikan Terakhir", form.pendidikan)}
+        {row("Anak Keberapa", form.anakKeberapa || form.jumlahSaudara ? `Anak ke ${form.anakKeberapa} dari ${form.jumlahSaudara} bersaudara` : "")}
+        {row("Alamat", form.alamat)}
+      </tbody></table>
 
       <p style={{ fontSize: "13px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>Permasalahan Saat Ini</p>
       <hr style={{ borderColor: "#6b7280", marginBottom: "8px" }} />
       {sectionBox(form.permasalahan, "(Data deskripsi keluhan, gejala awal, dan permasalahan utama yang diinput oleh konselor/psikolog pada form digital akan terdokumentasi secara otomatis)")}
-
       <p style={{ fontSize: "13px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>Proses Konseling</p>
       <hr style={{ borderColor: "#6b7280", marginBottom: "8px" }} />
       {sectionBox(form.prosesKonseling, "(Catatan perkembangan sesi konseling, dinamika psikologis, metode pendekatan intervensi yang diterapkan, serta respons klien sepanjang sesi akan terdokumentasi secara otomatis)")}
-
       <p style={{ fontSize: "13px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>Diagnosis Klinis</p>
       <hr style={{ borderColor: "#6b7280", marginBottom: "8px" }} />
       {sectionBox(form.diagnosisKlinis, "(Diagnosis klinis berdasarkan hasil asesmen psikologis)")}
-
       <p style={{ fontSize: "13px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>Saran Pengembangan dan Intervensi</p>
       <hr style={{ borderColor: "#6b7280", marginBottom: "8px" }} />
       {sectionBox(form.saranPengembangan, "(Rekomendasi tindak lanjut, rencana intervensi klinis lanjutan, tugas mandiri untuk klien, atau saran pengembangan diri spesifik)")}
@@ -313,6 +316,73 @@ function ConfirmDeleteModal({ name, onClose, onConfirm }: { name: string; onClos
 }
 
 
+// ─── Filter Panel ─────────────────────────────────────────────────────────────
+
+
+function FilterPanel({
+  sort, onSort, kindFilter, onKindFilter, onClose,
+}: {
+  sort: SortKey
+  onSort: (s: SortKey) => void
+  kindFilter: KindFilter
+  onKindFilter: (k: KindFilter) => void
+  onClose: () => void
+}) {
+  const sortOptions: { key: SortKey; label: string }[] = [
+    { key: "date-desc", label: "Terbaru" },
+    { key: "date-asc",  label: "Terlama" },
+    { key: "name-asc",  label: "Nama A \u2192 Z" },
+    { key: "name-desc", label: "Nama Z \u2192 A" },
+  ]
+  const kindOptions: { key: KindFilter; label: string }[] = [
+    { key: "all",    label: "Semua" },
+    { key: "folder", label: "Folder saja" },
+    { key: "file",   label: "PDF saja" },
+  ]
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 6 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 4 }}
+        transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+        className="absolute right-0 top-full mt-2 z-50 w-64 bg-white rounded-2xl border border-slate-200 shadow-[0_16px_40px_rgba(15,23,42,0.12)] overflow-hidden"
+      >
+        <div className="px-4 py-3 border-b border-slate-100">
+          <p className="text-[12px] font-semibold text-slate-400 uppercase tracking-wider">Urutkan</p>
+        </div>
+        <div className="py-1">
+          {sortOptions.map(o => (
+            <button key={o.key} onClick={() => onSort(o.key)}
+              className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center justify-between
+                ${sort === o.key ? "text-[#01696f] font-semibold bg-[#01696f]/5" : "text-slate-700 hover:bg-slate-50"}`}
+            >
+              {o.label}
+              {sort === o.key && <span className="w-1.5 h-1.5 rounded-full bg-[#01696f]" />}
+            </button>
+          ))}
+        </div>
+        <div className="px-4 py-3 border-t border-slate-100">
+          <p className="text-[12px] font-semibold text-slate-400 uppercase tracking-wider">Tipe</p>
+        </div>
+        <div className="py-1 pb-2">
+          {kindOptions.map(o => (
+            <button key={o.key} onClick={() => onKindFilter(o.key)}
+              className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center justify-between
+                ${kindFilter === o.key ? "text-[#01696f] font-semibold bg-[#01696f]/5" : "text-slate-700 hover:bg-slate-50"}`}
+            >
+              {o.label}
+              {kindFilter === o.key && <span className="w-1.5 h-1.5 rounded-full bg-[#01696f]" />}
+            </button>
+          ))}
+        </div>
+      </motion.div>
+    </>
+  )
+}
+
+
 // ─── Context Menu ─────────────────────────────────────────────────────────────
 
 
@@ -324,33 +394,24 @@ interface CtxMenu {
 
 
 function CtxMenuPanel({ menu, pos, onClose, onDelete, onRename }: {
-  menu: CtxMenu
-  pos: { x: number; y: number }
-  onClose: () => void
-  onDelete: () => void
-  onRename: () => void
+  menu: CtxMenu; pos: { x: number; y: number }
+  onClose: () => void; onDelete: () => void; onRename: () => void
 }) {
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 4 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96 }}
+        initial={{ opacity: 0, scale: 0.96, y: 4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96 }}
         style={{ position: "fixed", top: pos.y, left: pos.x, zIndex: 50 }}
         className="bg-white border border-slate-200 rounded-2xl shadow-[0_12px_32px_rgba(15,23,42,0.12)] py-1.5 w-44 overflow-hidden"
       >
-        <button
-          onClick={() => { onRename(); onClose() }}
-          className="w-full text-left flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-[#01696f]/5 transition-colors"
-        >
+        <button onClick={() => { onRename(); onClose() }}
+          className="w-full text-left flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-[#01696f]/5 transition-colors">
           <PenLine size={14} />
           Rename
         </button>
-        <button
-          onClick={() => { onDelete(); onClose() }}
-          className="w-full text-left flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-        >
+        <button onClick={() => { onDelete(); onClose() }}
+          className="w-full text-left flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
           <Trash2 size={14} />
           Delete
         </button>
@@ -388,12 +449,8 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-all">
-            Batal
-          </button>
-          <button onClick={handleSave}
-            className="px-4 py-2 rounded-lg bg-[#01696f] text-white text-sm font-medium hover:bg-[#0c4e54] transition-all flex items-center gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-all">Batal</button>
+          <button onClick={handleSave} className="px-4 py-2 rounded-lg bg-[#01696f] text-white text-sm font-medium hover:bg-[#0c4e54] transition-all flex items-center gap-2">
             <Download size={14} />
             Simpan ke Folder
           </button>
@@ -413,13 +470,11 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
                     <label className={labelCls}>Nama Lengkap</label>
-                    <input value={form.namaLengkap} onChange={e => set("namaLengkap", e.target.value)}
-                      placeholder="[Nama Lengkap Pasien/Klien]" className={inputCls} />
+                    <input value={form.namaLengkap} onChange={e => set("namaLengkap", e.target.value)} placeholder="[Nama Lengkap Pasien/Klien]" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Tempat Lahir</label>
-                    <input value={form.tempatLahir} onChange={e => set("tempatLahir", e.target.value)}
-                      placeholder="Kota Kelahiran" className={inputCls} />
+                    <input value={form.tempatLahir} onChange={e => set("tempatLahir", e.target.value)} placeholder="Kota Kelahiran" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Jenis Kelamin</label>
@@ -431,8 +486,7 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
                   </div>
                   <div>
                     <label className={labelCls}>Usia</label>
-                    <input value={form.usia} onChange={e => set("usia", e.target.value)}
-                      placeholder="Usia" className={inputCls} />
+                    <input value={form.usia} onChange={e => set("usia", e.target.value)} placeholder="Usia" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Tanggal Lahir</label>
@@ -440,28 +494,23 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
                   </div>
                   <div className="col-span-2">
                     <label className={labelCls}>Pendidikan Terakhir</label>
-                    <input value={form.pendidikan} onChange={e => set("pendidikan", e.target.value)}
-                      placeholder="[Pendidikan Terakhir Klien]" className={inputCls} />
+                    <input value={form.pendidikan} onChange={e => set("pendidikan", e.target.value)} placeholder="[Pendidikan Terakhir Klien]" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Anak Ke-</label>
-                    <input value={form.anakKeberapa} onChange={e => set("anakKeberapa", e.target.value)}
-                      placeholder="ke [ ]" className={inputCls} />
+                    <input value={form.anakKeberapa} onChange={e => set("anakKeberapa", e.target.value)} placeholder="ke [ ]" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Dari [ ] Bersaudara</label>
-                    <input value={form.jumlahSaudara} onChange={e => set("jumlahSaudara", e.target.value)}
-                      placeholder="[ ] saudara" className={inputCls} />
+                    <input value={form.jumlahSaudara} onChange={e => set("jumlahSaudara", e.target.value)} placeholder="[ ] saudara" className={inputCls} />
                   </div>
                   <div className="col-span-2">
                     <label className={labelCls}>Alamat</label>
-                    <textarea value={form.alamat} onChange={e => set("alamat", e.target.value)}
-                      placeholder="[Alamat Lengkap Rumah/Domisili Klien]" rows={2} className={textareaCls} />
+                    <textarea value={form.alamat} onChange={e => set("alamat", e.target.value)} placeholder="[Alamat Lengkap Rumah/Domisili Klien]" rows={2} className={textareaCls} />
                   </div>
                 </div>
               </div>
             </section>
-
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-1 h-4 rounded-full bg-[#01696f]" />
@@ -470,33 +519,24 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
               <div className="bg-slate-50 rounded-xl p-4 flex flex-col gap-3">
                 <div>
                   <label className={labelCls}>Permasalahan Saat Ini</label>
-                  <textarea value={form.permasalahan} onChange={e => set("permasalahan", e.target.value)}
-                    placeholder="(Data deskripsi keluhan, gejala awal, dan permasalahan utama...)"
-                    rows={4} className={textareaCls} />
+                  <textarea value={form.permasalahan} onChange={e => set("permasalahan", e.target.value)} placeholder="(Data deskripsi keluhan, gejala awal, dan permasalahan utama...)" rows={4} className={textareaCls} />
                 </div>
                 <div>
                   <label className={labelCls}>Proses Konseling</label>
-                  <textarea value={form.prosesKonseling} onChange={e => set("prosesKonseling", e.target.value)}
-                    placeholder="(Catatan perkembangan sesi konseling, dinamika psikologis...)"
-                    rows={4} className={textareaCls} />
+                  <textarea value={form.prosesKonseling} onChange={e => set("prosesKonseling", e.target.value)} placeholder="(Catatan perkembangan sesi konseling, dinamika psikologis...)" rows={4} className={textareaCls} />
                 </div>
                 <div>
                   <label className={labelCls}>Diagnosis Klinis</label>
-                  <textarea value={form.diagnosisKlinis} onChange={e => set("diagnosisKlinis", e.target.value)}
-                    placeholder="(Diagnosis klinis berdasarkan hasil asesmen psikologis)"
-                    rows={3} className={textareaCls} />
+                  <textarea value={form.diagnosisKlinis} onChange={e => set("diagnosisKlinis", e.target.value)} placeholder="(Diagnosis klinis berdasarkan hasil asesmen psikologis)" rows={3} className={textareaCls} />
                 </div>
                 <div>
                   <label className={labelCls}>Saran Pengembangan dan Intervensi</label>
-                  <textarea value={form.saranPengembangan} onChange={e => set("saranPengembangan", e.target.value)}
-                    placeholder="(Rekomendasi tindak lanjut, rencana intervensi klinis lanjutan...)"
-                    rows={4} className={textareaCls} />
+                  <textarea value={form.saranPengembangan} onChange={e => set("saranPengembangan", e.target.value)} placeholder="(Rekomendasi tindak lanjut, rencana intervensi klinis lanjutan...)" rows={4} className={textareaCls} />
                 </div>
               </div>
             </section>
           </div>
         </div>
-
         <div className="flex-1 overflow-auto bg-slate-300 flex items-start justify-center py-10 px-6">
           <div style={{ transform: "scale(1.05)", transformOrigin: "top center", marginBottom: "80px" }}>
             <ReportPreview form={form} />
@@ -511,10 +551,13 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
 // ─── Node Row ─────────────────────────────────────────────────────────────────
 
 
-function NodeRow({ node, onOpen, onMenuOpen }: {
+function NodeRow({ node, onOpen, onMenuOpen, selectMode, selected, onToggleSelect }: {
   node: FsNode
   onOpen: () => void
   onMenuOpen: (e: React.MouseEvent) => void
+  selectMode: boolean
+  selected: boolean
+  onToggleSelect: () => void
 }) {
   const isFolder = node.kind === "folder"
 
@@ -522,26 +565,31 @@ function NodeRow({ node, onOpen, onMenuOpen }: {
     <motion.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group flex items-center justify-between gap-4 rounded-2xl border border-[#d9d6d0] bg-white px-5 py-4 transition-all hover:border-[#01696f]/25 hover:shadow-[0_8px_24px_rgba(1,105,111,0.08)]"
+      className={`group flex items-center justify-between gap-4 rounded-2xl border bg-white px-5 py-4 transition-all
+        ${ selected
+          ? "border-[#01696f]/40 bg-[#01696f]/[0.03] shadow-[0_0_0_2px_rgba(1,105,111,0.12)]"
+          : "border-[#d9d6d0] hover:border-[#01696f]/25 hover:shadow-[0_8px_24px_rgba(1,105,111,0.08)]"
+        }`}
     >
+      {/* Checkbox / Icon */}
       <button
-        onClick={onOpen}
+        onClick={selectMode ? onToggleSelect : onOpen}
         className="flex min-w-0 flex-1 items-center gap-4 text-left"
       >
-        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#01696f]/[0.07] text-[#01696f]">
-          {isFolder
-            ? <Folder size={22} strokeWidth={1.8} />
-            : <FileText size={20} strokeWidth={1.8} />
-          }
-        </div>
-
+        {selectMode ? (
+          <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl transition-colors
+            ${ selected ? "bg-[#01696f] text-white" : "bg-slate-100 text-slate-400" }`}>
+            {selected ? <CheckSquare size={20} strokeWidth={2} /> : <Square size={20} strokeWidth={1.8} />}
+          </div>
+        ) : (
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#01696f]/[0.07] text-[#01696f]">
+            {isFolder ? <Folder size={22} strokeWidth={1.8} /> : <FileText size={20} strokeWidth={1.8} />}
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-semibold text-slate-900">{node.name}</p>
           <p className="mt-0.5 text-[12px] text-slate-400">
-            {isFolder
-              ? `${(node as FsFolder).children.length} item`
-              : `PDF · ${(node as FsFile).size}`
-            }
+            {isFolder ? `${(node as FsFolder).children.length} item` : `PDF \u00b7 ${(node as FsFile).size}`}
           </p>
         </div>
       </button>
@@ -550,13 +598,15 @@ function NodeRow({ node, onOpen, onMenuOpen }: {
         {node.createdAt}
       </div>
 
-      <button
-        onClick={e => { e.stopPropagation(); onMenuOpen(e) }}
-        className="shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-slate-100 hover:text-slate-700 group-hover:text-slate-400"
-        aria-label="Opsi"
-      >
-        <MoreVertical size={18} />
-      </button>
+      {!selectMode && (
+        <button
+          onClick={e => { e.stopPropagation(); onMenuOpen(e) }}
+          className="shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-slate-100 hover:text-slate-700 group-hover:text-slate-400"
+          aria-label="Opsi"
+        >
+          <MoreVertical size={18} />
+        </button>
+      )}
     </motion.div>
   )
 }
@@ -574,16 +624,28 @@ export function LaporanPsikologis() {
   const [ctxMenu, setCtxMenu] = useState<{ menu: CtxMenu; pos: { x: number; y: number } } | null>(null)
   const [reportOpen, setReportOpen] = useState(false)
   const [search, setSearch] = useState("")
+  const [sort, setSort] = useState<SortKey>("date-desc")
+  const [kindFilter, setKindFilter] = useState<KindFilter>("all")
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const filterBtnRef = useRef<HTMLDivElement>(null)
 
   const currentNodes: FsNode[] =
     path.length === 0 ? tree : findFolder(tree, path)?.children ?? []
 
-  const filteredNodes = currentNodes.filter(node =>
-    node.name.toLowerCase().includes(search.toLowerCase())
+  const filteredNodes = sortNodes(
+    currentNodes
+      .filter(n => n.name.toLowerCase().includes(search.toLowerCase()))
+      .filter(n => kindFilter === "all" ? true : n.kind === kindFilter),
+    sort
   )
 
   const breadcrumbs = getPathFolders(tree, path)
+  const activeFilterCount = (sort !== "date-desc" ? 1 : 0) + (kindFilter !== "all" ? 1 : 0)
+  const allSelected = filteredNodes.length > 0 && filteredNodes.every(n => selected.has(n.id))
 
   const createFolder = (name: string) => {
     const node: FsFolder = { id: uid(), kind: "folder", name, createdAt: new Date().toLocaleDateString("id-ID"), children: [] }
@@ -599,6 +661,29 @@ export function LaporanPsikologis() {
   const renameNode = (id: string, nextName: string) => {
     setTree(prev => renameNodeInTree(prev, id, nextName))
     setRenameTarget(null)
+  }
+
+  const removeBulk = () => {
+    setTree(prev => deleteManyFromTree(prev, selected))
+    setSelected(new Set())
+    setSelectMode(false)
+    setBulkDeleteOpen(false)
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(filteredNodes.map(n => n.id)))
+    }
   }
 
   const handleUploadPdf = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -619,7 +704,7 @@ export function LaporanPsikologis() {
   const handleSaveReport = (name: string, _form: ReportForm) => {
     const node: FsFile = {
       id: uid(), kind: "file", name, mimeType: "application/pdf",
-      size: "—", createdAt: new Date().toLocaleDateString("id-ID"),
+      size: "\u2014", createdAt: new Date().toLocaleDateString("id-ID"),
     }
     setTree(prev => insertNode(prev, path, node))
   }
@@ -627,6 +712,11 @@ export function LaporanPsikologis() {
   const openCtxMenu = (menu: CtxMenu, e: React.MouseEvent) => {
     e.preventDefault()
     setCtxMenu({ menu, pos: { x: e.clientX, y: e.clientY } })
+  }
+
+  const exitSelectMode = () => {
+    setSelectMode(false)
+    setSelected(new Set())
   }
 
   return (
@@ -638,90 +728,138 @@ export function LaporanPsikologis() {
           <h1 className="text-[32px] leading-tight font-semibold tracking-[-0.02em] text-slate-900">
             Psychological Report Bank
           </h1>
-          <p className="text-[15px] text-slate-500 mt-1">
-            Kelola laporan psikologis per perusahaan atau klien
-          </p>
+          <p className="text-[15px] text-slate-500 mt-1">Kelola laporan psikologis per perusahaan atau klien</p>
         </div>
 
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-3 mb-5">
-          <button
-            onClick={() => setReportOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#16254c] text-white text-sm font-medium hover:bg-[#0f1a38] transition-all shadow-sm"
-          >
+          <button onClick={() => setReportOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#16254c] text-white text-sm font-medium hover:bg-[#0f1a38] transition-all shadow-sm">
             <FilePlus size={16} />
             Buat Laporan
           </button>
-
-          <button
-            onClick={() => setNewFolderOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#d8d5cf] bg-white text-sm text-slate-700 font-medium hover:bg-slate-50 hover:border-[#01696f]/25 transition-all"
-          >
+          <button onClick={() => setNewFolderOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#d8d5cf] bg-white text-sm text-slate-700 font-medium hover:bg-slate-50 hover:border-[#01696f]/25 transition-all">
             <FolderPlus size={16} className="text-slate-500" />
             Folder Baru
           </button>
-
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#d8d5cf] bg-white text-sm text-slate-700 font-medium hover:bg-slate-50 hover:border-[#01696f]/25 transition-all"
-          >
+          <button onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#d8d5cf] bg-white text-sm text-slate-700 font-medium hover:bg-slate-50 hover:border-[#01696f]/25 transition-all">
             <Upload size={16} className="text-slate-500" />
             Upload PDF
           </button>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/pdf"
-            multiple
-            className="hidden"
-            onChange={handleUploadPdf}
-          />
+          <input ref={fileInputRef} type="file" accept="application/pdf" multiple className="hidden" onChange={handleUploadPdf} />
         </div>
 
         {/* Breadcrumb */}
         <nav className="flex flex-wrap items-center gap-1 text-sm text-slate-500 mb-5">
           <button onClick={() => setPath([])} className="flex items-center gap-1.5 hover:text-[#01696f] transition-colors">
-            <Home size={13} />
-            <span>Report Bank</span>
+            <Home size={13} /><span>Report Bank</span>
           </button>
           {breadcrumbs.map((folder, i) => (
             <span key={folder.id} className="flex items-center gap-1">
               <ChevronRight size={13} className="text-slate-300" />
-              <button
-                onClick={() => setPath(path.slice(0, i + 1))}
-                className={`hover:text-[#01696f] transition-colors ${i === breadcrumbs.length - 1 ? "text-slate-900 font-medium" : ""}`}
-              >
+              <button onClick={() => setPath(path.slice(0, i + 1))}
+                className={`hover:text-[#01696f] transition-colors ${i === breadcrumbs.length - 1 ? "text-slate-900 font-medium" : ""}`}>
                 {folder.name}
               </button>
             </span>
           ))}
         </nav>
 
-        {/* Search bar */}
-        <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center">
+        {/* Search bar + filter */}
+        <div className="mb-5 flex gap-3 items-center">
           <div className="flex h-12 flex-1 items-center rounded-full border border-[#e4e1dc] bg-[#f3f4f6] px-5">
             <Search size={18} className="text-slate-400 flex-shrink-0" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Cari Laporan"
-              className="ml-3 h-full w-full bg-transparent text-[15px] text-slate-700 placeholder:text-slate-400 outline-none"
-            />
-            <button className="rounded-full p-1.5 text-slate-400 hover:bg-white/70 hover:text-[#01696f] transition-all flex-shrink-0">
-              <SlidersHorizontal size={17} />
-            </button>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari Laporan"
+              className="ml-3 h-full w-full bg-transparent text-[15px] text-slate-700 placeholder:text-slate-400 outline-none" />
+            {search && (
+              <button onClick={() => setSearch("")} className="flex-shrink-0 text-slate-400 hover:text-slate-600 transition-colors">
+                <X size={16} />
+              </button>
+            )}
           </div>
+
+          {/* Filter button */}
+          <div className="relative flex-shrink-0" ref={filterBtnRef}>
+            <button
+              onClick={() => setFilterOpen(v => !v)}
+              className={`relative flex items-center gap-2 h-12 px-5 rounded-full border text-sm font-medium transition-all
+                ${ filterOpen || activeFilterCount > 0
+                  ? "border-[#01696f]/40 bg-[#01696f]/5 text-[#01696f]"
+                  : "border-[#e4e1dc] bg-[#f3f4f6] text-slate-500 hover:text-[#01696f] hover:border-[#01696f]/25"
+                }`}
+            >
+              <SlidersHorizontal size={17} />
+              <span>Filter</span>
+              {activeFilterCount > 0 && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#01696f] text-white text-[11px] font-bold">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+            <AnimatePresence>
+              {filterOpen && (
+                <FilterPanel
+                  sort={sort} onSort={s => { setSort(s); setFilterOpen(false) }}
+                  kindFilter={kindFilter} onKindFilter={k => { setKindFilter(k); setFilterOpen(false) }}
+                  onClose={() => setFilterOpen(false)}
+                />
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Select mode toggle */}
+          <button
+            onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
+            className={`flex-shrink-0 h-12 px-5 rounded-full border text-sm font-medium transition-all
+              ${ selectMode
+                ? "border-[#01696f]/40 bg-[#01696f] text-white"
+                : "border-[#e4e1dc] bg-[#f3f4f6] text-slate-500 hover:text-[#01696f] hover:border-[#01696f]/25"
+              }`}
+          >
+            {selectMode ? "Selesai" : "Pilih"}
+          </button>
         </div>
 
         {/* List header */}
         <div className="mb-3 flex items-center justify-between px-2">
-          <p className="text-[13px] font-semibold text-slate-400 uppercase tracking-wider">Report bank</p>
-          <button className="flex items-center gap-1.5 text-[13px] font-medium text-slate-400 hover:text-[#01696f] transition-colors">
+          <div className="flex items-center gap-3">
+            <p className="text-[13px] font-semibold text-slate-400 uppercase tracking-wider">Report bank</p>
+            {selectMode && filteredNodes.length > 0 && (
+              <button onClick={toggleSelectAll}
+                className="flex items-center gap-1.5 text-[13px] font-medium text-[#01696f] hover:text-[#0c4e54] transition-colors">
+                <CheckCheck size={14} />
+                {allSelected ? "Batal semua" : "Pilih semua"}
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setSort(s => s === "date-desc" ? "date-asc" : "date-desc")}
+            className="flex items-center gap-1.5 text-[13px] font-medium text-slate-400 hover:text-[#01696f] transition-colors"
+          >
             <span>Tanggal</span>
-            <ArrowUp size={14} />
+            {sort === "date-desc" ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
           </button>
         </div>
+
+        {/* Bulk delete bar */}
+        <AnimatePresence>
+          {selectMode && selected.size > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              className="mb-3 flex items-center justify-between px-5 py-3 rounded-2xl bg-red-50 border border-red-200"
+            >
+              <p className="text-sm font-medium text-red-700">{selected.size} item dipilih</p>
+              <button onClick={() => setBulkDeleteOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-all">
+                <Trash2 size={14} />
+                Hapus {selected.size} item
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Node list */}
         <div className="space-y-2.5">
@@ -729,7 +867,7 @@ export function LaporanPsikologis() {
             <div className="rounded-2xl border border-dashed border-[#d9d6d0] bg-white py-16 text-center">
               <FolderOpen size={34} className="mx-auto text-slate-200 mb-3" />
               <p className="text-sm font-medium text-slate-400">
-                {search ? "Tidak ada laporan yang cocok dengan pencarian" : "Folder ini masih kosong"}
+                {search ? "Tidak ada laporan yang cocok" : "Folder ini masih kosong"}
               </p>
               <p className="text-xs text-slate-300 mt-1">
                 {search ? `"${search}"` : "Buat folder baru, upload PDF, atau buat laporan"}
@@ -741,8 +879,11 @@ export function LaporanPsikologis() {
                 <NodeRow
                   key={node.id}
                   node={node}
-                  onOpen={() => node.kind === "folder" && setPath([...path, node.id])}
+                  onOpen={() => !selectMode && node.kind === "folder" && setPath([...path, node.id])}
                   onMenuOpen={e => openCtxMenu({ nodeId: node.id, nodeName: node.name, nodeKind: node.kind }, e)}
+                  selectMode={selectMode}
+                  selected={selected.has(node.id)}
+                  onToggleSelect={() => toggleSelect(node.id)}
                 />
               ))}
             </AnimatePresence>
@@ -754,27 +895,28 @@ export function LaporanPsikologis() {
       <AnimatePresence>
         {newFolderOpen && <NewFolderModal onClose={() => setNewFolderOpen(false)} onCreate={createFolder} />}
         {renameTarget && (
-          <RenameModal
-            initialName={renameTarget.nodeName}
-            onClose={() => setRenameTarget(null)}
-            onRename={name => renameNode(renameTarget.nodeId, name)}
-          />
+          <RenameModal initialName={renameTarget.nodeName} onClose={() => setRenameTarget(null)}
+            onRename={name => renameNode(renameTarget.nodeId, name)} />
         )}
         {deleteTarget && (
-          <ConfirmDeleteModal
-            name={deleteTarget.nodeName}
-            onClose={() => setDeleteTarget(null)}
-            onConfirm={() => removeNode(deleteTarget.nodeId)}
-          />
+          <ConfirmDeleteModal name={deleteTarget.nodeName} onClose={() => setDeleteTarget(null)}
+            onConfirm={() => removeNode(deleteTarget.nodeId)} />
+        )}
+        {bulkDeleteOpen && (
+          <Modal title="Hapus Item Terpilih" onClose={() => setBulkDeleteOpen(false)}>
+            <div className="px-5 py-4">
+              <p className="text-sm text-slate-600">Hapus <span className="font-semibold text-slate-900">{selected.size} item</span> yang dipilih? Tindakan ini tidak dapat dibatalkan.</p>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 py-3 bg-slate-50 border-t border-slate-100">
+              <button onClick={() => setBulkDeleteOpen(false)} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Batal</button>
+              <button onClick={removeBulk} className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-all">Hapus</button>
+            </div>
+          </Modal>
         )}
         {ctxMenu && (
-          <CtxMenuPanel
-            menu={ctxMenu.menu}
-            pos={ctxMenu.pos}
-            onClose={() => setCtxMenu(null)}
+          <CtxMenuPanel menu={ctxMenu.menu} pos={ctxMenu.pos} onClose={() => setCtxMenu(null)}
             onRename={() => setRenameTarget(ctxMenu.menu)}
-            onDelete={() => setDeleteTarget(ctxMenu.menu)}
-          />
+            onDelete={() => setDeleteTarget(ctxMenu.menu)} />
         )}
       </AnimatePresence>
 
