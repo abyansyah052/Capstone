@@ -467,7 +467,7 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
               <th className="pl-4 pr-2 py-3 w-10">
                 <Checkbox checked={allSelected} indeterminate={someSelected} onChange={toggleAll} label="Pilih semua" />
               </th>
-              {["Pasien", "ID", "Batch", "Usia", "Telepon", "Kunjungan Terakhir", ""].map((h, i) => (
+              {["Pasien", "ID", "Batch", "Usia", "Telepon", "Tanggal Dibuat", ""].map((h, i) => (
                 <th key={i} className={`px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wider ${
                   i === 6 ? "w-28" : ""
                 }`}>{h}</th>

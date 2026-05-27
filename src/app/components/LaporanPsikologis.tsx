@@ -147,7 +147,7 @@ function ReportPreview({ form }: { form: ReportForm }) {
       <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "14px" }}>
         {/* Asisya logo — use the actual navbar SVG asset */}
         <img
-          src="/SI Capstone 1 Group 2.svg"
+          src="/asisya-consulting.png"
           alt="Asisya Psychological Center"
           style={{ width: "64px", height: "64px", objectFit: "contain", flexShrink: 0 }}
         />

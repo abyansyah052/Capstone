@@ -178,7 +178,7 @@ function PatientSearch({
           value={query}
           onChange={e => { setQuery(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
-          placeholder={selected ? selected.name : "Cari nama atau ID pasien…"}
+          placeholder="Cari pasien"
           className="flex-1 min-w-0 text-sm text-slate-800 placeholder:text-slate-400 bg-transparent focus:outline-none"
         />
         {query && (
