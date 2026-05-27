@@ -567,7 +567,7 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
           <button onClick={onClose} className="hidden sm:flex px-3.5 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-all">Batal</button>
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#01696f] text-white text-sm font-medium hover:bg-[#0c4e54] active:scale-[0.97] transition-all shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#16254c] text-white text-sm font-medium hover:bg-[#0f1a38] active:scale-[0.97] transition-all shadow-sm"
           >
             <Download size={14} />
             <span className="hidden sm:inline">Simpan ke Folder</span>
@@ -738,7 +738,7 @@ function NodeRow({
           </p>
           {pathLabel && (
             <p className="mt-0.5 text-[11px] text-[#01696f]/60 leading-none truncate">
-              \u{1F4C1} {pathLabel}
+              Folder: {pathLabel}
             </p>
           )}
         </div>
@@ -963,7 +963,7 @@ export function LaporanPsikologis() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Cari laporan atau folder\u2026"
+              placeholder="Cari laporan atau folder"
               className="h-full w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 outline-none"
             />
             {search && (
@@ -980,8 +980,8 @@ export function LaporanPsikologis() {
               className={[
                 "relative flex items-center gap-2 h-11 px-4 rounded-full border text-sm font-medium transition-all",
                 filterOpen || activeFilterCount > 0
-                  ? "border-[#01696f]/40 bg-[#01696f]/[0.10] text-[#01696f]"
-                  : "border-[#01696f]/20 bg-[#01696f]/[0.07] text-[#01696f] hover:bg-[#01696f]/[0.12] hover:border-[#01696f]/30",
+                  ? "border-[#16254c]/40 bg-[#16254c]/[0.10] text-[#16254c]"
+                  : "border-[#16254c]/20 bg-[#16254c]/[0.07] text-[#16254c] hover:bg-[#16254c]/[0.12] hover:border-[#16254c]/30",
               ].join(" ")}
               aria-label="Filter"
               aria-expanded={filterOpen}
@@ -989,7 +989,7 @@ export function LaporanPsikologis() {
               <SlidersHorizontal size={16} />
               <span className="hidden sm:inline">Filter</span>
               {activeFilterCount > 0 && (
-                <span className="flex items-center justify-center rounded-full bg-[#01696f] text-white text-[10px] font-bold leading-none" style={{ width: 18, height: 18 }}>
+                <span className="flex items-center justify-center rounded-full bg-[#16254c] text-white text-[10px] font-bold leading-none" style={{ width: 18, height: 18 }}>
                   {activeFilterCount}
                 </span>
               )}
@@ -1013,8 +1013,8 @@ export function LaporanPsikologis() {
             className={[
               "flex-shrink-0 h-11 px-4 rounded-full border text-sm font-medium transition-all",
               selectMode
-                ? "border-[#01696f]/40 bg-[#01696f] text-white"
-                : "border-[#01696f]/20 bg-[#01696f]/[0.07] text-[#01696f] hover:bg-[#01696f]/[0.12] hover:border-[#01696f]/30",
+                ? "border-[#16254c]/40 bg-[#16254c] text-white"
+                : "border-[#16254c]/20 bg-[#16254c]/[0.07] text-[#16254c] hover:bg-[#16254c]/[0.12] hover:border-[#16254c]/30",
             ].join(" ")}
           >
             {selectMode ? "Selesai" : "Pilih"}
