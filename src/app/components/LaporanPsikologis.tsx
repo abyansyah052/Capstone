@@ -2,10 +2,13 @@ import { useState, useRef } from "react"
 import {
   Folder, FolderOpen, FileText, Trash2, Upload,
   ChevronRight, Home, MoreVertical, FilePlus, FolderPlus, X, Download,
+  Search, SlidersHorizontal, ArrowUp, PenLine,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 
+
 // ─── Types ────────────────────────────────────────────────────────────────────
+
 
 interface FsFile {
   id: string
@@ -16,6 +19,7 @@ interface FsFile {
   createdAt: string
 }
 
+
 interface FsFolder {
   id: string
   kind: "folder"
@@ -24,7 +28,9 @@ interface FsFolder {
   children: FsNode[]
 }
 
+
 type FsNode = FsFolder | FsFile
+
 
 interface ReportForm {
   namaLengkap: string
@@ -42,6 +48,7 @@ interface ReportForm {
   saranPengembangan: string
 }
 
+
 const EMPTY_FORM: ReportForm = {
   namaLengkap: "", tempatLahir: "", tanggalLahir: "",
   jenisKelamin: "", usia: "", pendidikan: "",
@@ -50,7 +57,9 @@ const EMPTY_FORM: ReportForm = {
   diagnosisKlinis: "", saranPengembangan: "",
 }
 
+
 // ─── Seed Data ────────────────────────────────────────────────────────────────
+
 
 const INIT_TREE: FsNode[] = [
   {
@@ -73,9 +82,12 @@ const INIT_TREE: FsNode[] = [
   { id: "f3", kind: "folder", name: "Bank Mandiri", createdAt: "2026-03-05", children: [] },
 ]
 
+
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
+
 function uid() { return Math.random().toString(36).slice(2, 10) }
+
 
 function findFolder(nodes: FsNode[], path: string[]): FsFolder | null {
   if (path.length === 0) return null
@@ -85,6 +97,7 @@ function findFolder(nodes: FsNode[], path: string[]): FsFolder | null {
   return findFolder(node.children, path.slice(1))
 }
 
+
 function insertNode(nodes: FsNode[], path: string[], node: FsNode): FsNode[] {
   if (path.length === 0) return [...nodes, node]
   return nodes.map(n => {
@@ -93,11 +106,22 @@ function insertNode(nodes: FsNode[], path: string[], node: FsNode): FsNode[] {
   })
 }
 
+
 function deleteNodeFromTree(nodes: FsNode[], targetId: string): FsNode[] {
   return nodes
     .filter(n => n.id !== targetId)
     .map(n => n.kind === "folder" ? { ...n, children: deleteNodeFromTree(n.children, targetId) } : n)
 }
+
+
+function renameNodeInTree(nodes: FsNode[], targetId: string, nextName: string): FsNode[] {
+  return nodes.map(n => {
+    if (n.id === targetId) return { ...n, name: nextName }
+    if (n.kind === "folder") return { ...n, children: renameNodeInTree(n.children, targetId, nextName) }
+    return n
+  })
+}
+
 
 function getPathFolders(nodes: FsNode[], path: string[]): FsFolder[] {
   const result: FsFolder[] = []
@@ -111,8 +135,9 @@ function getPathFolders(nodes: FsNode[], path: string[]): FsFolder[] {
   return result
 }
 
+
 // ─── PDF Preview ──────────────────────────────────────────────────────────────
-// Colors: black (#111827) and dark navy (#1e3a5f) only — no other hues
+
 
 function ReportPreview({ form }: { form: ReportForm }) {
   const today = new Date().toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
@@ -143,9 +168,7 @@ function ReportPreview({ form }: { form: ReportForm }) {
       padding: "52px 56px",
       color: "#111827",
     }}>
-      {/* Letterhead */}
       <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "14px" }}>
-        {/* Asisya logo — use the actual navbar SVG asset */}
         <img
           src="/asisya-consulting.png"
           alt="Asisya Psychological Center"
@@ -166,7 +189,6 @@ function ReportPreview({ form }: { form: ReportForm }) {
         FORM KONSELING PSIKOLOGIS
       </p>
 
-      {/* Biodata */}
       <p style={{ fontSize: "13px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>Biodata</p>
       <hr style={{ borderColor: "#6b7280", marginBottom: "8px" }} />
       <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "18px" }}>
@@ -181,7 +203,6 @@ function ReportPreview({ form }: { form: ReportForm }) {
         </tbody>
       </table>
 
-      {/* Sections */}
       <p style={{ fontSize: "13px", fontWeight: 700, color: "#111827", marginBottom: "4px" }}>Permasalahan Saat Ini</p>
       <hr style={{ borderColor: "#6b7280", marginBottom: "8px" }} />
       {sectionBox(form.permasalahan, "(Data deskripsi keluhan, gejala awal, dan permasalahan utama yang diinput oleh konselor/psikolog pada form digital akan terdokumentasi secara otomatis)")}
@@ -198,7 +219,6 @@ function ReportPreview({ form }: { form: ReportForm }) {
       <hr style={{ borderColor: "#6b7280", marginBottom: "8px" }} />
       {sectionBox(form.saranPengembangan, "(Rekomendasi tindak lanjut, rencana intervensi klinis lanjutan, tugas mandiri untuk klien, atau saran pengembangan diri spesifik)")}
 
-      {/* Signature */}
       <div style={{ marginTop: "24px", textAlign: "right" }}>
         <p style={{ fontSize: "10px", color: "#374151" }}>Surabaya, {today}</p>
         <div style={{ marginTop: "48px" }}>
@@ -210,7 +230,9 @@ function ReportPreview({ form }: { form: ReportForm }) {
   )
 }
 
+
 // ─── Modals ───────────────────────────────────────────────────────────────────
+
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
@@ -233,6 +255,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   )
 }
 
+
 function NewFolderModal({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string) => void }) {
   const [name, setName] = useState("")
   return (
@@ -252,6 +275,29 @@ function NewFolderModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
   )
 }
 
+
+function RenameModal({ initialName, onClose, onRename }: {
+  initialName: string; onClose: () => void; onRename: (name: string) => void
+}) {
+  const [name, setName] = useState(initialName)
+  return (
+    <Modal title="Rename" onClose={onClose}>
+      <div className="px-5 py-4">
+        <input autoFocus value={name} onChange={e => setName(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && name.trim() && onRename(name.trim())}
+          placeholder="Nama baru"
+          className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#01696f] focus:ring-2 focus:ring-[#01696f]/10 transition-all" />
+      </div>
+      <div className="flex items-center justify-end gap-2 px-5 py-3 bg-slate-50 border-t border-slate-100">
+        <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 transition-colors">Batal</button>
+        <button onClick={() => name.trim() && onRename(name.trim())}
+          className="px-4 py-2 rounded-lg bg-[#01696f] text-white text-sm font-medium hover:bg-[#0c4e54] transition-all">Simpan</button>
+      </div>
+    </Modal>
+  )
+}
+
+
 function ConfirmDeleteModal({ name, onClose, onConfirm }: { name: string; onClose: () => void; onConfirm: () => void }) {
   return (
     <Modal title="Hapus Item" onClose={onClose}>
@@ -266,7 +312,9 @@ function ConfirmDeleteModal({ name, onClose, onConfirm }: { name: string; onClos
   )
 }
 
+
 // ─── Context Menu ─────────────────────────────────────────────────────────────
+
 
 interface CtxMenu {
   nodeId: string
@@ -274,35 +322,51 @@ interface CtxMenu {
   nodeKind: "folder" | "file"
 }
 
-function CtxMenuPanel({ menu, pos, onClose, onDelete }: {
-  menu: CtxMenu; pos: { x: number; y: number }; onClose: () => void; onDelete: () => void
+
+function CtxMenuPanel({ menu, pos, onClose, onDelete, onRename }: {
+  menu: CtxMenu
+  pos: { x: number; y: number }
+  onClose: () => void
+  onDelete: () => void
+  onRename: () => void
 }) {
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <motion.div
-        initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0 }}
+        initial={{ opacity: 0, scale: 0.96, y: 4 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96 }}
         style={{ position: "fixed", top: pos.y, left: pos.x, zIndex: 50 }}
-        className="bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 w-44 overflow-hidden"
+        className="bg-white border border-slate-200 rounded-2xl shadow-[0_12px_32px_rgba(15,23,42,0.12)] py-1.5 w-44 overflow-hidden"
       >
-        <button onClick={() => { onDelete(); onClose() }}
-          className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+        <button
+          onClick={() => { onRename(); onClose() }}
+          className="w-full text-left flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-[#01696f]/5 transition-colors"
+        >
+          <PenLine size={14} />
+          Rename
+        </button>
+        <button
+          onClick={() => { onDelete(); onClose() }}
+          className="w-full text-left flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+        >
           <Trash2 size={14} />
-          Hapus
+          Delete
         </button>
       </motion.div>
     </>
   )
 }
 
+
 // ─── Report Creator ───────────────────────────────────────────────────────────
+
 
 function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name: string, form: ReportForm) => void }) {
   const [form, setForm] = useState<ReportForm>(EMPTY_FORM)
   const set = (k: keyof ReportForm, v: string) => setForm(p => ({ ...p, [k]: v }))
 
-  // GSM-aligned input styles: teal focus ring matching --color-primary
   const inputCls = "w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#01696f] focus:ring-2 focus:ring-[#01696f]/10 transition-all"
   const labelCls = "text-[12px] font-medium text-slate-600 mb-1 block"
   const textareaCls = `${inputCls} resize-none leading-relaxed`
@@ -315,7 +379,6 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
 
   return (
     <div className="fixed inset-0 z-50 bg-[#f7f6f2] flex flex-col overflow-hidden">
-      {/* Top bar — GSM surface/border tokens */}
       <div className="flex items-center justify-between px-6 py-3.5 bg-white border-b border-slate-200 flex-shrink-0">
         <div className="flex items-center gap-3">
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 transition-colors"><X size={18} /></button>
@@ -337,14 +400,9 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
         </div>
       </div>
 
-      {/* Split: form left / PDF preview right */}
       <div className="flex flex-1 overflow-hidden">
-
-        {/* Left: form panel */}
         <div className="w-[400px] flex-shrink-0 overflow-y-auto border-r border-slate-200 bg-white">
           <div className="p-6 flex flex-col gap-5">
-
-            {/* Bio data section */}
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-1 h-4 rounded-full bg-[#01696f]" />
@@ -404,7 +462,6 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
               </div>
             </section>
 
-            {/* Laporan section */}
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-1 h-4 rounded-full bg-[#01696f]" />
@@ -440,7 +497,6 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
           </div>
         </div>
 
-        {/* Right: live PDF preview — zoomed in so it's readable */}
         <div className="flex-1 overflow-auto bg-slate-300 flex items-start justify-center py-10 px-6">
           <div style={{ transform: "scale(1.05)", transformOrigin: "top center", marginBottom: "80px" }}>
             <ReportPreview form={form} />
@@ -451,58 +507,81 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
   )
 }
 
-// ─── Node Card ────────────────────────────────────────────────────────────────
 
-function NodeCard({ node, onOpen, onMenuOpen }: {
-  node: FsNode; onOpen: () => void; onMenuOpen: (e: React.MouseEvent) => void
+// ─── Node Row ─────────────────────────────────────────────────────────────────
+
+
+function NodeRow({ node, onOpen, onMenuOpen }: {
+  node: FsNode
+  onOpen: () => void
+  onMenuOpen: (e: React.MouseEvent) => void
 }) {
   const isFolder = node.kind === "folder"
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-      className="group flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-200 bg-white hover:border-[#01696f]/30 hover:shadow-sm transition-all cursor-pointer"
-      onDoubleClick={isFolder ? onOpen : undefined}
-      onClick={!isFolder ? onOpen : undefined}
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="group flex items-center justify-between gap-4 rounded-2xl border border-[#d9d6d0] bg-white px-5 py-4 transition-all hover:border-[#01696f]/25 hover:shadow-[0_8px_24px_rgba(1,105,111,0.08)]"
     >
-      <div className="flex items-center gap-3 min-w-0">
-        {isFolder
-          ? <Folder size={20} className="text-[#01696f] flex-shrink-0" />
-          : <FileText size={20} className="text-slate-400 flex-shrink-0" />
-        }
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-800 truncate">{node.name}</p>
-          <p className="text-[11px] text-slate-400">
+      <button
+        onClick={onOpen}
+        className="flex min-w-0 flex-1 items-center gap-4 text-left"
+      >
+        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#01696f]/[0.07] text-[#01696f]">
+          {isFolder
+            ? <Folder size={22} strokeWidth={1.8} />
+            : <FileText size={20} strokeWidth={1.8} />
+          }
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-semibold text-slate-900">{node.name}</p>
+          <p className="mt-0.5 text-[12px] text-slate-400">
             {isFolder
-              ? `${(node as FsFolder).children.length} item · ${node.createdAt}`
-              : `PDF · ${(node as FsFile).size} · ${node.createdAt}`
+              ? `${(node as FsFolder).children.length} item`
+              : `PDF · ${(node as FsFile).size}`
             }
           </p>
         </div>
+      </button>
+
+      <div className="hidden shrink-0 text-sm font-medium text-slate-400 md:block">
+        {node.createdAt}
       </div>
+
       <button
         onClick={e => { e.stopPropagation(); onMenuOpen(e) }}
-        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all flex-shrink-0"
+        className="shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-slate-100 hover:text-slate-700 group-hover:text-slate-400"
         aria-label="Opsi"
       >
-        <MoreVertical size={15} />
+        <MoreVertical size={18} />
       </button>
     </motion.div>
   )
 }
 
+
 // ─── Main Export ──────────────────────────────────────────────────────────────
 
-export function DoctorNotes() {
+
+export function LaporanPsikologis() {
   const [tree, setTree] = useState<FsNode[]>(INIT_TREE)
   const [path, setPath] = useState<string[]>([])
   const [newFolderOpen, setNewFolderOpen] = useState(false)
+  const [renameTarget, setRenameTarget] = useState<CtxMenu | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<CtxMenu | null>(null)
   const [ctxMenu, setCtxMenu] = useState<{ menu: CtxMenu; pos: { x: number; y: number } } | null>(null)
   const [reportOpen, setReportOpen] = useState(false)
+  const [search, setSearch] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const currentNodes: FsNode[] =
     path.length === 0 ? tree : findFolder(tree, path)?.children ?? []
+
+  const filteredNodes = currentNodes.filter(node =>
+    node.name.toLowerCase().includes(search.toLowerCase())
+  )
 
   const breadcrumbs = getPathFolders(tree, path)
 
@@ -515,6 +594,11 @@ export function DoctorNotes() {
   const removeNode = (id: string) => {
     setTree(prev => deleteNodeFromTree(prev, id))
     setDeleteTarget(null)
+  }
+
+  const renameNode = (id: string, nextName: string) => {
+    setTree(prev => renameNodeInTree(prev, id, nextName))
+    setRenameTarget(null)
   }
 
   const handleUploadPdf = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -547,35 +631,56 @@ export function DoctorNotes() {
 
   return (
     <>
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className="p-6 max-w-7xl mx-auto">
+
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-xl font-semibold text-slate-900">Psychologist Report Bank</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Kelola laporan psikologis per perusahaan atau klien</p>
+          <h1 className="text-[32px] leading-tight font-semibold tracking-[-0.02em] text-slate-900">
+            Psychological Report Bank
+          </h1>
+          <p className="text-[15px] text-slate-500 mt-1">
+            Kelola laporan psikologis per perusahaan atau klien
+          </p>
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center gap-2 mb-4">
-          <button onClick={() => setNewFolderOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 font-medium hover:bg-slate-50 hover:border-slate-300 transition-all">
-            <FolderPlus size={15} className="text-slate-500" />
-            Folder Baru
-          </button>
-          <button onClick={() => setReportOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#01696f] text-white text-sm font-medium hover:bg-[#0c4e54] transition-all">
-            <FilePlus size={15} />
+        <div className="flex flex-wrap items-center gap-3 mb-5">
+          <button
+            onClick={() => setReportOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#16254c] text-white text-sm font-medium hover:bg-[#0f1a38] transition-all shadow-sm"
+          >
+            <FilePlus size={16} />
             Buat Laporan
           </button>
-          <button onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 font-medium hover:bg-slate-50 hover:border-slate-300 transition-all">
-            <Upload size={15} className="text-slate-500" />
+
+          <button
+            onClick={() => setNewFolderOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#d8d5cf] bg-white text-sm text-slate-700 font-medium hover:bg-slate-50 hover:border-[#01696f]/25 transition-all"
+          >
+            <FolderPlus size={16} className="text-slate-500" />
+            Folder Baru
+          </button>
+
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#d8d5cf] bg-white text-sm text-slate-700 font-medium hover:bg-slate-50 hover:border-[#01696f]/25 transition-all"
+          >
+            <Upload size={16} className="text-slate-500" />
             Upload PDF
           </button>
-          <input ref={fileInputRef} type="file" accept="application/pdf" multiple className="hidden" onChange={handleUploadPdf} />
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf"
+            multiple
+            className="hidden"
+            onChange={handleUploadPdf}
+          />
         </div>
 
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-1 text-sm text-slate-500 mb-4">
+        <nav className="flex flex-wrap items-center gap-1 text-sm text-slate-500 mb-5">
           <button onClick={() => setPath([])} className="flex items-center gap-1.5 hover:text-[#01696f] transition-colors">
             <Home size={13} />
             <span>Report Bank</span>
@@ -585,34 +690,62 @@ export function DoctorNotes() {
               <ChevronRight size={13} className="text-slate-300" />
               <button
                 onClick={() => setPath(path.slice(0, i + 1))}
-                className={`hover:text-[#01696f] transition-colors ${i === breadcrumbs.length - 1 ? "text-slate-900 font-medium" : ""}`}>
+                className={`hover:text-[#01696f] transition-colors ${i === breadcrumbs.length - 1 ? "text-slate-900 font-medium" : ""}`}
+              >
                 {folder.name}
               </button>
             </span>
           ))}
         </nav>
 
-        {/* File grid */}
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          {currentNodes.length === 0 ? (
-            <div className="py-16 flex flex-col items-center gap-2 text-center">
-              <FolderOpen size={36} className="text-slate-200" />
-              <p className="text-sm font-medium text-slate-400">Folder ini masih kosong</p>
-              <p className="text-xs text-slate-300">Buat folder baru, upload PDF, atau buat laporan</p>
+        {/* Search bar */}
+        <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="flex h-12 flex-1 items-center rounded-full border border-[#e4e1dc] bg-[#f3f4f6] px-5">
+            <Search size={18} className="text-slate-400 flex-shrink-0" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Cari Laporan"
+              className="ml-3 h-full w-full bg-transparent text-[15px] text-slate-700 placeholder:text-slate-400 outline-none"
+            />
+            <button className="rounded-full p-1.5 text-slate-400 hover:bg-white/70 hover:text-[#01696f] transition-all flex-shrink-0">
+              <SlidersHorizontal size={17} />
+            </button>
+          </div>
+        </div>
+
+        {/* List header */}
+        <div className="mb-3 flex items-center justify-between px-2">
+          <p className="text-[13px] font-semibold text-slate-400 uppercase tracking-wider">Report bank</p>
+          <button className="flex items-center gap-1.5 text-[13px] font-medium text-slate-400 hover:text-[#01696f] transition-colors">
+            <span>Tanggal</span>
+            <ArrowUp size={14} />
+          </button>
+        </div>
+
+        {/* Node list */}
+        <div className="space-y-2.5">
+          {filteredNodes.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[#d9d6d0] bg-white py-16 text-center">
+              <FolderOpen size={34} className="mx-auto text-slate-200 mb-3" />
+              <p className="text-sm font-medium text-slate-400">
+                {search ? "Tidak ada laporan yang cocok dengan pencarian" : "Folder ini masih kosong"}
+              </p>
+              <p className="text-xs text-slate-300 mt-1">
+                {search ? `"${search}"` : "Buat folder baru, upload PDF, atau buat laporan"}
+              </p>
             </div>
           ) : (
-            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              <AnimatePresence>
-                {currentNodes.map(node => (
-                  <NodeCard
-                    key={node.id}
-                    node={node}
-                    onOpen={() => node.kind === "folder" && setPath([...path, node.id])}
-                    onMenuOpen={e => openCtxMenu({ nodeId: node.id, nodeName: node.name, nodeKind: node.kind }, e)}
-                  />
-                ))}
-              </AnimatePresence>
-            </div>
+            <AnimatePresence>
+              {filteredNodes.map(node => (
+                <NodeRow
+                  key={node.id}
+                  node={node}
+                  onOpen={() => node.kind === "folder" && setPath([...path, node.id])}
+                  onMenuOpen={e => openCtxMenu({ nodeId: node.id, nodeName: node.name, nodeKind: node.kind }, e)}
+                />
+              ))}
+            </AnimatePresence>
           )}
         </div>
       </div>
@@ -620,6 +753,13 @@ export function DoctorNotes() {
       {/* Modals */}
       <AnimatePresence>
         {newFolderOpen && <NewFolderModal onClose={() => setNewFolderOpen(false)} onCreate={createFolder} />}
+        {renameTarget && (
+          <RenameModal
+            initialName={renameTarget.nodeName}
+            onClose={() => setRenameTarget(null)}
+            onRename={name => renameNode(renameTarget.nodeId, name)}
+          />
+        )}
         {deleteTarget && (
           <ConfirmDeleteModal
             name={deleteTarget.nodeName}
@@ -632,6 +772,7 @@ export function DoctorNotes() {
             menu={ctxMenu.menu}
             pos={ctxMenu.pos}
             onClose={() => setCtxMenu(null)}
+            onRename={() => setRenameTarget(ctxMenu.menu)}
             onDelete={() => setDeleteTarget(ctxMenu.menu)}
           />
         )}
