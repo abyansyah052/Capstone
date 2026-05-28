@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import {
   Camera, CheckCircle2, Calendar as CalendarIcon,
   ChevronDown, Plus, Search, Filter,
-  ArrowLeft, Building2, X, Pencil, Trash2
+  ArrowLeft, Building2, X, Pencil, Trash2, Lock,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 
@@ -67,23 +67,70 @@ const calcAge = (dob: string) =>
 const formatDate = (dob: string) =>
   new Date(dob).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
 
+const formatRegistered = (iso: string) =>
+  new Date(iso).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
+
+// ─── Avatar color — unique per name, never all-grey ──────────────────────────
+
+const AVATAR_PALETTE = [
+  "#01696f", // teal (brand primary)
+  "#1e40af", // blue
+  "#6d28d9", // purple
+  "#be185d", // pink
+  "#b45309", // amber
+  "#15803d", // green
+  "#0369a1", // sky
+  "#9f1239", // rose
+]
+
+function avatarColor(name: string): string {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length]
+}
+
 // ─── Field wrapper ─────────────────────────────────────────────────────────────
 
-function Field({ label, id, required, children }: {
-  label: string; id?: string; required?: boolean; children: React.ReactNode
+function Field({ label, id, required, hint, children }: {
+  label: string; id?: string; required?: boolean; hint?: string; children: React.ReactNode
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium text-slate-700">
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+      <label htmlFor={id} className="flex items-center gap-1.5 text-[13px] font-medium text-slate-700">
+        {label}
+        {required && <span className="text-red-500">*</span>}
+        {hint && <span className="ml-auto text-[11px] font-normal text-slate-400">{hint}</span>}
       </label>
       {children}
     </div>
   )
 }
 
-const inputCls = "px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200 transition-all"
-const disabledCls = "px-3.5 py-2.5 rounded-lg border border-slate-100 bg-slate-50 text-sm text-slate-400 italic cursor-not-allowed"
+const inputCls =
+  "px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 " +
+  "placeholder:text-slate-400 focus:outline-none focus:border-[#01696f]/60 " +
+  "focus:ring-2 focus:ring-[#01696f]/10 transition-all"
+
+const disabledCls =
+  "px-3.5 py-2.5 rounded-lg border border-slate-100 bg-slate-50 text-sm text-slate-400 cursor-not-allowed"
+
+// ─── Section Card ─────────────────────────────────────────────────────────────
+
+function SectionCard({ title, badge, children }: {
+  title: string; badge?: React.ReactNode; children: React.ReactNode
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/60">
+        <p className="text-[13px] font-semibold text-slate-700">{title}</p>
+        {badge}
+      </div>
+      <div className="p-5 flex flex-col gap-5">
+        {children}
+      </div>
+    </div>
+  )
+}
 
 // ─── Batch Badge ───────────────────────────────────────────────────────────────
 
@@ -112,14 +159,44 @@ function Checkbox({ checked, indeterminate = false, onChange, label }: {
   return (
     <label className="flex items-center cursor-pointer" aria-label={label}>
       <input ref={ref} type="checkbox" checked={checked} onChange={onChange}
-        className="w-4 h-4 rounded border-slate-300 accent-slate-800 cursor-pointer" />
+        className="w-4 h-4 rounded border-slate-300 accent-[#01696f] cursor-pointer" />
     </label>
   )
 }
 
+// ─── Progress Bar — semantic color ────────────────────────────────────────────
+
+function ProgressBar({ value }: { value: number }) {
+  const color =
+    value >= 80 ? "#15803d" :
+    value >= 40 ? "#b45309" :
+    "#e11d48"
+
+  const label =
+    value >= 80 ? "Hampir selesai" :
+    value >= 40 ? "Sebagian terisi" :
+    "Perlu dilengkapi"
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex justify-between items-center">
+        <span className="text-[12px] text-slate-500">Kelengkapan</span>
+        <span className="text-[12px] font-semibold" style={{ color }}>{value}%</span>
+      </div>
+      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <motion.div
+          className="h-full rounded-full"
+          style={{ backgroundColor: color }}
+          animate={{ width: `${value}%` }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+        />
+      </div>
+      <p className="text-[11px]" style={{ color }}>{label}</p>
+    </div>
+  )
+}
+
 // ─── Delete Modal — Vercel-style ───────────────────────────────────────────────
-// Pattern: type the resource name to confirm, not a generic word.
-// Single patient → type their name. Bulk → type count as number.
 
 type DeleteModalProps = {
   targets: Patient[]
@@ -133,7 +210,6 @@ function DeleteModal({ targets, onConfirm, onCancel }: DeleteModalProps) {
   const phrase = isSingle ? targets[0].name : String(targets.length)
   const valid = input.trim() === phrase
 
-  // Close on Escape
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel() }
     window.addEventListener("keydown", h)
@@ -142,15 +218,12 @@ function DeleteModal({ targets, onConfirm, onCancel }: DeleteModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="delete-title">
-      {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         transition={{ duration: 0.15 }}
         className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"
         onClick={onCancel}
       />
-
-      {/* Dialog panel */}
       <motion.div
         initial={{ opacity: 0, scale: 0.97, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -158,9 +231,7 @@ function DeleteModal({ targets, onConfirm, onCancel }: DeleteModalProps) {
         transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
         className="relative z-10 w-full max-w-[440px] bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden"
       >
-        {/* Body */}
         <div className="p-6 flex flex-col gap-5">
-          {/* Header */}
           <div className="flex flex-col gap-1">
             <h2 id="delete-title" className="text-[15px] font-semibold text-slate-900">
               Hapus {isSingle ? "Peserta" : `${targets.length} Peserta`}
@@ -173,8 +244,6 @@ function DeleteModal({ targets, onConfirm, onCancel }: DeleteModalProps) {
               )}
             </p>
           </div>
-
-          {/* Confirmation input */}
           <div className="flex flex-col gap-2">
             <label htmlFor="delete-confirm" className="text-sm text-slate-600">
               {isSingle ? (
@@ -202,8 +271,6 @@ function DeleteModal({ targets, onConfirm, onCancel }: DeleteModalProps) {
             />
           </div>
         </div>
-
-        {/* Footer — bordered, neutral bg */}
         <div className="flex items-center justify-end gap-2 px-6 py-4 bg-slate-50 border-t border-slate-100">
           <button
             onClick={onCancel}
@@ -243,65 +310,71 @@ function FilterPanel({ filter, onChange, onClose }: {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-      transition={{ duration: 0.13 }}
-      className="absolute right-0 top-full mt-2 z-30 w-68 bg-white rounded-xl border border-slate-200 shadow-lg p-4 flex flex-col gap-4"
+      initial={{ opacity: 0, scale: 0.96, y: -6 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96, y: -6 }}
+      transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+      className="absolute right-0 top-full mt-2 z-30 w-64 bg-white rounded-xl border border-slate-200 shadow-[0_16px_40px_rgba(15,23,42,0.12)] overflow-hidden"
     >
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Filter & Urutkan</span>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/70">
+        <span className="text-[12px] font-semibold text-slate-600 uppercase tracking-wider">Filter & Urutkan</span>
         <button onClick={onClose} className="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
           <X size={13} />
         </button>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Urutkan</span>
-        <div className="grid grid-cols-2 gap-1">
-          {([
-            { val: "newest",  label: "Terbaru" },
-            { val: "oldest",  label: "Terlama" },
-            { val: "name_az", label: "Nama A–Z" },
-            { val: "name_za", label: "Nama Z–A" },
-          ] as { val: SortOption; label: string }[]).map(o => (
-            <button key={o.val} onClick={() => upd("sort", o.val)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                filter.sort === o.val
-                  ? "bg-slate-900 text-white"
-                  : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-              }`}>
-              {o.label}
-            </button>
-          ))}
+      <div className="p-3 flex flex-col gap-3">
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-1">Urutkan</span>
+          <div className="grid grid-cols-2 gap-1">
+            {([
+              { val: "newest",  label: "Terbaru" },
+              { val: "oldest",  label: "Terlama" },
+              { val: "name_az", label: "Nama A–Z" },
+              { val: "name_za", label: "Nama Z–A" },
+            ] as { val: SortOption; label: string }[]).map(o => (
+              <button key={o.val} onClick={() => upd("sort", o.val)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  filter.sort === o.val
+                    ? "bg-[#01696f] text-white shadow-sm"
+                    : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                }`}>
+                {o.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
-      <div className="flex flex-col gap-1.5">
-        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Batch</span>
-        <div className="flex flex-col gap-0.5">
-          <button onClick={() => upd("batchId", "")}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium text-left transition-all ${
-              filter.batchId === "" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"
-            }`}>
-            Semua Batch
+        <div className="border-t border-slate-100" />
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-1">Batch</span>
+          <div className="flex flex-col gap-0.5">
+            <button onClick={() => upd("batchId", "")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium text-left transition-all ${
+                filter.batchId === "" ? "bg-[#01696f] text-white" : "text-slate-600 hover:bg-slate-50"
+              }`}>
+              Semua Batch
+            </button>
+            {BATCHES.map(b => (
+              <button key={b.id} onClick={() => upd("batchId", b.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium text-left flex items-center gap-2 transition-all ${
+                  filter.batchId === b.id ? "bg-[#01696f] text-white" : "text-slate-600 hover:bg-slate-50"
+                }`}>
+                <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: b.color }} />
+                <span className="flex-1 truncate">{b.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {(filter.sort !== "newest" || filter.batchId !== "") && (
+          <button onClick={() => onChange({ sort: "newest", batchId: "" })}
+            className="text-[11px] text-[#01696f] hover:text-[#0c4e54] font-semibold transition-all self-start px-1">
+            ↺ Atur ulang filter
           </button>
-          {BATCHES.map(b => (
-            <button key={b.id} onClick={() => upd("batchId", b.id)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium text-left flex items-center gap-2 transition-all ${
-                filter.batchId === b.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"
-              }`}>
-              <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: b.color }} />
-              <span className="flex-1 truncate">{b.name}</span>
-            </button>
-          ))}
-        </div>
+        )}
       </div>
-
-      {(filter.sort !== "newest" || filter.batchId !== "") && (
-        <button onClick={() => onChange({ sort: "newest", batchId: "" })}
-          className="text-[11px] text-slate-400 hover:text-slate-700 font-medium transition-all self-start">
-          Atur ulang
-        </button>
-      )}
     </motion.div>
   )
 }
@@ -370,15 +443,15 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
             <button
               onClick={() => setShowFilter(v => !v)}
               className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg border text-sm font-medium transition-all ${
-                activeFilters > 0
-                  ? "border-slate-400 bg-slate-900 text-white"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                showFilter || activeFilters > 0
+                  ? "border-[#01696f]/40 bg-[#01696f]/[0.08] text-[#01696f]"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-[#01696f]/25 hover:bg-[#01696f]/[0.04]"
               }`}
             >
               <Filter size={14} />
               Filter
               {activeFilters > 0 && (
-                <span className="ml-0.5 w-4 h-4 rounded-full bg-white/20 text-white text-[10px] font-bold flex items-center justify-center">
+                <span className="ml-0.5 w-4 h-4 rounded-full bg-[#01696f] text-white text-[10px] font-bold flex items-center justify-center">
                   {activeFilters}
                 </span>
               )}
@@ -391,7 +464,7 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
           </div>
           <button
             onClick={onNew}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 active:bg-slate-950 transition-all"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#16254c] text-white text-sm font-medium hover:bg-[#0f1a38] active:bg-[#0a1128] transition-all shadow-sm"
           >
             <Plus size={14} />
             Pasien Baru
@@ -447,27 +520,27 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
       </AnimatePresence>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-[0_1px_4px_rgba(15,23,42,0.05)]">
         {/* Search bar */}
-        <div className="px-4 py-3 border-b border-slate-100">
+        <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/40">
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Cari nama, nomor ID, atau telepon…"
-              className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-slate-300 focus:bg-white transition-all"
+              className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#01696f]/50 focus:ring-2 focus:ring-[#01696f]/10 transition-all"
             />
           </div>
         </div>
 
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-100">
+            <tr className="border-b border-slate-100 bg-slate-50/30">
               <th className="pl-4 pr-2 py-3 w-10">
                 <Checkbox checked={allSelected} indeterminate={someSelected} onChange={toggleAll} label="Pilih semua" />
               </th>
-              {["Pasien", "ID", "Batch", "Usia", "Telepon", "Tanggal Dibuat", ""].map((h, i) => (
+              {["Pasien", "ID", "Batch", "Usia", "Telepon", "Terdaftar", ""].map((h, i) => (
                 <th key={i} className={`px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wider ${
                   i === 6 ? "w-28" : ""
                 }`}>{h}</th>
@@ -478,15 +551,17 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
             {processed.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-5 py-16 text-center">
+                  <Search size={28} className="mx-auto text-slate-200 mb-3" />
                   <p className="text-sm font-medium text-slate-400">Tidak ada data yang sesuai</p>
                   <p className="text-xs text-slate-300 mt-1">Coba ubah kata kunci atau filter</p>
                 </td>
               </tr>
             ) : processed.map(p => {
               const isSelected = selectedIds.has(p.id)
+              const bgColor = avatarColor(p.name)
               return (
                 <tr key={p.id} className={`transition-colors ${
-                  isSelected ? "bg-slate-50" : "hover:bg-slate-50/60"
+                  isSelected ? "bg-[#01696f]/[0.03]" : "hover:bg-slate-50/60"
                 }`}>
                   <td className="pl-4 pr-2 py-3.5 w-10">
                     <Checkbox checked={isSelected} onChange={() => toggleOne(p.id)} label={`Pilih ${p.name}`} />
@@ -494,7 +569,10 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
 
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 bg-slate-700">
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
+                        style={{ backgroundColor: bgColor }}
+                      >
                         {p.initials}
                       </div>
                       <div>
@@ -518,9 +596,10 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
 
                   <td className="px-4 py-3.5 text-slate-600 text-xs">{p.phone}</td>
 
-                  <td className="px-4 py-3.5 text-slate-500 text-xs">{p.lastVisit}</td>
+                  <td className="px-4 py-3.5 text-slate-500 text-xs tabular-nums">
+                    {formatRegistered(p.registeredAt)}
+                  </td>
 
-                  {/* Row actions — ALWAYS visible, not hover-only */}
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-1">
                       <button
@@ -546,21 +625,13 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
           </tbody>
         </table>
 
-        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-          <p className="text-xs text-slate-400">Menampilkan {processed.length} dari {patients.length} data</p>
-          <div className="flex items-center gap-0.5">
-            <button className="w-7 h-7 rounded-md text-slate-400 hover:bg-slate-100 text-xs transition-all">‹</button>
-            {[1, 2, 3].map(n => (
-              <button key={n} className={`w-7 h-7 rounded-md text-xs font-medium transition-all ${
-                n === 1 ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100"
-              }`}>{n}</button>
-            ))}
-            <button className="w-7 h-7 rounded-md text-slate-400 hover:bg-slate-100 text-xs transition-all">›</button>
-          </div>
+        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50/30">
+          <p className="text-xs text-slate-400">
+            Menampilkan <span className="font-medium text-slate-600">{processed.length}</span> dari <span className="font-medium text-slate-600">{patients.length}</span> peserta
+          </p>
         </div>
       </div>
 
-      {/* Delete confirmation modal */}
       <AnimatePresence>
         {deleteTargets !== null && (
           <DeleteModal
@@ -596,6 +667,7 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
   }, [form])
 
   const age = form.dateOfBirth ? calcAge(form.dateOfBirth) : null
+  const isReadyToSubmit = completeness === 100
 
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -609,23 +681,31 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start gap-3">
-        <button onClick={onBack} className="mt-0.5 p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all">
+      {/* Page header */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onBack}
+          className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300 transition-all"
+          aria-label="Kembali"
+        >
           <ArrowLeft size={15} />
         </button>
         <div>
           <h1 className="text-xl font-semibold text-slate-900">Registrasi Pasien Baru</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Kolom bertanda * wajib diisi.</p>
+          <p className="text-sm text-slate-500 mt-0.5">Kolom bertanda <span className="text-red-500">*</span> wajib diisi.</p>
         </div>
       </div>
 
-      <form className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pb-20" onSubmit={e => e.preventDefault()}>
-        <div className="lg:col-span-8 flex flex-col gap-5">
+      <form
+        className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start pb-20"
+        onSubmit={e => e.preventDefault()}
+      >
+        {/* ── Left column ── */}
+        <div className="lg:col-span-8 flex flex-col gap-4">
 
           {/* Data Pribadi */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col gap-5">
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Data Pribadi</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <SectionCard title="Data Pribadi">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field label="Nama Lengkap" id="fullName" required>
                 <input id="fullName" value={form.fullName} onChange={e => set("fullName", e.target.value)}
                   placeholder="contoh: Budi Santoso" className={inputCls} />
@@ -637,11 +717,15 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
                   <CalendarIcon size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
               </Field>
-              <Field label="Usia">
-                <div className="flex items-center gap-2">
-                  <input disabled value={age !== null ? `${age} tahun` : ""} placeholder="Terhitung otomatis"
-                    className={`${disabledCls} flex-1`} />
-                  {age !== null && <span className="text-xs text-slate-400 whitespace-nowrap">{formatDate(form.dateOfBirth)}</span>}
+              <Field label="Usia" hint="Otomatis">
+                <div className="relative flex items-center">
+                  <input
+                    disabled
+                    value={age !== null ? `${age} tahun${form.dateOfBirth ? "  ·  " + formatDate(form.dateOfBirth) : ""}` : ""}
+                    placeholder="Terhitung dari tanggal lahir"
+                    className={`${disabledCls} w-full pr-9`}
+                  />
+                  <Lock size={12} className="absolute right-3 text-slate-300 pointer-events-none" />
                 </div>
               </Field>
               <Field label="Jenis Kelamin" id="gender" required>
@@ -661,21 +745,22 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
                   placeholder="Jabatan, nama instansi" className={inputCls} />
               </Field>
             </div>
-          </div>
+          </SectionCard>
 
           {/* Batch */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col gap-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Batch / Grup</h3>
-              {selectedBatch && (
+          <SectionCard
+            title="Batch / Grup"
+            badge={
+              selectedBatch ? (
                 <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold text-white"
                   style={{ backgroundColor: selectedBatch.color }}>
                   <Building2 size={10} />
                   {selectedBatch.id}
                 </span>
-              )}
-            </div>
-            <Field label="Batch" id="batchId">
+              ) : undefined
+            }
+          >
+            <Field label="Pilih Batch" id="batchId">
               <div className="relative">
                 <select id="batchId" value={form.batchId} onChange={e => set("batchId", e.target.value)}
                   className={`${inputCls} w-full appearance-none pr-9`}>
@@ -687,21 +772,31 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>
             </Field>
-            {selectedBatch && (
-              <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-slate-50 border border-slate-100">
-                <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: selectedBatch.color }} />
-                <div>
-                  <p className="text-sm font-medium text-slate-700">{selectedBatch.name}</p>
-                  <p className="text-xs text-slate-400">{selectedBatch.company}</p>
-                </div>
-              </div>
-            )}
-          </div>
+            <AnimatePresence>
+              {selectedBatch && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                  className="overflow-hidden"
+                >
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-lg border mt-1"
+                    style={{ backgroundColor: selectedBatch.color + "10", borderColor: selectedBatch.color + "30" }}>
+                    <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: selectedBatch.color }} />
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">{selectedBatch.name}</p>
+                      <p className="text-xs text-slate-500">{selectedBatch.company}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </SectionCard>
 
           {/* Kontak */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col gap-5">
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Informasi Kontak</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <SectionCard title="Informasi Kontak">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field label="Nomor Telepon" id="phone" required>
                 <input id="phone" type="tel" value={form.phone} onChange={e => set("phone", e.target.value)}
                   placeholder="+62 812 0000 0000" className={inputCls} />
@@ -711,12 +806,11 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
                   placeholder="pasien@example.com" className={inputCls} />
               </Field>
             </div>
-          </div>
+          </SectionCard>
 
           {/* Alamat */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col gap-5">
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Alamat</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <SectionCard title="Alamat">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field label="Negara" id="country">
                 <div className="relative">
                   <select id="country" value={form.country} onChange={e => set("country", e.target.value)}
@@ -743,84 +837,90 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
                 placeholder="Jl. Raya No. 123, Kec. …" rows={3}
                 className={`${inputCls} resize-none`} />
             </Field>
-          </div>
+          </SectionCard>
         </div>
 
-        {/* Right column */}
+        {/* ── Right column ── */}
         <div className="lg:col-span-4 flex flex-col gap-4 sticky top-6">
-          {/* Photo */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col gap-3">
-            <div>
-              <h3 className="text-sm font-medium text-slate-700">Foto Pasien</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Opsional. Untuk identifikasi internal.</p>
+
+          {/* Photo upload */}
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/60">
+              <p className="text-[13px] font-semibold text-slate-700">Foto Pasien</p>
             </div>
-            <div className="flex justify-center py-2">
+            <div className="p-5 flex flex-col gap-3 items-center">
               <motion.div
                 whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.985 }}
                 onClick={() => fileRef.current?.click()}
-                className="w-36 h-36 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center bg-slate-50 hover:border-slate-400 hover:bg-slate-100/50 transition-all cursor-pointer overflow-hidden"
+                className="w-32 h-32 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center bg-slate-50 hover:border-[#01696f]/40 hover:bg-[#01696f]/[0.03] transition-all cursor-pointer overflow-hidden"
               >
                 {form.photo ? (
                   <img src={form.photo} alt="preview" className="w-full h-full object-cover" />
                 ) : (
                   <div className="flex flex-col items-center gap-2">
-                    <Camera size={20} className="text-slate-400" />
-                    <span className="text-[11px] text-slate-400">Unggah Foto</span>
+                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                      <Camera size={18} className="text-slate-400" />
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-medium">Unggah Foto</span>
                   </div>
                 )}
               </motion.div>
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
+              <p className="text-[11px] text-slate-400 text-center">JPG, PNG · Maks. 5 MB<br />Opsional — untuk identifikasi internal</p>
             </div>
           </div>
 
           {/* Summary */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col gap-4">
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Ringkasan</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-500">Status</span>
-                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">Draft</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-500">Tanggal</span>
-                <span className="text-xs font-medium text-slate-700">
-                  {new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
-                </span>
-              </div>
-              {selectedBatch && (
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-500">Batch</span>
-                  <span className="text-xs font-semibold text-white px-2 py-0.5 rounded-md"
-                    style={{ backgroundColor: selectedBatch.color }}>
-                    {selectedBatch.id}
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/60">
+              <p className="text-[13px] font-semibold text-slate-700">Ringkasan</p>
+            </div>
+            <div className="p-5 flex flex-col gap-4">
+              <div className="space-y-2.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-[13px] text-slate-500">Status</span>
+                  <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">Draft</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[13px] text-slate-500">Tanggal</span>
+                  <span className="text-[13px] font-medium text-slate-700">
+                    {new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
                   </span>
                 </div>
-              )}
-              <div className="flex flex-col gap-1.5">
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-500">Kelengkapan</span>
-                  <span className="font-medium text-slate-600">{completeness}%</span>
-                </div>
-                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-slate-700 rounded-full"
-                    animate={{ width: `${completeness}%` }}
-                    transition={{ duration: 0.35, ease: "easeOut" }}
-                  />
-                </div>
+                {selectedBatch && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-[13px] text-slate-500">Batch</span>
+                    <span className="text-xs font-semibold text-white px-2 py-0.5 rounded-md"
+                      style={{ backgroundColor: selectedBatch.color }}>
+                      {selectedBatch.id}
+                    </span>
+                  </div>
+                )}
               </div>
+              <div className="border-t border-slate-100" />
+              <ProgressBar value={completeness} />
             </div>
           </div>
 
           {/* Actions */}
           <div className="flex flex-col gap-2">
-            <button type="submit"
-              className="w-full py-3 rounded-lg bg-slate-900 text-white text-sm font-medium flex items-center justify-center gap-2 hover:bg-slate-800 active:bg-slate-950 transition-all">
+            <button
+              type="submit"
+              disabled={!isReadyToSubmit}
+              title={!isReadyToSubmit ? "Lengkapi semua kolom wajib terlebih dahulu" : undefined}
+              className={`w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
+                isReadyToSubmit
+                  ? "bg-[#16254c] text-white hover:bg-[#0f1a38] active:bg-[#0a1128] shadow-sm"
+                  : "bg-slate-100 text-slate-400 cursor-not-allowed"
+              }`}
+            >
               <CheckCircle2 size={15} />
               Selesaikan Registrasi
             </button>
-            <button type="button"
-              className="w-full py-3 rounded-lg bg-white border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 active:bg-slate-100 transition-all">
+            <button
+              type="button"
+              className="w-full py-3 rounded-xl bg-white border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 active:bg-slate-100 transition-all"
+            >
               Simpan sebagai Draft
             </button>
           </div>
