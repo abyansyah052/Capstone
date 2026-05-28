@@ -315,7 +315,7 @@ function NewFolderModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
         <button
           onClick={submit}
           disabled={!name.trim()}
-          className="px-4 py-2 rounded-xl bg-[#01696f] text-white text-sm font-medium hover:bg-[#0c4e54] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          className="px-4 py-2 rounded-xl bg-[#16254c] text-white text-sm font-medium hover:bg-[#0f1a38] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
           Buat Folder
         </button>
@@ -688,14 +688,11 @@ function NodeRow({
   const isFolder = node.kind === "folder"
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -4 }}
-      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+    <div
       className={[
-        "group relative flex items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-3.5 transition-all duration-150",
+        "group relative flex items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-3.5",
+        "transition-[border-color,box-shadow,transform,opacity] duration-150",
+        "opacity-100 translate-y-0",
         selected
           ? "border-[#01696f]/40 bg-[#01696f]/[0.025] shadow-[0_0_0_2px_rgba(1,105,111,0.1)]"
           : "border-[#e2dfd9] hover:border-[#01696f]/20 hover:shadow-[0_4px_16px_rgba(1,105,111,0.07)]",
@@ -759,7 +756,7 @@ function NodeRow({
           <MoreVertical size={17} />
         </button>
       )}
-    </motion.div>
+    </div>
   )
 }
 
@@ -774,6 +771,7 @@ export function LaporanPsikologis() {
   const [ctxMenu, setCtxMenu]             = useState<{ menu: CtxMenu; pos: { x: number; y: number } } | null>(null)
   const [reportOpen, setReportOpen]       = useState(false)
   const [search, setSearch]               = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [sort, setSort]                   = useState<SortKey>("date-desc")
   const [kindFilter, setKindFilter]       = useState<KindFilter>("all")
   const [filterOpen, setFilterOpen]       = useState(false)
@@ -785,20 +783,25 @@ export function LaporanPsikologis() {
   const currentNodes: FsNode[] =
     path.length === 0 ? tree : findFolder(tree, path)?.children ?? []
 
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearch(search), 200)
+    return () => clearTimeout(handle)
+  }, [search])
+
   // Deep search: bila ada query/filter aktif, cari rekursif di seluruh subtree aktif
-  const isDeepSearch = search.trim() !== "" || kindFilter !== "all"
+  const isDeepSearch = debouncedSearch.trim() !== "" || kindFilter !== "all"
 
   const filteredNodes: FsNode[] = isDeepSearch
     ? sortNodes(
         collectSubtree(currentNodes, path)
-          .filter(h => h.node.name.toLowerCase().includes(search.toLowerCase()))
+          .filter(h => h.node.name.toLowerCase().includes(debouncedSearch.toLowerCase()))
           .filter(h => kindFilter === "all" ? true : h.node.kind === kindFilter)
           .map(h => h.node),
         sort,
       )
     : sortNodes(
         currentNodes
-          .filter(n => n.name.toLowerCase().includes(search.toLowerCase()))
+          .filter(n => n.name.toLowerCase().includes(debouncedSearch.toLowerCase()))
           .filter(n => kindFilter === "all" ? true : n.kind === kindFilter),
         sort,
       )
@@ -806,7 +809,7 @@ export function LaporanPsikologis() {
   // Hits dengan info path untuk ditampilkan di NodeRow saat mode deep search
   const deepHits: SearchHit[] = isDeepSearch
     ? collectSubtree(currentNodes, path)
-        .filter(h => h.node.name.toLowerCase().includes(search.toLowerCase()))
+      .filter(h => h.node.name.toLowerCase().includes(debouncedSearch.toLowerCase()))
         .filter(h => kindFilter === "all" ? true : h.node.kind === kindFilter)
     : []
 
@@ -1072,23 +1075,18 @@ export function LaporanPsikologis() {
 
         {/* Node list */}
         <div className="space-y-2">
-          <AnimatePresence mode="popLayout">
             {filteredNodes.length === 0 ? (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="rounded-2xl border border-dashed border-[#dedad4] bg-white py-14 text-center"
-              >
+              <div className="rounded-2xl border border-dashed border-[#dedad4] bg-white py-14 text-center">
                 <FolderOpen size={32} className="mx-auto text-slate-200 mb-3" />
                 <p className="text-[14px] font-medium text-slate-400">
-                  {search ? `Tidak ada hasil untuk \u201c${search}\u201d` : "Folder ini masih kosong"}
+                  {debouncedSearch ? `Tidak ada hasil untuk \u201c${debouncedSearch}\u201d` : "Folder ini masih kosong"}
                 </p>
                 <p className="text-[12px] text-slate-300 mt-1">
-                  {search
+                  {debouncedSearch
                     ? "Coba kata kunci lain atau hapus filter"
                     : "Buat folder baru, upload PDF, atau buat laporan psikologis"}
                 </p>
-              </motion.div>
+              </div>
             ) : (
               filteredNodes.map(node => (
                 <NodeRow
@@ -1126,7 +1124,6 @@ export function LaporanPsikologis() {
                 />
               ))
             )}
-          </AnimatePresence>
         </div>
       </div>
 
