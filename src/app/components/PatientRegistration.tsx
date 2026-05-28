@@ -70,23 +70,35 @@ const formatDate = (dob: string) =>
 const formatRegistered = (iso: string) =>
   new Date(iso).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
 
-// ─── Avatar color — unique per name, never all-grey ──────────────────────────
+// ─── Avatar color — unique per name ───────────────────────────────────────────
 
 const AVATAR_PALETTE = [
-  "#01696f", // teal (brand primary)
-  "#1e40af", // blue
-  "#6d28d9", // purple
-  "#be185d", // pink
-  "#b45309", // amber
-  "#15803d", // green
-  "#0369a1", // sky
-  "#9f1239", // rose
+  "#01696f", "#1e40af", "#6d28d9", "#be185d",
+  "#b45309", "#15803d", "#0369a1", "#9f1239",
 ]
 
 function avatarColor(name: string): string {
   let hash = 0
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
   return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length]
+}
+
+// ─── Gender pill ───────────────────────────────────────────────────────────────
+// Standalone, never merged with age. Standard in any clinical/admin system.
+
+function GenderPill({ gender }: { gender: string }) {
+  const isFemale = gender === "F"
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold tracking-wide ${
+        isFemale
+          ? "bg-pink-50 text-pink-700 ring-1 ring-pink-200/60"
+          : "bg-sky-50 text-sky-700 ring-1 ring-sky-200/60"
+      }`}
+    >
+      {isFemale ? "P" : "L"}
+    </span>
+  )
 }
 
 // ─── Field wrapper ─────────────────────────────────────────────────────────────
@@ -114,7 +126,7 @@ const inputCls =
 const disabledCls =
   "px-3.5 py-2.5 rounded-lg border border-slate-100 bg-slate-50 text-sm text-slate-400 cursor-not-allowed"
 
-// ─── Section Card ─────────────────────────────────────────────────────────────
+// ─── Section Card ──────────────────────────────────────────────────────────────
 
 function SectionCard({ title, badge, children }: {
   title: string; badge?: React.ReactNode; children: React.ReactNode
@@ -139,7 +151,7 @@ function BatchBadge({ batchId }: { batchId: string }) {
   if (!batch) return null
   return (
     <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold text-white whitespace-nowrap"
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold text-white whitespace-nowrap"
       style={{ backgroundColor: batch.color }}
     >
       {batch.id}
@@ -147,7 +159,18 @@ function BatchBadge({ batchId }: { batchId: string }) {
   )
 }
 
-// ─── Checkbox ──────────────────────────────────────────────────────────────────
+// ─── Table column header ───────────────────────────────────────────────────────
+// Subtle, not uppercase-heavy. Linear / Notion style.
+
+function TH({ children, className = "" }: { children?: React.ReactNode; className?: string }) {
+  return (
+    <th className={`px-3 py-3 text-left text-[11px] font-semibold text-slate-400 ${className}`}>
+      {children}
+    </th>
+  )
+}
+
+// ─── Checkbox ─────────────────────────────────────────────────────────────────
 
 function Checkbox({ checked, indeterminate = false, onChange, label }: {
   checked: boolean; indeterminate?: boolean; onChange: () => void; label?: string
@@ -317,7 +340,7 @@ function FilterPanel({ filter, onChange, onClose }: {
       className="absolute right-0 top-full mt-2 z-30 w-64 bg-white rounded-xl border border-slate-200 shadow-[0_16px_40px_rgba(15,23,42,0.12)] overflow-hidden"
     >
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/70">
-        <span className="text-[12px] font-semibold text-slate-600 uppercase tracking-wider">Filter & Urutkan</span>
+        <span className="text-[12px] font-semibold text-slate-600">Filter &amp; Urutkan</span>
         <button onClick={onClose} className="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
           <X size={13} />
         </button>
@@ -325,7 +348,7 @@ function FilterPanel({ filter, onChange, onClose }: {
 
       <div className="p-3 flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-1">Urutkan</span>
+          <span className="text-[11px] font-semibold text-slate-400 px-1">Urutkan</span>
           <div className="grid grid-cols-2 gap-1">
             {([
               { val: "newest",  label: "Terbaru" },
@@ -348,7 +371,7 @@ function FilterPanel({ filter, onChange, onClose }: {
         <div className="border-t border-slate-100" />
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-1">Batch</span>
+          <span className="text-[11px] font-semibold text-slate-400 px-1">Batch</span>
           <div className="flex flex-col gap-0.5">
             <button onClick={() => upd("batchId", "")}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium text-left transition-all ${
@@ -540,17 +563,20 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
               <th className="pl-4 pr-2 py-3 w-10">
                 <Checkbox checked={allSelected} indeterminate={someSelected} onChange={toggleAll} label="Pilih semua" />
               </th>
-              {["Pasien", "ID", "Batch", "Usia", "Telepon", "Terdaftar", ""].map((h, i) => (
-                <th key={i} className={`px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wider ${
-                  i === 6 ? "w-28" : ""
-                }`}>{h}</th>
-              ))}
+              <TH>Pasien</TH>
+              <TH>No. ID</TH>
+              <TH>Batch</TH>
+              <TH>Usia</TH>
+              <TH>Kelamin</TH>
+              <TH>Telepon</TH>
+              <TH>Terdaftar</TH>
+              <TH className="w-24" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
             {processed.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-5 py-16 text-center">
+                <td colSpan={9} className="px-5 py-16 text-center">
                   <Search size={28} className="mx-auto text-slate-200 mb-3" />
                   <p className="text-sm font-medium text-slate-400">Tidak ada data yang sesuai</p>
                   <p className="text-xs text-slate-300 mt-1">Coba ubah kata kunci atau filter</p>
@@ -567,8 +593,9 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
                     <Checkbox checked={isSelected} onChange={() => toggleOne(p.id)} label={`Pilih ${p.name}`} />
                   </td>
 
-                  <td className="px-4 py-3.5">
-                    <div className="flex items-center gap-3">
+                  {/* Pasien */}
+                  <td className="px-3 py-3.5">
+                    <div className="flex items-center gap-2.5">
                       <div
                         className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
                         style={{ backgroundColor: bgColor }}
@@ -576,31 +603,42 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
                         {p.initials}
                       </div>
                       <div>
-                        <p className="font-medium text-slate-800">{p.name}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{p.email}</p>
+                        <p className="font-medium text-slate-800 leading-snug">{p.name}</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">{p.email}</p>
                       </div>
                     </div>
                   </td>
 
-                  <td className="px-4 py-3.5">
+                  {/* No. ID */}
+                  <td className="px-3 py-3.5">
                     <span className="font-mono text-xs text-slate-500">{p.idNumber}</span>
                   </td>
 
-                  <td className="px-4 py-3.5">
+                  {/* Batch */}
+                  <td className="px-3 py-3.5">
                     <BatchBadge batchId={p.batchId} />
                   </td>
 
-                  <td className="px-4 py-3.5 text-slate-600 text-xs">
-                    {p.age} th &bull; {p.gender === "F" ? "P" : "L"}
+                  {/* Usia — angka saja, tanpa gender */}
+                  <td className="px-3 py-3.5 tabular-nums text-xs text-slate-600">
+                    {p.age} th
                   </td>
 
-                  <td className="px-4 py-3.5 text-slate-600 text-xs">{p.phone}</td>
+                  {/* Kelamin — standalone pill, bukan gabungan */}
+                  <td className="px-3 py-3.5">
+                    <GenderPill gender={p.gender} />
+                  </td>
 
-                  <td className="px-4 py-3.5 text-slate-500 text-xs tabular-nums">
+                  {/* Telepon */}
+                  <td className="px-3 py-3.5 text-xs text-slate-600 tabular-nums">{p.phone}</td>
+
+                  {/* Terdaftar */}
+                  <td className="px-3 py-3.5 text-xs text-slate-500 tabular-nums whitespace-nowrap">
                     {formatRegistered(p.registeredAt)}
                   </td>
 
-                  <td className="px-4 py-3.5">
+                  {/* Aksi */}
+                  <td className="px-3 py-3.5">
                     <div className="flex items-center gap-1">
                       <button
                         title="Edit peserta"
@@ -625,7 +663,7 @@ function PatientDirectory({ onNew }: { onNew: () => void }) {
           </tbody>
         </table>
 
-        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50/30">
+        <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/30">
           <p className="text-xs text-slate-400">
             Menampilkan <span className="font-medium text-slate-600">{processed.length}</span> dari <span className="font-medium text-slate-600">{patients.length}</span> peserta
           </p>
@@ -752,7 +790,7 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
             title="Batch / Grup"
             badge={
               selectedBatch ? (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold text-white"
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold text-white"
                   style={{ backgroundColor: selectedBatch.color }}>
                   <Building2 size={10} />
                   {selectedBatch.id}
@@ -890,7 +928,7 @@ function RegistrationForm({ onBack }: { onBack: () => void }) {
                 {selectedBatch && (
                   <div className="flex justify-between items-center">
                     <span className="text-[13px] text-slate-500">Batch</span>
-                    <span className="text-xs font-semibold text-white px-2 py-0.5 rounded-md"
+                    <span className="text-xs font-semibold text-white px-2 py-0.5 rounded"
                       style={{ backgroundColor: selectedBatch.color }}>
                       {selectedBatch.id}
                     </span>
