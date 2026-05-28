@@ -22,16 +22,29 @@ interface PsychPatient {
   patientId: string
   name: string
   dateOfBirth: string
-  batchId: string
+  batchId: string   // matches Batch.id from PatientRegistration (e.g. "B001")
   records: PsychRecord[]
 }
+
+// ─── Batch Master Data (mirrored from PatientRegistration) ───────────────────────
+// Keep this in sync with BATCHES in PatientRegistration.tsx
+// TODO: extract to src/lib/batches.ts for a single source of truth
+
+const BATCHES = [
+  { id: "B001", name: "Batch Mandiri Q1 2025",  company: "PT Bank Mandiri",     color: "#1e40af" },
+  { id: "B002", name: "Batch Telkom April 2025", company: "PT Telkom Indonesia", color: "#0f766e" },
+  { id: "B003", name: "Batch BCA Mei 2025",      company: "PT Bank BCA",         color: "#6d28d9" },
+  { id: "B004", name: "Batch Individual",        company: "—",                   color: "#475569" },
+] as const
+
+const BATCH_MAP = Object.fromEntries(BATCHES.map(b => [b.id, b]))
 
 // ─── Seed Data ────────────────────────────────────────────────────────────────
 
 const PATIENTS: PsychPatient[] = [
   {
-    id: "1", patientId: "MED-851234-567", name: "John Doe",
-    dateOfBirth: "2001-01-01", batchId: "A",
+    id: "1", patientId: "MED-851234-567", name: "Eleanor James",
+    dateOfBirth: "1981-10-01", batchId: "B001",
     records: [
       { id: "r1", type: "kondisi", status: "Aktif",   title: "Gangguan Kecemasan Umum",  date: "2024-03-01", description: "Pasien mengalami kecemasan berlebih yang mengganggu produktivitas kerja sehari-hari.", notes: "Pasien merespon baik terhadap teknik relaksasi pernapasan." },
       { id: "r2", type: "terapi",  status: "Aktif",   title: "Terapi Perilaku Kognitif", date: "2024-03-08", description: "Sesi ke-1: Restrukturisasi kognitif dan identifikasi cognitive distortion.", notes: "Pasien diminta mengisi jurnal pikiran otomatis setiap malam." },
@@ -40,34 +53,48 @@ const PATIENTS: PsychPatient[] = [
     ],
   },
   {
-    id: "2", patientId: "MED-921125-890", name: "Sarah Wilson",
-    dateOfBirth: "1992-11-22", batchId: "A",
+    id: "2", patientId: "MED-921125-890", name: "Marcus Chen",
+    dateOfBirth: "1992-11-22", batchId: "B002",
     records: [
       { id: "r5", type: "kondisi", status: "Kronik", title: "Depresi Mayor", date: "2023-09-10", description: "Episode depresi berulang dengan gejala anhedonia dan insomnia.", notes: "Perlu pemantauan lebih lanjut setiap 2 minggu." },
     ],
   },
   {
     id: "3", patientId: "MED-870305-112", name: "Budi Santoso",
-    dateOfBirth: "1987-03-05", batchId: "B",
+    dateOfBirth: "1987-03-05", batchId: "B001",
     records: [
       { id: "r6", type: "kondisi", status: "Aktif",   title: "PTSD Pasca Kecelakaan", date: "2024-01-10", description: "Trauma akibat kecelakaan lalu lintas pada Desember 2023.", notes: "" },
-      { id: "r7", type: "terapi",  status: "Aktif",   title: "EMDR Session 1",         date: "2024-01-18", description: "Sesi EMDR pertama untuk pemrosesan memori traumatik.", notes: "Pasien menunjukkan respons awal yang positif." },
+      { id: "r7", type: "terapi",  status: "Aktif",   title: "EMDR Session 1",        date: "2024-01-18", description: "Sesi EMDR pertama untuk pemrosesan memori traumatik.", notes: "Pasien menunjukkan respons awal yang positif." },
     ],
   },
   {
-    id: "4", patientId: "MED-990812-334", name: "Ayu Rahayu",
-    dateOfBirth: "1999-08-12", batchId: "B",
+    id: "4", patientId: "MED-990812-334", name: "Rina Kartika",
+    dateOfBirth: "1999-08-12", batchId: "B003",
     records: [],
+  },
+  {
+    id: "5", patientId: "MED-960215-556", name: "Sarah Lin",
+    dateOfBirth: "1996-02-15", batchId: "B002",
+    records: [
+      { id: "r8", type: "terapi",  status: "Aktif",   title: "CBT Sesi ke-3",         date: "2024-04-02", description: "Fokus pada identifikasi pola pikir negatif berulang.", notes: "" },
+    ],
+  },
+  {
+    id: "6", patientId: "MED-880720-778", name: "Ahmad Fauzi",
+    dateOfBirth: "1988-07-20", batchId: "B004",
+    records: [
+      { id: "r9", type: "obat",    status: "Aktif",   title: "Fluoxetine 20mg",        date: "2024-02-01", description: "Diresepkan untuk episode depresi ringan-sedang.", notes: "Evaluasi ulang setelah 4 minggu pemakaian." },
+    ],
   },
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const TYPE_META: Record<RecordType, { label: string; cls: string }> = {
-  kondisi: { label: "Kondisi",        cls: "bg-slate-100 text-slate-600 ring-1 ring-slate-200" },
-  terapi:  { label: "Terapi",         cls: "bg-teal-50   text-teal-700   ring-1 ring-teal-200/60" },
-  pemicu:  { label: "Pemicu / Risiko",cls: "bg-amber-50  text-amber-700  ring-1 ring-amber-200/60" },
-  obat:    { label: "Obat-Obatan",    cls: "bg-slate-100 text-slate-600  ring-1 ring-slate-200" },
+  kondisi: { label: "Kondisi",         cls: "bg-slate-100 text-slate-600 ring-1 ring-slate-200" },
+  terapi:  { label: "Terapi",          cls: "bg-teal-50   text-teal-700   ring-1 ring-teal-200/60" },
+  pemicu:  { label: "Pemicu / Risiko", cls: "bg-amber-50  text-amber-700  ring-1 ring-amber-200/60" },
+  obat:    { label: "Obat-Obatan",     cls: "bg-slate-100 text-slate-600  ring-1 ring-slate-200" },
 }
 
 const STATUS_META: Record<RecordStatus, { dot: string; label: string }> = {
@@ -107,6 +134,24 @@ function Hl({ text, q }: { text: string; q: string }) {
   </>
 }
 
+// ─── Batch Badge (same visual as PatientRegistration) ──────────────────────────
+
+function BatchBadge({ batchId, size = "sm" }: { batchId: string; size?: "sm" | "xs" }) {
+  const batch = BATCH_MAP[batchId]
+  if (!batch) return <span className="text-[11px] text-slate-400">—</span>
+  return (
+    <span
+      className={`inline-flex items-center font-semibold text-white rounded whitespace-nowrap ${
+        size === "xs" ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-[11px]"
+      }`}
+      style={{ backgroundColor: batch.color }}
+      title={`${batch.name} · ${batch.company}`}
+    >
+      {batch.id}
+    </span>
+  )
+}
+
 // ─── Patient List Sidebar ─────────────────────────────────────────────────────
 
 function PatientList({
@@ -117,47 +162,86 @@ function PatientList({
   onSelect: (id: string) => void
 }) {
   const [q, setQ] = useState("")
+  const [activeBatch, setActiveBatch] = useState<string>("all")
 
+  // Build groups: respect active batch filter + search
   const groups = useMemo(() => {
-    const filtered = q.trim()
-      ? patients.filter(p =>
-          p.name.toLowerCase().includes(q.toLowerCase()) ||
-          p.patientId.toLowerCase().includes(q.toLowerCase())
-        )
-      : patients
+    const filtered = patients.filter(p => {
+      const matchQ = !q.trim() ||
+        p.name.toLowerCase().includes(q.toLowerCase()) ||
+        p.patientId.toLowerCase().includes(q.toLowerCase())
+      const matchBatch = activeBatch === "all" || p.batchId === activeBatch
+      return matchQ && matchBatch
+    })
 
     const map: Record<string, PsychPatient[]> = {}
     for (const p of filtered) {
       if (!map[p.batchId]) map[p.batchId] = []
       map[p.batchId].push(p)
     }
-    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b))
-  }, [patients, q])
+    // Keep batch order consistent with BATCHES definition
+    return BATCHES
+      .filter(b => map[b.id])
+      .map(b => ({ batch: b, patients: map[b.id] }))
+  }, [patients, q, activeBatch])
 
   const total = patients.reduce((n, p) => n + p.records.length, 0)
 
   return (
-    <aside className="flex flex-col h-full border-r border-slate-200 bg-white">
+    <aside className="flex flex-col h-full bg-white border-r border-slate-200">
       {/* Sidebar header */}
-      <div className="px-4 pt-5 pb-3 border-b border-slate-100">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-[13px] font-semibold text-slate-800">Daftar Pasien</p>
-          <span className="text-[11px] text-slate-400 tabular-nums">{patients.length} pasien · {total} catatan</span>
+      <div className="px-4 pt-4 pb-3 border-b border-slate-100 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <p className="text-[13px] font-semibold text-slate-800">Pasien</p>
+          <span className="text-[11px] text-slate-400 tabular-nums">
+            {patients.length} &middot; {total} catatan
+          </span>
         </div>
+
         {/* Search */}
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-slate-100 transition-all">
           <Search size={13} className="text-slate-400 shrink-0" />
           <input
             type="text" value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Nama atau ID pasien…"
+            placeholder="Nama atau ID…"
             className="flex-1 min-w-0 text-[13px] text-slate-700 placeholder:text-slate-400 bg-transparent focus:outline-none"
           />
           {q && (
-            <button onClick={() => setQ("")} className="text-slate-300 hover:text-slate-500 transition-colors" aria-label="Hapus pencarian">
+            <button onClick={() => setQ("")} className="text-slate-300 hover:text-slate-500 transition-colors" aria-label="Hapus">
               <X size={12} />
             </button>
           )}
+        </div>
+
+        {/* Batch filter pills */}
+        <div className="flex gap-1 flex-wrap">
+          <button
+            onClick={() => setActiveBatch("all")}
+            className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all ${
+              activeBatch === "all"
+                ? "bg-slate-800 text-white"
+                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+            }`}
+          >
+            Semua
+          </button>
+          {BATCHES.map(b => (
+            <button
+              key={b.id}
+              onClick={() => setActiveBatch(activeBatch === b.id ? "all" : b.id)}
+              title={`${b.name} · ${b.company}`}
+              className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all ${
+                activeBatch === b.id ? "text-white" : "opacity-60 hover:opacity-100"
+              }`}
+              style={{
+                backgroundColor: activeBatch === b.id ? b.color : b.color + "22",
+                color: activeBatch === b.id ? "#fff" : b.color,
+              }}
+            >
+              {b.id}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -165,39 +249,48 @@ function PatientList({
       <div className="flex-1 overflow-y-auto">
         {groups.length === 0 ? (
           <div className="py-12 px-4 text-center">
-            <p className="text-sm text-slate-400">Tidak ada hasil</p>
+            <p className="text-[13px] text-slate-400">Tidak ada hasil</p>
           </div>
         ) : (
-          groups.map(([batchId, pts]) => (
-            <div key={batchId}>
-              {/* Batch label */}
-              <div className="sticky top-0 z-10 px-4 py-1.5 bg-slate-50 border-y border-slate-100">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-                  Kelompok {batchId}
-                </p>
+          groups.map(({ batch, patients: pts }) => (
+            <div key={batch.id}>
+              {/* Batch sticky label */}
+              <div className="sticky top-0 z-10 px-4 py-1.5 bg-white border-y border-slate-100 flex items-center gap-2">
+                <span
+                  className="inline-block w-2 h-2 rounded-sm shrink-0"
+                  style={{ backgroundColor: batch.color }}
+                />
+                <p className="text-[11px] font-semibold text-slate-500 truncate flex-1">{batch.name}</p>
+                <span className="text-[10px] text-slate-400 tabular-nums shrink-0">{pts.length}</span>
               </div>
 
               {pts.map(p => {
                 const isActive = p.id === selectedId
+                const initials = p.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
                 return (
                   <button
                     key={p.id}
                     onClick={() => onSelect(p.id)}
-                    className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors ${
+                    className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors border-l-2 ${
                       isActive
-                        ? "bg-[#eef1f8] border-l-2 border-[#16254c]"
-                        : "border-l-2 border-transparent hover:bg-slate-50"
+                        ? "bg-[#eef1f8] border-[#16254c]"
+                        : "border-transparent hover:bg-slate-50"
                     }`}
                   >
-                    {/* Avatar initials */}
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 ${
-                      isActive ? "bg-[#16254c] text-white" : "bg-slate-100 text-slate-600"
-                    }`}>
-                      {p.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                    {/* Avatar */}
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 ${
+                        isActive ? "text-white" : "text-white"
+                      }`}
+                      style={{ backgroundColor: isActive ? "#16254c" : batch.color }}
+                    >
+                      {initials}
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <p className={`text-[13px] font-medium truncate ${isActive ? "text-[#16254c]" : "text-slate-800"}`}>
+                      <p className={`text-[13px] font-medium truncate ${
+                        isActive ? "text-[#16254c]" : "text-slate-800"
+                      }`}>
                         <Hl text={p.name} q={q} />
                       </p>
                       <p className="text-[11px] font-mono text-slate-400 truncate mt-0.5">
@@ -205,16 +298,16 @@ function PatientList({
                       </p>
                     </div>
 
-                    {/* Record count badge */}
-                    {p.records.length > 0 && (
-                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded tabular-nums shrink-0 ${
-                        isActive ? "bg-[#16254c]/10 text-[#16254c]" : "bg-slate-100 text-slate-500"
-                      }`}>
-                        {p.records.length}
-                      </span>
-                    )}
-
-                    <ChevronRight size={12} className={`shrink-0 transition-colors ${isActive ? "text-[#16254c]" : "text-slate-300"}`} />
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      {p.records.length > 0 && (
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded tabular-nums ${
+                          isActive ? "bg-[#16254c]/10 text-[#16254c]" : "bg-slate-100 text-slate-500"
+                        }`}>
+                          {p.records.length}
+                        </span>
+                      )}
+                      <ChevronRight size={11} className={isActive ? "text-[#16254c]" : "text-slate-300"} />
+                    </div>
                   </button>
                 )
               })}
@@ -233,7 +326,6 @@ function RecordCard({ record }: { record: PsychRecord }) {
   const tm = TYPE_META[record.type]
   return (
     <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-      {/* Header row */}
       <div className="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
         <div className="flex items-center gap-2 min-w-0">
           <span className={`shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded ${tm.cls}`}>
@@ -246,8 +338,6 @@ function RecordCard({ record }: { record: PsychRecord }) {
           <span className={`text-[11px] font-medium ${sm.label}`}>{record.status}</span>
         </div>
       </div>
-
-      {/* Body */}
       <div className="px-4 py-3 flex flex-col gap-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-1">Deskripsi</p>
@@ -284,7 +374,6 @@ function AddRecordModal({ patientName, onClose, onAdd }: {
     status:      "Aktif" as RecordStatus,
     date:        new Date().toISOString().split("T")[0],
   })
-
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }))
   const isValid = form.title.trim().length > 0
 
@@ -302,7 +391,6 @@ function AddRecordModal({ patientName, onClose, onAdd }: {
         transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
         className="relative z-10 w-full max-w-lg bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden"
       >
-        {/* Modal header */}
         <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between">
           <div>
             <h2 id="modal-title" className="text-[14px] font-semibold text-slate-900">Tambah Catatan Riwayat</h2>
@@ -313,7 +401,6 @@ function AddRecordModal({ patientName, onClose, onAdd }: {
           </button>
         </div>
 
-        {/* Form fields */}
         <div className="px-5 py-4 flex flex-col gap-4 max-h-[60vh] overflow-y-auto">
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
@@ -333,34 +420,29 @@ function AddRecordModal({ patientName, onClose, onAdd }: {
               </select>
             </div>
           </div>
-
           <div className="flex flex-col gap-1.5">
             <label className="text-[12px] font-medium text-slate-700">Judul <span className="text-red-500">*</span></label>
             <input autoFocus value={form.title} onChange={e => set("title", e.target.value)}
               placeholder="contoh: Gangguan Kecemasan Umum" className={inputCls} />
           </div>
-
           <div className="flex flex-col gap-1.5">
             <label className="text-[12px] font-medium text-slate-700">Deskripsi</label>
             <textarea value={form.description} onChange={e => set("description", e.target.value)}
               placeholder="Deskripsi singkat kondisi atau prosedur…" rows={3}
               className={`${inputCls} resize-none`} />
           </div>
-
           <div className="flex flex-col gap-1.5">
             <label className="text-[12px] font-medium text-slate-700">Catatan Klinis</label>
             <textarea value={form.notes} onChange={e => set("notes", e.target.value)}
               placeholder="Perkembangan, tindak lanjut, atau instruksi khusus…" rows={3}
               className={`${inputCls} resize-none`} />
           </div>
-
           <div className="flex flex-col gap-1.5">
             <label className="text-[12px] font-medium text-slate-700">Tanggal Pencatatan</label>
             <input type="date" value={form.date} onChange={e => set("date", e.target.value)} className={inputCls} />
           </div>
         </div>
 
-        {/* Modal footer */}
         <div className="flex items-center justify-end gap-2 px-5 py-3.5 bg-slate-50 border-t border-slate-100">
           <button onClick={onClose}
             className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 text-[13px] font-medium hover:bg-slate-50 transition-all">
@@ -370,9 +452,7 @@ function AddRecordModal({ patientName, onClose, onAdd }: {
             onClick={() => { if (isValid) { onAdd(form); onClose() } }}
             disabled={!isValid}
             className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-all ${
-              isValid
-                ? "bg-[#16254c] text-white hover:bg-[#0f1a38]"
-                : "bg-slate-100 text-slate-400 cursor-not-allowed"
+              isValid ? "bg-[#16254c] text-white hover:bg-[#0f1a38]" : "bg-slate-100 text-slate-400 cursor-not-allowed"
             }`}>
             Simpan Catatan
           </button>
@@ -382,17 +462,12 @@ function AddRecordModal({ patientName, onClose, onAdd }: {
   )
 }
 
-// ─── Detail Panel ─────────────────────────────────────────────────────────────
+// ─── Patient Detail Panel ───────────────────────────────────────────────────────
 
-function PatientDetail({
-  patient,
-  onAdd,
-}: {
-  patient: PsychPatient
-  onAdd: () => void
-}) {
+function PatientDetail({ patient, onAdd }: { patient: PsychPatient; onAdd: () => void }) {
   const [activeTab, setActiveTab] = useState<TabKey>("semua")
   const byType = (t: RecordType) => patient.records.filter(r => r.type === t)
+  const batch = BATCH_MAP[patient.batchId]
 
   const tabRecords: PsychRecord[] =
     activeTab === "semua"
@@ -404,19 +479,29 @@ function PatientDetail({
       {/* Patient header bar */}
       <div className="px-6 py-4 border-b border-slate-200 bg-white flex items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-full bg-[#16254c] text-white flex items-center justify-center text-[12px] font-semibold shrink-0">
+          <div
+            className="w-9 h-9 rounded-full text-white flex items-center justify-center text-[12px] font-semibold shrink-0"
+            style={{ backgroundColor: batch?.color ?? "#16254c" }}
+          >
             {patient.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <p className="text-[14px] font-semibold text-slate-900 truncate">{patient.name}</p>
-            <div className="flex items-center gap-2 mt-0.5">
+            <div className="flex items-center gap-2">
+              <p className="text-[14px] font-semibold text-slate-900 truncate">{patient.name}</p>
+              <BatchBadge batchId={patient.batchId} size="xs" />
+            </div>
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               <p className="text-[11px] font-mono text-slate-400">{patient.patientId}</p>
-              <span className="text-slate-300">·</span>
+              <span className="text-slate-300">&middot;</span>
               <p className="text-[11px] text-slate-400">
-                {fmt(patient.dateOfBirth)} · {calcAge(patient.dateOfBirth)} tahun
+                {fmt(patient.dateOfBirth)} &middot; {calcAge(patient.dateOfBirth)} tahun
               </p>
-              <span className="text-slate-300">·</span>
-              <p className="text-[11px] text-slate-400">Kelompok {patient.batchId}</p>
+              {batch && (
+                <>
+                  <span className="text-slate-300">&middot;</span>
+                  <p className="text-[11px] text-slate-500">{batch.name}</p>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -431,7 +516,7 @@ function PatientDetail({
       </div>
 
       {/* Summary strip */}
-      <div className="px-6 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-6 shrink-0 overflow-x-auto">
+      <div className="px-6 py-2.5 border-b border-slate-100 bg-slate-50 flex items-center gap-5 shrink-0 overflow-x-auto">
         {TABS.filter(t => t.key !== "semua").map(t => {
           const cnt = byType(t.key as RecordType).length
           return (
@@ -494,7 +579,7 @@ function PatientDetail({
               <div className="py-20 flex flex-col items-center gap-2 text-center">
                 <FileText size={28} className="text-slate-200" />
                 <p className="text-[13px] font-medium text-slate-400">Belum ada catatan</p>
-                <p className="text-[12px] text-slate-300">Klik "Tambah Catatan" untuk menambahkan.</p>
+                <p className="text-[12px] text-slate-300">Klik &ldquo;Tambah Catatan&rdquo; untuk menambahkan.</p>
               </div>
             ) : (
               tabRecords.map(r => <RecordCard key={r.id} record={r} />)
@@ -515,8 +600,6 @@ export function MedicalHistory() {
 
   const patient = selectedId ? patients.find(p => p.id === selectedId) ?? null : null
 
-  const handleSelect = (id: string) => setSelectedId(id)
-
   const handleAdd = (rec: Omit<PsychRecord, "id">) => {
     if (!selectedId) return
     setPatients(prev => prev.map(p =>
@@ -536,12 +619,12 @@ export function MedicalHistory() {
 
       {/* Body — sidebar + main */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Patient list sidebar — fixed width, full height scroll */}
-        <div className="w-72 shrink-0 flex flex-col min-h-0 border-r border-slate-200">
+        {/* Sidebar */}
+        <div className="w-72 shrink-0 flex flex-col min-h-0">
           <PatientList
             patients={patients}
             selectedId={selectedId}
-            onSelect={handleSelect}
+            onSelect={id => { setSelectedId(id) }}
           />
         </div>
 
