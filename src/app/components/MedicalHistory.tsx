@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { FileText, Plus, Search, X, ChevronRight } from "lucide-react"
+import { FileText, Plus, Search, X, ChevronRight, ChevronDown } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -22,13 +22,11 @@ interface PsychPatient {
   patientId: string
   name: string
   dateOfBirth: string
-  batchId: string   // matches Batch.id from PatientRegistration (e.g. "B001")
+  batchId: string
   records: PsychRecord[]
 }
 
-// ─── Batch Master Data (mirrored from PatientRegistration) ───────────────────────
-// Keep this in sync with BATCHES in PatientRegistration.tsx
-// TODO: extract to src/lib/batches.ts for a single source of truth
+// ─── Batch Master Data (mirrored from PatientRegistration) ───────────────────
 
 const BATCHES = [
   { id: "B001", name: "Batch Mandiri Q1 2025",  company: "PT Bank Mandiri",     color: "#1e40af" },
@@ -38,6 +36,8 @@ const BATCHES = [
 ] as const
 
 const BATCH_MAP = Object.fromEntries(BATCHES.map(b => [b.id, b]))
+
+const PREVIEW_LIMIT = 3
 
 // ─── Seed Data ────────────────────────────────────────────────────────────────
 
@@ -134,7 +134,7 @@ function Hl({ text, q }: { text: string; q: string }) {
   </>
 }
 
-// ─── Batch Badge (same visual as PatientRegistration) ──────────────────────────
+// ─── Batch Badge ──────────────────────────────────────────────────────────────
 
 function BatchBadge({ batchId, size = "sm" }: { batchId: string; size?: "sm" | "xs" }) {
   const batch = BATCH_MAP[batchId]
@@ -152,6 +152,60 @@ function BatchBadge({ batchId, size = "sm" }: { batchId: string; size?: "sm" | "
   )
 }
 
+// ─── Patient Row ──────────────────────────────────────────────────────────────
+
+function PatientRow({
+  patient, isActive, batchColor, q, onSelect,
+}: {
+  patient: PsychPatient
+  isActive: boolean
+  batchColor: string
+  q: string
+  onSelect: () => void
+}) {
+  const initials = patient.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
+  return (
+    <motion.button
+      layout
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      transition={{ duration: 0.13, ease: [0.16, 1, 0.3, 1] }}
+      onClick={onSelect}
+      className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors border-l-2 ${
+        isActive ? "bg-[#eef1f8] border-[#16254c]" : "border-transparent hover:bg-slate-50"
+      }`}
+    >
+      <div
+        className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 text-white"
+        style={{ backgroundColor: isActive ? "#16254c" : batchColor }}
+      >
+        {initials}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-[13px] font-medium truncate ${
+          isActive ? "text-[#16254c]" : "text-slate-800"
+        }`}>
+          <Hl text={patient.name} q={q} />
+        </p>
+        <p className="text-[11px] font-mono text-slate-400 truncate mt-0.5">
+          <Hl text={patient.patientId} q={q} />
+        </p>
+      </div>
+      <div className="flex flex-col items-end gap-1 shrink-0">
+        {patient.records.length > 0 && (
+          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded tabular-nums ${
+            isActive ? "bg-[#16254c]/10 text-[#16254c]" : "bg-slate-100 text-slate-500"
+          }`}>
+            {patient.records.length}
+          </span>
+        )}
+        <ChevronRight size={11} className={isActive ? "text-[#16254c]" : "text-slate-300"} />
+      </div>
+    </motion.button>
+  )
+}
+
 // ─── Patient List Sidebar ─────────────────────────────────────────────────────
 
 function PatientList({
@@ -163,8 +217,16 @@ function PatientList({
 }) {
   const [q, setQ] = useState("")
   const [activeBatch, setActiveBatch] = useState<string>("all")
+  // Track which batches are expanded beyond PREVIEW_LIMIT
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  // Build groups: respect active batch filter + search
+  const toggleExpand = (batchId: string) =>
+    setExpanded(prev => {
+      const s = new Set(prev)
+      s.has(batchId) ? s.delete(batchId) : s.add(batchId)
+      return s
+    })
+
   const groups = useMemo(() => {
     const filtered = patients.filter(p => {
       const matchQ = !q.trim() ||
@@ -173,17 +235,18 @@ function PatientList({
       const matchBatch = activeBatch === "all" || p.batchId === activeBatch
       return matchQ && matchBatch
     })
-
     const map: Record<string, PsychPatient[]> = {}
     for (const p of filtered) {
       if (!map[p.batchId]) map[p.batchId] = []
       map[p.batchId].push(p)
     }
-    // Keep batch order consistent with BATCHES definition
     return BATCHES
       .filter(b => map[b.id])
       .map(b => ({ batch: b, patients: map[b.id] }))
   }, [patients, q, activeBatch])
+
+  // When searching, always show all results (don't truncate)
+  const isSearching = q.trim().length > 0
 
   const total = patients.reduce((n, p) => n + p.records.length, 0)
 
@@ -219,9 +282,7 @@ function PatientList({
           <button
             onClick={() => setActiveBatch("all")}
             className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all ${
-              activeBatch === "all"
-                ? "bg-slate-800 text-white"
-                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+              activeBatch === "all" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
             }`}
           >
             Semua
@@ -252,67 +313,63 @@ function PatientList({
             <p className="text-[13px] text-slate-400">Tidak ada hasil</p>
           </div>
         ) : (
-          groups.map(({ batch, patients: pts }) => (
-            <div key={batch.id}>
-              {/* Batch sticky label */}
-              <div className="sticky top-0 z-10 px-4 py-1.5 bg-white border-y border-slate-100 flex items-center gap-2">
-                <span
-                  className="inline-block w-2 h-2 rounded-sm shrink-0"
-                  style={{ backgroundColor: batch.color }}
-                />
-                <p className="text-[11px] font-semibold text-slate-500 truncate flex-1">{batch.name}</p>
-                <span className="text-[10px] text-slate-400 tabular-nums shrink-0">{pts.length}</span>
-              </div>
+          groups.map(({ batch, patients: pts }) => {
+            const isExpanded = isSearching || expanded.has(batch.id)
+            const visible    = isExpanded ? pts : pts.slice(0, PREVIEW_LIMIT)
+            const hiddenCount = pts.length - PREVIEW_LIMIT
 
-              {pts.map(p => {
-                const isActive = p.id === selectedId
-                const initials = p.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => onSelect(p.id)}
-                    className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors border-l-2 ${
-                      isActive
-                        ? "bg-[#eef1f8] border-[#16254c]"
-                        : "border-transparent hover:bg-slate-50"
-                    }`}
+            return (
+              <div key={batch.id}>
+                {/* Batch sticky label */}
+                <div className="sticky top-0 z-10 px-4 py-1.5 bg-white border-y border-slate-100 flex items-center gap-2">
+                  <span
+                    className="inline-block w-2 h-2 rounded-sm shrink-0"
+                    style={{ backgroundColor: batch.color }}
+                  />
+                  <p className="text-[11px] font-semibold text-slate-500 truncate flex-1">{batch.name}</p>
+                  <span className="text-[10px] text-slate-400 tabular-nums shrink-0">{pts.length}</span>
+                </div>
+
+                {/* Patient rows — animated */}
+                <AnimatePresence initial={false}>
+                  {visible.map(p => (
+                    <PatientRow
+                      key={p.id}
+                      patient={p}
+                      isActive={p.id === selectedId}
+                      batchColor={batch.color}
+                      q={q}
+                      onSelect={() => onSelect(p.id)}
+                    />
+                  ))}
+                </AnimatePresence>
+
+                {/* Expand / Collapse toggle — only when > PREVIEW_LIMIT and not searching */}
+                {!isSearching && hiddenCount > 0 && (
+                  <motion.button
+                    layout
+                    onClick={() => toggleExpand(batch.id)}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold transition-colors"
+                    style={{ color: batch.color }}
+                    whileHover={{ opacity: 0.8 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    {/* Avatar */}
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 ${
-                        isActive ? "text-white" : "text-white"
-                      }`}
-                      style={{ backgroundColor: isActive ? "#16254c" : batch.color }}
-                    >
-                      {initials}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-[13px] font-medium truncate ${
-                        isActive ? "text-[#16254c]" : "text-slate-800"
-                      }`}>
-                        <Hl text={p.name} q={q} />
-                      </p>
-                      <p className="text-[11px] font-mono text-slate-400 truncate mt-0.5">
-                        <Hl text={p.patientId} q={q} />
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      {p.records.length > 0 && (
-                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded tabular-nums ${
-                          isActive ? "bg-[#16254c]/10 text-[#16254c]" : "bg-slate-100 text-slate-500"
-                        }`}>
-                          {p.records.length}
-                        </span>
-                      )}
-                      <ChevronRight size={11} className={isActive ? "text-[#16254c]" : "text-slate-300"} />
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          ))
+                    {isExpanded ? (
+                      <>
+                        <ChevronDown size={11} className="rotate-180" />
+                        Sembunyikan
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown size={11} />
+                        Lihat {hiddenCount} lainnya
+                      </>
+                    )}
+                  </motion.button>
+                )}
+              </div>
+            )
+          })
         )}
       </div>
     </aside>
@@ -462,7 +519,7 @@ function AddRecordModal({ patientName, onClose, onAdd }: {
   )
 }
 
-// ─── Patient Detail Panel ───────────────────────────────────────────────────────
+// ─── Patient Detail Panel ─────────────────────────────────────────────────────
 
 function PatientDetail({ patient, onAdd }: { patient: PsychPatient; onAdd: () => void }) {
   const [activeTab, setActiveTab] = useState<TabKey>("semua")
@@ -476,7 +533,6 @@ function PatientDetail({ patient, onAdd }: { patient: PsychPatient; onAdd: () =>
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
-      {/* Patient header bar */}
       <div className="px-6 py-4 border-b border-slate-200 bg-white flex items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <div
@@ -505,7 +561,6 @@ function PatientDetail({ patient, onAdd }: { patient: PsychPatient; onAdd: () =>
             </div>
           </div>
         </div>
-
         <button
           onClick={onAdd}
           className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#16254c] text-white text-[12px] font-medium hover:bg-[#0f1a38] transition-all shrink-0"
@@ -515,7 +570,6 @@ function PatientDetail({ patient, onAdd }: { patient: PsychPatient; onAdd: () =>
         </button>
       </div>
 
-      {/* Summary strip */}
       <div className="px-6 py-2.5 border-b border-slate-100 bg-slate-50 flex items-center gap-5 shrink-0 overflow-x-auto">
         {TABS.filter(t => t.key !== "semua").map(t => {
           const cnt = byType(t.key as RecordType).length
@@ -532,7 +586,6 @@ function PatientDetail({ patient, onAdd }: { patient: PsychPatient; onAdd: () =>
         </div>
       </div>
 
-      {/* Tab bar */}
       <div className="px-6 flex gap-0 border-b border-slate-200 bg-white shrink-0 overflow-x-auto">
         {TABS.map(tab => {
           const cnt = tab.key === "semua" ? patient.records.length : byType(tab.key as RecordType).length
@@ -564,7 +617,6 @@ function PatientDetail({ patient, onAdd }: { patient: PsychPatient; onAdd: () =>
         })}
       </div>
 
-      {/* Records */}
       <div className="flex-1 px-6 py-5">
         <AnimatePresence mode="wait">
           <motion.div
@@ -611,24 +663,20 @@ export function MedicalHistory() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Page header */}
       <div className="px-6 py-4 border-b border-slate-200 bg-white shrink-0">
         <h1 className="text-[16px] font-semibold text-slate-900">Riwayat Psikologis</h1>
         <p className="text-[12px] text-slate-400 mt-0.5">Kelola dan tinjau catatan klinis pasien.</p>
       </div>
 
-      {/* Body — sidebar + main */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Sidebar */}
         <div className="w-72 shrink-0 flex flex-col min-h-0">
           <PatientList
             patients={patients}
             selectedId={selectedId}
-            onSelect={id => { setSelectedId(id) }}
+            onSelect={id => setSelectedId(id)}
           />
         </div>
 
-        {/* Detail panel */}
         <div className="flex-1 min-w-0 bg-slate-50">
           {!patient ? (
             <div className="h-full flex flex-col items-center justify-center gap-3 text-center px-8">
