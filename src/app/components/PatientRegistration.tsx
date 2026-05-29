@@ -118,6 +118,7 @@ function validateField(key: keyof FormData, value: string): string {
     }
     case "phone": {
       if (!value.trim()) return "Nomor telepon wajib diisi."
+      if (/[A-Za-z]/.test(value)) return "Nomor telepon tidak boleh berisi huruf."
       const digits = value.replace(/\D/g, "")
       if (digits.length < 7)  return "Nomor telepon minimal 7 digit."
       if (digits.length > 15) return "Nomor telepon maksimal 15 digit."
