@@ -3,6 +3,7 @@ import {
   Camera, CheckCircle2, Calendar as CalendarIcon,
   ChevronDown, Plus, Search, Filter,
   ArrowLeft, Building2, X, Pencil, Trash2, Lock,
+  AlertCircle,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 
@@ -38,6 +39,8 @@ type FormData = {
   photo: string | null
   batchId: string
 }
+
+type FormErrors = Partial<Record<keyof FormData, string>>
 
 // ─── Master Data ───────────────────────────────────────────────────────────────
 
@@ -87,6 +90,90 @@ const generateId = (): string => {
 const getInitials = (name: string): string =>
   name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase()
 
+// ─── Validation ────────────────────────────────────────────────────────────────
+
+function validateField(key: keyof FormData, value: string): string {
+  switch (key) {
+    case "fullName": {
+      if (!value.trim()) return "Nama lengkap wajib diisi."
+      if (value.trim().length < 2) return "Nama minimal 2 karakter."
+      if (value.trim().length > 100) return "Nama maksimal 100 karakter."
+      if (!/^[\p{L}\s'.,-]+$/u.test(value.trim()))
+        return "Nama hanya boleh berisi huruf, spasi, dan tanda baca dasar."
+      return ""
+    }
+    case "dateOfBirth": {
+      if (!value) return "Tanggal lahir wajib diisi."
+      const parsed = new Date(value)
+      if (isNaN(parsed.getTime())) return "Format tanggal tidak valid."
+      if (parsed > new Date()) return "Tanggal lahir tidak boleh di masa depan."
+      const age = calcAge(value)
+      if (age < 1)   return "Usia pasien kurang dari 1 tahun."
+      if (age > 120) return "Tanggal lahir tidak masuk akal (usia > 120 tahun)."
+      return ""
+    }
+    case "gender": {
+      if (!value) return "Jenis kelamin wajib dipilih."
+      return ""
+    }
+    case "phone": {
+      if (!value.trim()) return "Nomor telepon wajib diisi."
+      const digits = value.replace(/\D/g, "")
+      if (digits.length < 7)  return "Nomor telepon minimal 7 digit."
+      if (digits.length > 15) return "Nomor telepon maksimal 15 digit."
+      if (!/^[0-9+\-\s().]+$/.test(value.trim()))
+        return "Nomor telepon hanya boleh berisi angka, +, -, spasi, dan tanda kurung."
+      return ""
+    }
+    case "email": {
+      if (!value.trim()) return "" // opsional
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim()))
+        return "Format email tidak valid. Contoh: nama@domain.com"
+      if (value.length > 254) return "Email terlalu panjang."
+      return ""
+    }
+    case "occupation": {
+      if (value.trim().length > 100) return "Pekerjaan/instansi maksimal 100 karakter."
+      return ""
+    }
+    case "province": {
+      if (!value.trim()) return ""
+      if (!/^[\p{L}\s'.,-]+$/u.test(value.trim()))
+        return "Provinsi hanya boleh berisi huruf dan spasi."
+      if (value.trim().length > 60) return "Nama provinsi terlalu panjang."
+      return ""
+    }
+    case "city": {
+      if (!value.trim()) return "Kota wajib diisi."
+      if (!/^[\p{L}\s'.,-]+$/u.test(value.trim()))
+        return "Nama kota hanya boleh berisi huruf dan spasi."
+      if (value.trim().length > 60) return "Nama kota terlalu panjang."
+      return ""
+    }
+    case "fullAddress": {
+      if (!value.trim()) return "Alamat lengkap wajib diisi."
+      if (value.trim().length < 10) return "Alamat terlalu singkat, minimal 10 karakter."
+      if (value.trim().length > 300) return "Alamat maksimal 300 karakter."
+      return ""
+    }
+    default:
+      return ""
+  }
+}
+
+function validateAll(form: FormData): FormErrors {
+  const keys: (keyof FormData)[] = [
+    "fullName", "dateOfBirth", "gender", "phone",
+    "email", "occupation", "province", "city", "fullAddress",
+  ]
+  const errs: FormErrors = {}
+  for (const k of keys) {
+    const msg = validateField(k, form[k] as string)
+    if (msg) errs[k] = msg
+  }
+  return errs
+}
+
 // ─── Avatar color — unique per name ───────────────────────────────────────────
 
 const AVATAR_PALETTE = [
@@ -113,8 +200,8 @@ function GenderText({ gender }: { gender: string }) {
 
 // ─── Field wrapper ─────────────────────────────────────────────────────────────
 
-function Field({ label, id, required, hint, children }: {
-  label: string; id?: string; required?: boolean; hint?: string; children: React.ReactNode
+function Field({ label, id, required, hint, error, children }: {
+  label: string; id?: string; required?: boolean; hint?: string; error?: string; children: React.ReactNode
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -124,6 +211,21 @@ function Field({ label, id, required, hint, children }: {
         {hint && <span className="ml-auto text-[11px] font-normal text-slate-400">{hint}</span>}
       </label>
       {children}
+      <AnimatePresence>
+        {error && (
+          <motion.p
+            key="err"
+            initial={{ opacity: 0, y: -4, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: "auto" }}
+            exit={{ opacity: 0, y: -4, height: 0 }}
+            transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+            className="flex items-center gap-1 text-[11px] text-red-500 font-medium"
+          >
+            <AlertCircle size={11} className="flex-shrink-0" />
+            {error}
+          </motion.p>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -132,6 +234,11 @@ const inputCls =
   "px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 " +
   "placeholder:text-slate-400 focus:outline-none focus:border-[#01696f]/60 " +
   "focus:ring-2 focus:ring-[#01696f]/10 transition-all"
+
+const inputErrCls =
+  "px-3.5 py-2.5 rounded-lg border border-red-300 bg-red-50/30 text-sm text-slate-800 " +
+  "placeholder:text-slate-400 focus:outline-none focus:border-red-400 " +
+  "focus:ring-2 focus:ring-red-100 transition-all"
 
 const disabledCls =
   "px-3.5 py-2.5 rounded-lg border border-slate-100 bg-slate-50 text-sm text-slate-400 cursor-not-allowed"
@@ -440,296 +547,6 @@ function FilterPanel({ filter, onChange, onClose }: {
   )
 }
 
-// ─── Patient Directory ─────────────────────────────────────────────────────────
-
-function PatientDirectory({ onNew, onSave }: { onNew: () => void; onSave?: (p: Patient) => void }) {
-  const [patients, setPatients]     = useState<Patient[]>(INIT_PATIENTS)
-  const [search, setSearch]         = useState("")
-  const [showFilter, setShowFilter] = useState(false)
-  const [filter, setFilter]         = useState<FilterState>({ sort: "newest", batchId: "" })
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [deleteTargets, setDeleteTargets] = useState<Patient[] | null>(null)
-
-  // Expose addPatient so parent can forward new registrations
-  const addPatient = (p: Patient) => setPatients(prev => [p, ...prev])
-
-  // Pass addPatient up via a ref trick — parent calls it through PatientDirectory ref or we wire via Root
-  // (handled at root level — see PatientRegistration component below)
-  void onSave   // will be wired at root
-
-  const activeFilters = (filter.sort !== "newest" ? 1 : 0) + (filter.batchId !== "" ? 1 : 0)
-
-  const processed = patients
-    .filter(p => {
-      const q = search.toLowerCase()
-      return (
-        (p.name.toLowerCase().includes(q) || p.idNumber.toLowerCase().includes(q) || p.phone.includes(q)) &&
-        (filter.batchId === "" || p.batchId === filter.batchId)
-      )
-    })
-    .sort((a, b) => {
-      if (filter.sort === "newest")  return +new Date(b.registeredAt) - +new Date(a.registeredAt)
-      if (filter.sort === "oldest")  return +new Date(a.registeredAt) - +new Date(b.registeredAt)
-      if (filter.sort === "name_az") return a.name.localeCompare(b.name)
-      return b.name.localeCompare(a.name)
-    })
-
-  const processedIds = processed.map(p => p.id)
-  const selectedInView = processedIds.filter(id => selectedIds.has(id))
-  const allSelected = processedIds.length > 0 && selectedInView.length === processedIds.length
-  const someSelected = selectedInView.length > 0 && !allSelected
-
-  const toggleOne = (id: string) =>
-    setSelectedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
-
-  const toggleAll = () => {
-    if (allSelected) setSelectedIds(prev => { const s = new Set(prev); processedIds.forEach(id => s.delete(id)); return s })
-    else setSelectedIds(prev => new Set([...prev, ...processedIds]))
-  }
-
-  const openDelete = (ids: string[]) =>
-    setDeleteTargets(patients.filter(p => ids.includes(p.id)))
-
-  const confirmDelete = () => {
-    if (!deleteTargets) return
-    const ids = deleteTargets.map(p => p.id)
-    setPatients(prev => prev.filter(p => !ids.includes(p.id)))
-    setSelectedIds(prev => { const s = new Set(prev); ids.forEach(id => s.delete(id)); return s })
-    setDeleteTargets(null)
-  }
-
-  return (
-    <div className="flex flex-col gap-5">
-      {/* Page header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Direktori Pasien</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{patients.length} peserta terdaftar</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <button
-              onClick={() => setShowFilter(v => !v)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg border text-sm font-medium transition-all ${
-                showFilter || activeFilters > 0
-                  ? "border-[#01696f]/40 bg-[#01696f]/[0.08] text-[#01696f]"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-[#01696f]/25 hover:bg-[#01696f]/[0.04]"
-              }`}
-            >
-              <Filter size={14} />
-              Filter
-              {activeFilters > 0 && (
-                <span className="ml-0.5 w-4 h-4 rounded-full bg-[#01696f] text-white text-[10px] font-bold flex items-center justify-center">
-                  {activeFilters}
-                </span>
-              )}
-            </button>
-            <AnimatePresence>
-              {showFilter && (
-                <FilterPanel filter={filter} onChange={setFilter} onClose={() => setShowFilter(false)} />
-              )}
-            </AnimatePresence>
-          </div>
-          <button
-            onClick={onNew}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#16254c] text-white text-sm font-medium hover:bg-[#0f1a38] active:bg-[#0a1128] transition-all shadow-sm"
-          >
-            <Plus size={14} />
-            Pasien Baru
-          </button>
-        </div>
-      </div>
-
-      {/* Active filter chip */}
-      <AnimatePresence>
-        {filter.batchId !== "" && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-            className="flex items-center gap-2">
-            <span className="text-xs text-slate-400">Menampilkan:</span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-white"
-              style={{ backgroundColor: BATCH_MAP[filter.batchId]?.color }}>
-              {BATCH_MAP[filter.batchId]?.name}
-              <button onClick={() => setFilter(f => ({ ...f, batchId: "" }))} className="opacity-70 hover:opacity-100 ml-0.5">
-                <X size={11} />
-              </button>
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Bulk selection bar */}
-      <AnimatePresence>
-        {selectedInView.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.13 }}
-            className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-white border border-slate-200 shadow-sm"
-          >
-            <span className="text-sm text-slate-700">
-              <span className="font-semibold">{selectedInView.length}</span> peserta dipilih
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSelectedIds(new Set())}
-                className="px-3 py-1.5 rounded-md text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-all"
-              >
-                Batalkan
-              </button>
-              <button
-                onClick={() => openDelete(selectedInView)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-200 bg-white text-red-600 text-xs font-medium hover:bg-red-50 hover:border-red-300 active:bg-red-100 transition-all"
-              >
-                <Trash2 size={13} />
-                Hapus {selectedInView.length} Peserta
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-[0_1px_4px_rgba(15,23,42,0.05)]">
-        {/* Search bar */}
-        <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/40">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Cari nama, nomor ID, atau telepon…"
-              className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#01696f]/50 focus:ring-2 focus:ring-[#01696f]/10 transition-all"
-            />
-          </div>
-        </div>
-
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-100 bg-slate-50/30">
-              <th className="pl-4 pr-2 py-3 w-10">
-                <Checkbox checked={allSelected} indeterminate={someSelected} onChange={toggleAll} label="Pilih semua" />
-              </th>
-              <TH>Pasien</TH>
-              <TH>No. ID</TH>
-              <TH>Batch</TH>
-              <TH>Usia</TH>
-              <TH>Kelamin</TH>
-              <TH>Telepon</TH>
-              <TH>Terdaftar</TH>
-              <TH className="w-24" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-50">
-            {processed.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="px-5 py-16 text-center">
-                  <Search size={28} className="mx-auto text-slate-200 mb-3" />
-                  <p className="text-sm font-medium text-slate-400">Tidak ada data yang sesuai</p>
-                  <p className="text-xs text-slate-300 mt-1">Coba ubah kata kunci atau filter</p>
-                </td>
-              </tr>
-            ) : processed.map(p => {
-              const isSelected = selectedIds.has(p.id)
-              const bgColor = avatarColor(p.name)
-              return (
-                <tr key={p.id} className={`transition-colors ${
-                  isSelected ? "bg-[#01696f]/[0.03]" : "hover:bg-slate-50/60"
-                }`}>
-                  <td className="pl-4 pr-2 py-3.5 w-10">
-                    <Checkbox checked={isSelected} onChange={() => toggleOne(p.id)} label={`Pilih ${p.name}`} />
-                  </td>
-
-                  {/* Pasien */}
-                  <td className="px-3 py-3.5">
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
-                        style={{ backgroundColor: bgColor }}
-                      >
-                        {p.initials}
-                      </div>
-                      <div>
-                        <p className="font-medium text-slate-800 leading-snug">{p.name}</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">{p.email}</p>
-                      </div>
-                    </div>
-                  </td>
-
-                  {/* No. ID */}
-                  <td className="px-3 py-3.5">
-                    <span className="font-mono text-xs text-slate-500">{p.idNumber}</span>
-                  </td>
-
-                  {/* Batch */}
-                  <td className="px-3 py-3.5">
-                    <BatchBadge batchId={p.batchId} />
-                  </td>
-
-                  {/* Usia */}
-                  <td className="px-3 py-3.5 tabular-nums text-xs text-slate-600">
-                    {p.age} th
-                  </td>
-
-                  {/* Kelamin — plain text, no background */}
-                  <td className="px-3 py-3.5">
-                    <GenderText gender={p.gender} />
-                  </td>
-
-                  {/* Telepon */}
-                  <td className="px-3 py-3.5 text-xs text-slate-600 tabular-nums">{p.phone}</td>
-
-                  {/* Terdaftar */}
-                  <td className="px-3 py-3.5 text-xs text-slate-500 tabular-nums whitespace-nowrap">
-                    {formatRegistered(p.registeredAt)}
-                  </td>
-
-                  {/* Aksi */}
-                  <td className="px-3 py-3.5">
-                    <div className="flex items-center gap-1">
-                      <button
-                        title="Edit peserta"
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-medium hover:bg-slate-200 active:bg-slate-300 transition-all"
-                        onClick={() => { /* TODO: open edit form */ }}
-                      >
-                        <Pencil size={12} />
-                        Edit
-                      </button>
-                      <button
-                        title="Hapus peserta"
-                        className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 active:bg-red-100 transition-all"
-                        onClick={() => openDelete([p.id])}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-
-        <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/30">
-          <p className="text-xs text-slate-400">
-            Menampilkan <span className="font-medium text-slate-600">{processed.length}</span> dari <span className="font-medium text-slate-600">{patients.length}</span> peserta
-          </p>
-        </div>
-      </div>
-
-      <AnimatePresence>
-        {deleteTargets !== null && (
-          <DeleteModal
-            targets={deleteTargets}
-            onConfirm={confirmDelete}
-            onCancel={() => setDeleteTargets(null)}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Expose addPatient via hidden div data attribute trick — instead we lift state to root */}
-    </div>
-  )
-}
-
 // ─── Registration Form ─────────────────────────────────────────────────────────
 
 function RegistrationForm({ onBack, onRegistered }: {
@@ -743,10 +560,28 @@ function RegistrationForm({ onBack, onRegistered }: {
     country: "", province: "", city: "", fullAddress: "",
     photo: null, batchId: ""
   })
+  // touched: tracks which fields the user has interacted with
+  const [touched, setTouched] = useState<Partial<Record<keyof FormData, boolean>>>({})
+  const [errors, setErrors] = useState<FormErrors>({})
   const [completeness, setCompleteness] = useState(0)
+  // submitted flag: show all errors on submit attempt
+  const [submitted, setSubmitted] = useState(false)
 
-  const set = (key: keyof FormData, val: string) =>
+  const set = (key: keyof FormData, val: string) => {
     setForm(prev => ({ ...prev, [key]: val }))
+    // validate on change once touched
+    if (touched[key] || submitted) {
+      const msg = validateField(key, val)
+      setErrors(prev => ({ ...prev, [key]: msg }))
+    }
+  }
+
+  const touch = (key: keyof FormData) => {
+    if (touched[key]) return
+    setTouched(prev => ({ ...prev, [key]: true }))
+    const msg = validateField(key, form[key] as string)
+    setErrors(prev => ({ ...prev, [key]: msg }))
+  }
 
   useEffect(() => {
     const req = ["fullName", "dateOfBirth", "gender", "phone", "city", "fullAddress"]
@@ -755,13 +590,15 @@ function RegistrationForm({ onBack, onRegistered }: {
   }, [form])
 
   const age = form.dateOfBirth ? calcAge(form.dateOfBirth) : null
-  const isReadyToSubmit = completeness === 100
+  const allErrors = validateAll(form)
+  const hasErrors = Object.values(allErrors).some(Boolean)
+  const isReadyToSubmit = completeness === 100 && !hasErrors
 
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = ev => set("photo", ev.target?.result as string)
+    reader.onload = ev => setForm(prev => ({ ...prev, photo: ev.target?.result as string }))
     reader.readAsDataURL(file)
   }
 
@@ -769,7 +606,11 @@ function RegistrationForm({ onBack, onRegistered }: {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isReadyToSubmit) return
+    setSubmitted(true)
+    // validate all fields
+    const errs = validateAll(form)
+    setErrors(errs)
+    if (Object.values(errs).some(Boolean) || !isReadyToSubmit) return
 
     const newPatient: Patient = {
       id:           String(Date.now()),
@@ -786,6 +627,10 @@ function RegistrationForm({ onBack, onRegistered }: {
     }
     onRegistered(newPatient)
   }
+
+  // Helper: get error only if field is touched or form submitted
+  const err = (key: keyof FormData) =>
+    (touched[key] || submitted) ? errors[key] : undefined
 
   return (
     <div className="flex flex-col gap-6">
@@ -807,6 +652,7 @@ function RegistrationForm({ onBack, onRegistered }: {
       <form
         className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start pb-20"
         onSubmit={handleSubmit}
+        noValidate
       >
         {/* ── Left column ── */}
         <div className="lg:col-span-8 flex flex-col gap-4">
@@ -814,14 +660,27 @@ function RegistrationForm({ onBack, onRegistered }: {
           {/* Data Pribadi */}
           <SectionCard title="Data Pribadi">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="Nama Lengkap" id="fullName" required>
-                <input id="fullName" value={form.fullName} onChange={e => set("fullName", e.target.value)}
-                  placeholder="contoh: Budi Santoso" className={inputCls} />
+              <Field label="Nama Lengkap" id="fullName" required error={err("fullName")}>
+                <input
+                  id="fullName"
+                  value={form.fullName}
+                  onChange={e => set("fullName", e.target.value)}
+                  onBlur={() => touch("fullName")}
+                  placeholder="contoh: Budi Santoso"
+                  className={err("fullName") ? `${inputErrCls} w-full` : `${inputCls} w-full`}
+                />
               </Field>
-              <Field label="Tanggal Lahir" id="dob" required>
+              <Field label="Tanggal Lahir" id="dob" required error={err("dateOfBirth")}>
                 <div className="relative">
-                  <input id="dob" type="date" value={form.dateOfBirth} onChange={e => set("dateOfBirth", e.target.value)}
-                    className={`${inputCls} w-full pr-10`} />
+                  <input
+                    id="dob"
+                    type="date"
+                    value={form.dateOfBirth}
+                    onChange={e => set("dateOfBirth", e.target.value)}
+                    onBlur={() => touch("dateOfBirth")}
+                    max={new Date().toISOString().split("T")[0]}
+                    className={`${err("dateOfBirth") ? inputErrCls : inputCls} w-full pr-10`}
+                  />
                   <CalendarIcon size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
               </Field>
@@ -836,10 +695,15 @@ function RegistrationForm({ onBack, onRegistered }: {
                   <Lock size={12} className="absolute right-3 text-slate-300 pointer-events-none" />
                 </div>
               </Field>
-              <Field label="Jenis Kelamin" id="gender" required>
+              <Field label="Jenis Kelamin" id="gender" required error={err("gender")}>
                 <div className="relative">
-                  <select id="gender" value={form.gender} onChange={e => set("gender", e.target.value)}
-                    className={`${inputCls} w-full appearance-none pr-9`}>
+                  <select
+                    id="gender"
+                    value={form.gender}
+                    onChange={e => set("gender", e.target.value)}
+                    onBlur={() => touch("gender")}
+                    className={`${err("gender") ? inputErrCls : inputCls} w-full appearance-none pr-9`}
+                  >
                     <option value="" disabled>Pilih jenis kelamin</option>
                     <option value="female">Perempuan</option>
                     <option value="male">Laki-laki</option>
@@ -848,9 +712,16 @@ function RegistrationForm({ onBack, onRegistered }: {
                   <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
               </Field>
-              <Field label="Pekerjaan / Instansi" id="occupation">
-                <input id="occupation" value={form.occupation} onChange={e => set("occupation", e.target.value)}
-                  placeholder="Jabatan, nama instansi" className={inputCls} />
+              <Field label="Pekerjaan / Instansi" id="occupation" error={err("occupation")}>
+                <input
+                  id="occupation"
+                  value={form.occupation}
+                  onChange={e => set("occupation", e.target.value)}
+                  onBlur={() => touch("occupation")}
+                  placeholder="Jabatan, nama instansi"
+                  maxLength={100}
+                  className={err("occupation") ? `${inputErrCls} w-full` : `${inputCls} w-full`}
+                />
               </Field>
             </div>
           </SectionCard>
@@ -905,13 +776,29 @@ function RegistrationForm({ onBack, onRegistered }: {
           {/* Kontak */}
           <SectionCard title="Informasi Kontak">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="Nomor Telepon" id="phone" required>
-                <input id="phone" type="tel" value={form.phone} onChange={e => set("phone", e.target.value)}
-                  placeholder="+62 812 0000 0000" className={inputCls} />
+              <Field label="Nomor Telepon" id="phone" required error={err("phone")}>
+                <input
+                  id="phone"
+                  type="tel"
+                  inputMode="tel"
+                  value={form.phone}
+                  onChange={e => set("phone", e.target.value)}
+                  onBlur={() => touch("phone")}
+                  placeholder="+62 812 0000 0000"
+                  className={err("phone") ? `${inputErrCls} w-full` : `${inputCls} w-full`}
+                />
               </Field>
-              <Field label="Alamat Email" id="email">
-                <input id="email" type="email" value={form.email} onChange={e => set("email", e.target.value)}
-                  placeholder="pasien@example.com" className={inputCls} />
+              <Field label="Alamat Email" id="email" error={err("email")}>
+                <input
+                  id="email"
+                  type="email"
+                  inputMode="email"
+                  value={form.email}
+                  onChange={e => set("email", e.target.value)}
+                  onBlur={() => touch("email")}
+                  placeholder="pasien@example.com"
+                  className={err("email") ? `${inputErrCls} w-full` : `${inputCls} w-full`}
+                />
               </Field>
             </div>
           </SectionCard>
@@ -931,19 +818,41 @@ function RegistrationForm({ onBack, onRegistered }: {
                   <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
               </Field>
-              <Field label="Provinsi" id="province">
-                <input id="province" value={form.province} onChange={e => set("province", e.target.value)}
-                  placeholder="contoh: Jawa Timur" className={inputCls} />
+              <Field label="Provinsi" id="province" error={err("province")}>
+                <input
+                  id="province"
+                  value={form.province}
+                  onChange={e => set("province", e.target.value)}
+                  onBlur={() => touch("province")}
+                  placeholder="contoh: Jawa Timur"
+                  className={err("province") ? `${inputErrCls} w-full` : `${inputCls} w-full`}
+                />
               </Field>
-              <Field label="Kota" id="city" required>
-                <input id="city" value={form.city} onChange={e => set("city", e.target.value)}
-                  placeholder="contoh: Surabaya" className={inputCls} />
+              <Field label="Kota" id="city" required error={err("city")}>
+                <input
+                  id="city"
+                  value={form.city}
+                  onChange={e => set("city", e.target.value)}
+                  onBlur={() => touch("city")}
+                  placeholder="contoh: Surabaya"
+                  className={err("city") ? `${inputErrCls} w-full` : `${inputCls} w-full`}
+                />
               </Field>
             </div>
-            <Field label="Alamat Lengkap" id="fullAddress" required>
-              <textarea id="fullAddress" value={form.fullAddress} onChange={e => set("fullAddress", e.target.value)}
-                placeholder="Jl. Raya No. 123, Kec. …" rows={3}
-                className={`${inputCls} resize-none`} />
+            <Field label="Alamat Lengkap" id="fullAddress" required error={err("fullAddress")}>
+              <textarea
+                id="fullAddress"
+                value={form.fullAddress}
+                onChange={e => set("fullAddress", e.target.value)}
+                onBlur={() => touch("fullAddress")}
+                placeholder="Jl. Raya No. 123, Kec. …"
+                rows={3}
+                maxLength={300}
+                className={`${err("fullAddress") ? inputErrCls : inputCls} w-full resize-none`}
+              />
+              <span className="text-[11px] text-slate-400 self-end">
+                {form.fullAddress.length}/300
+              </span>
             </Field>
           </SectionCard>
         </div>
@@ -1007,6 +916,26 @@ function RegistrationForm({ onBack, onRegistered }: {
               </div>
               <div className="border-t border-slate-100" />
               <ProgressBar value={completeness} />
+
+              {/* Error summary — shown only after submit attempt */}
+              <AnimatePresence>
+                {submitted && Object.values(errors).some(Boolean) && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-100">
+                      <AlertCircle size={13} className="text-red-500 flex-shrink-0 mt-0.5" />
+                      <p className="text-[11px] text-red-600 font-medium leading-relaxed">
+                        Terdapat {Object.values(errors).filter(Boolean).length} field yang perlu diperbaiki sebelum menyimpan.
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
@@ -1264,6 +1193,8 @@ function PatientDirectoryConnected({
                   <td className="pl-4 pr-2 py-3.5 w-10">
                     <Checkbox checked={isSelected} onChange={() => toggleOne(p.id)} label={`Pilih ${p.name}`} />
                   </td>
+
+                  {/* Pasien */}
                   <td className="px-3 py-3.5">
                     <div className="flex items-center gap-2.5">
                       <div
@@ -1278,22 +1209,36 @@ function PatientDirectoryConnected({
                       </div>
                     </div>
                   </td>
+
+                  {/* No. ID */}
                   <td className="px-3 py-3.5">
                     <span className="font-mono text-xs text-slate-500">{p.idNumber}</span>
                   </td>
+
+                  {/* Batch */}
                   <td className="px-3 py-3.5">
                     <BatchBadge batchId={p.batchId} />
                   </td>
+
+                  {/* Usia */}
                   <td className="px-3 py-3.5 tabular-nums text-xs text-slate-600">
                     {p.age} th
                   </td>
+
+                  {/* Kelamin — plain text, no background */}
                   <td className="px-3 py-3.5">
                     <GenderText gender={p.gender} />
                   </td>
+
+                  {/* Telepon */}
                   <td className="px-3 py-3.5 text-xs text-slate-600 tabular-nums">{p.phone}</td>
+
+                  {/* Terdaftar */}
                   <td className="px-3 py-3.5 text-xs text-slate-500 tabular-nums whitespace-nowrap">
                     {formatRegistered(p.registeredAt)}
                   </td>
+
+                  {/* Aksi */}
                   <td className="px-3 py-3.5">
                     <div className="flex items-center gap-1">
                       <button
