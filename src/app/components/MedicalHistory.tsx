@@ -217,15 +217,11 @@ function PatientList({
 }) {
   const [q, setQ] = useState("")
   const [activeBatch, setActiveBatch] = useState<string>("all")
-  // Track which batches are expanded beyond PREVIEW_LIMIT
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  // Only ONE batch can be expanded at a time — null means all collapsed
+  const [expandedBatch, setExpandedBatch] = useState<string | null>(null)
 
   const toggleExpand = (batchId: string) =>
-    setExpanded(prev => {
-      const s = new Set(prev)
-      s.has(batchId) ? s.delete(batchId) : s.add(batchId)
-      return s
-    })
+    setExpandedBatch(prev => (prev === batchId ? null : batchId))
 
   const groups = useMemo(() => {
     const filtered = patients.filter(p => {
@@ -245,7 +241,7 @@ function PatientList({
       .map(b => ({ batch: b, patients: map[b.id] }))
   }, [patients, q, activeBatch])
 
-  // When searching, always show all results (don't truncate)
+  // When searching, bypass the limit and show all results
   const isSearching = q.trim().length > 0
 
   const total = patients.reduce((n, p) => n + p.records.length, 0)
@@ -314,7 +310,8 @@ function PatientList({
           </div>
         ) : (
           groups.map(({ batch, patients: pts }) => {
-            const isExpanded = isSearching || expanded.has(batch.id)
+            // Searching: show all. Otherwise: show all only if this batch is the expanded one.
+            const isExpanded = isSearching || expandedBatch === batch.id
             const visible    = isExpanded ? pts : pts.slice(0, PREVIEW_LIMIT)
             const hiddenCount = pts.length - PREVIEW_LIMIT
 
