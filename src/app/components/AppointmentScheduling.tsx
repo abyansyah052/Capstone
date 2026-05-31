@@ -243,6 +243,17 @@ function MiniCalendar({
     return { year: d.getFullYear(), month: d.getMonth() }
   })
 
+  // Sync viewMonth when selected date moves to a different month (e.g. via toolbar arrows)
+  useEffect(() => {
+    const d = new Date(selected + "T00:00:00")
+    const newYear  = d.getFullYear()
+    const newMonth = d.getMonth()
+    setViewMonth(prev => {
+      if (prev.year === newYear && prev.month === newMonth) return prev
+      return { year: newYear, month: newMonth }
+    })
+  }, [selected])
+
   const daysInMonth = new Date(viewMonth.year, viewMonth.month + 1, 0).getDate()
   const firstDay = new Date(viewMonth.year, viewMonth.month, 1).getDay()
   const offset = (firstDay + 6) % 7 // Monday start
@@ -969,6 +980,10 @@ export function AppointmentScheduling() {
     setShowForm(true)
   }, [])
 
+  // Fix: arrow navigation — use current selectedDate value directly, not functional updater
+  const goToPrev = () => setSelectedDate(addDays(selectedDate, -1))
+  const goToNext = () => setSelectedDate(addDays(selectedDate, 1))
+
   const dayApts = appointments.filter(a => a.date === selectedDate)
   const filteredApts = filterDoctor
     ? dayApts.filter(a => a.doctorId === filterDoctor)
@@ -1063,14 +1078,14 @@ export function AppointmentScheduling() {
             </button>
             <div className="flex gap-0.5">
               <button
-                onClick={() => setSelectedDate(d => addDays(d, -1))}
+                onClick={goToPrev}
                 className="w-7 h-7 flex items-center justify-center rounded text-slate-400
                   hover:text-slate-700 hover:bg-slate-100 transition-colors"
               >
                 <ChevronLeft size={14} />
               </button>
               <button
-                onClick={() => setSelectedDate(d => addDays(d, 1))}
+                onClick={goToNext}
                 className="w-7 h-7 flex items-center justify-center rounded text-slate-400
                   hover:text-slate-700 hover:bg-slate-100 transition-colors"
               >
