@@ -1,62 +1,43 @@
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import {
-  Calendar, Clock, User, Mail, MessageCircle,
-  Plus, ChevronLeft, ChevronRight, X, CheckCircle2,
-  AlertCircle, XCircle, ClockIcon, ChevronDown,
-  Stethoscope, FileText, Bell, CalendarCheck,
-  MoreHorizontal, Pencil, Trash2,
+  ChevronLeft, ChevronRight, Plus, X, CheckCircle2,
+  AlertCircle, XCircle, ChevronDown, FileText,
+  CalendarCheck, MoreHorizontal, Trash2, MessageCircle, Mail,
+  Clock,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 
-// ─── Types ──────────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────────
 
 type AppointmentStatus = "scheduled" | "confirmed" | "completed" | "cancelled"
 type NotifyChannel    = "none" | "whatsapp" | "email" | "both"
 
-interface Doctor {
-  id: string
-  name: string
-  specialty: string
-  color: string
-}
+interface Doctor { id: string; name: string; specialty: string; color: string }
 
 interface Appointment {
-  id: string
-  patientId: string
-  patientName: string
-  date: string
-  time: string
-  doctorId: string
-  type: string
-  status: AppointmentStatus
-  notes: string
-  notify: NotifyChannel
-  notifyPhone: string
-  notifyEmail: string
+  id: string; patientId: string; patientName: string
+  date: string; time: string; duration: number          // minutes
+  doctorId: string; type: string; status: AppointmentStatus
+  notes: string; notify: NotifyChannel
+  notifyPhone: string; notifyEmail: string
 }
 
 interface NewApptForm {
-  patientId: string
-  patientName: string
-  date: string
-  time: string
-  doctorId: string
-  type: string
-  notes: string
-  notify: NotifyChannel
-  notifyPhone: string
-  notifyEmail: string
+  patientId: string; patientName: string; date: string
+  time: string; duration: string; doctorId: string
+  type: string; notes: string; notify: NotifyChannel
+  notifyPhone: string; notifyEmail: string
 }
 
 type FormErrors = Partial<Record<keyof NewApptForm, string>>
 
-// ─── Constants ──────────────────────────────────────────────────────────────────
+// ─── Constants ───────────────────────────────────────────────────────────────────
 
 const DOCTORS: Doctor[] = [
-  { id: "D1", name: "dr. Anita Rahayu, Sp.PD",  specialty: "Penyakit Dalam",           color: "#01696f" },
-  { id: "D2", name: "dr. Budi Santoso, Sp.JP",  specialty: "Jantung & Pembuluh Darah", color: "#1e40af" },
-  { id: "D3", name: "dr. Citra Dewi, Sp.A",     specialty: "Anak",                     color: "#be185d" },
-  { id: "D4", name: "dr. Dimas Pratama, Sp.N",  specialty: "Neurologi",                color: "#6d28d9" },
+  { id: "D1", name: "dr. Anita Rahayu, Sp.PD",  specialty: "Penyakit Dalam",           color: "#0d9488" },
+  { id: "D2", name: "dr. Budi Santoso, Sp.JP",  specialty: "Jantung & Pembuluh Darah", color: "#2563eb" },
+  { id: "D3", name: "dr. Citra Dewi, Sp.A",     specialty: "Anak",                     color: "#db2777" },
+  { id: "D4", name: "dr. Dimas Pratama, Sp.N",  specialty: "Neurologi",                color: "#7c3aed" },
 ]
 const DOCTOR_MAP = Object.fromEntries(DOCTORS.map(d => [d.id, d]))
 
@@ -65,42 +46,73 @@ const APPOINTMENT_TYPES = [
   "Konsultasi", "Pemeriksaan Lab", "Vaksinasi", "Gawat Darurat",
 ]
 
-const TIME_SLOTS = [
-  "08:00","08:30","09:00","09:30","10:00","10:30",
-  "11:00","11:30","13:00","13:30","14:00","14:30",
-  "15:00","15:30","16:00","16:30",
-]
+const HOURS = Array.from({ length: 10 }, (_, i) => i + 8) // 08–17
+const SLOT_HEIGHT = 64 // px per hour
 
 const TODAY = new Date().toISOString().split("T")[0]
 
 const INIT_APPOINTMENTS: Appointment[] = [
   {
     id: "1", patientId: "PT-8842-A", patientName: "Eleanor James",
-    date: TODAY, time: "09:00", doctorId: "D1", type: "Pemeriksaan Umum",
-    status: "confirmed", notes: "Kontrol tekanan darah rutin",
+    date: TODAY, time: "09:00", duration: 30, doctorId: "D1",
+    type: "Pemeriksaan Umum", status: "confirmed",
+    notes: "Kontrol tekanan darah rutin",
     notify: "whatsapp", notifyPhone: "+62 812 0011 2233", notifyEmail: "",
   },
   {
     id: "2", patientId: "PT-9105-C", patientName: "Marcus Chen",
-    date: TODAY, time: "10:30", doctorId: "D2", type: "Kontrol & Tindak Lanjut",
-    status: "scheduled", notes: "Evaluasi hasil EKG",
+    date: TODAY, time: "10:30", duration: 45, doctorId: "D2",
+    type: "Kontrol & Tindak Lanjut", status: "scheduled",
+    notes: "Evaluasi hasil EKG",
     notify: "both", notifyPhone: "+62 813 9988 7766", notifyEmail: "m.chen99@example.com",
   },
   {
     id: "3", patientId: "PT-4421-B", patientName: "Sarah Lin",
-    date: TODAY, time: "13:00", doctorId: "D1", type: "Konsultasi",
-    status: "completed", notes: "Diskusi hasil lab",
+    date: TODAY, time: "13:00", duration: 30, doctorId: "D1",
+    type: "Konsultasi", status: "completed",
+    notes: "Diskusi hasil lab",
     notify: "email", notifyPhone: "", notifyEmail: "slin@example.com",
   },
   {
     id: "4", patientId: "PT-6631-D", patientName: "Budi Santoso",
-    date: TODAY, time: "15:00", doctorId: "D3", type: "Vaksinasi",
-    status: "cancelled", notes: "Pasien tidak hadir",
+    date: TODAY, time: "15:00", duration: 30, doctorId: "D3",
+    type: "Vaksinasi", status: "cancelled",
+    notes: "Pasien tidak hadir",
+    notify: "none", notifyPhone: "", notifyEmail: "",
+  },
+  {
+    id: "5", patientId: "PT-1102-A", patientName: "Rina Hartono",
+    date: TODAY, time: "11:00", duration: 30, doctorId: "D4",
+    type: "Konsultasi", status: "scheduled",
+    notes: "",
     notify: "none", notifyPhone: "", notifyEmail: "",
   },
 ]
 
-// ─── Helpers ────────────────────────────────────────────────────────────────────
+// ─── Status meta ─────────────────────────────────────────────────────────────────
+
+const STATUS_META: Record<AppointmentStatus, {
+  label: string; dot: string; text: string; bg: string; border: string; gridBg: string
+}> = {
+  scheduled: {
+    label: "Terjadwal",
+    dot: "#3b82f6", text: "#1d4ed8", bg: "#eff6ff", border: "#bfdbfe", gridBg: "#dbeafe",
+  },
+  confirmed: {
+    label: "Dikonfirmasi",
+    dot: "#10b981", text: "#047857", bg: "#ecfdf5", border: "#a7f3d0", gridBg: "#d1fae5",
+  },
+  completed: {
+    label: "Selesai",
+    dot: "#94a3b8", text: "#475569", bg: "#f8fafc", border: "#e2e8f0", gridBg: "#f1f5f9",
+  },
+  cancelled: {
+    label: "Dibatalkan",
+    dot: "#f87171", text: "#b91c1c", bg: "#fff1f2", border: "#fecaca", gridBg: "#fee2e2",
+  },
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────────
 
 const fmtDateShort = (iso: string) =>
   new Date(iso + "T00:00:00").toLocaleDateString("id-ID", {
@@ -112,22 +124,28 @@ const fmtDateLong = (iso: string) =>
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   })
 
+const fmtWeekday = (iso: string) =>
+  new Date(iso + "T00:00:00").toLocaleDateString("id-ID", { weekday: "short" })
+
 const addDays = (iso: string, n: number) => {
   const d = new Date(iso + "T00:00:00")
   d.setDate(d.getDate() + n)
   return d.toISOString().split("T")[0]
 }
 
-const STATUS_META: Record<AppointmentStatus, {
-  label: string; dotColor: string; textColor: string; bgColor: string
-}> = {
-  scheduled: { label: "Terjadwal",    dotColor: "#3b82f6", textColor: "#1d4ed8", bgColor: "#eff6ff" },
-  confirmed: { label: "Dikonfirmasi", dotColor: "#22c55e", textColor: "#15803d", bgColor: "#f0fdf4" },
-  completed: { label: "Selesai",      dotColor: "#94a3b8", textColor: "#475569", bgColor: "#f8fafc" },
-  cancelled: { label: "Dibatalkan",   dotColor: "#f87171", textColor: "#b91c1c", bgColor: "#fef2f2" },
+const startOfWeek = (iso: string) => {
+  const d = new Date(iso + "T00:00:00")
+  const day = d.getDay() // 0=Sun
+  d.setDate(d.getDate() - ((day + 6) % 7)) // Monday-start
+  return d.toISOString().split("T")[0]
 }
 
-// ─── Validation ─────────────────────────────────────────────────────────────────
+const timeToMinutes = (t: string) => {
+  const [h, m] = t.split(":").map(Number)
+  return h * 60 + m
+}
+
+// ─── Validation ──────────────────────────────────────────────────────────────────
 
 function validateAppt(form: NewApptForm): FormErrors {
   const e: FormErrors = {}
@@ -153,19 +171,19 @@ function validateAppt(form: NewApptForm): FormErrors {
   return e
 }
 
-// ─── Shared input styles ─────────────────────────────────────────────────────────
+// ─── Shared input cls ─────────────────────────────────────────────────────────────
 
 const inputCls =
-  "w-full px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 " +
-  "placeholder:text-slate-400 focus:outline-none focus:border-[#01696f]/60 " +
-  "focus:ring-2 focus:ring-[#01696f]/10 transition-all"
+  "w-full px-3 py-2 rounded-md border border-slate-200 bg-white text-[13px] text-slate-800 " +
+  "placeholder:text-slate-400 focus:outline-none focus:border-teal-500/50 " +
+  "focus:ring-2 focus:ring-teal-500/10 transition-all"
 
 const inputErrCls =
-  "w-full px-3.5 py-2.5 rounded-lg border border-red-300 bg-red-50/40 text-sm text-slate-800 " +
+  "w-full px-3 py-2 rounded-md border border-red-300 bg-red-50/40 text-[13px] text-slate-800 " +
   "placeholder:text-slate-400 focus:outline-none focus:border-red-400 " +
   "focus:ring-2 focus:ring-red-100 transition-all"
 
-// ─── Field wrapper ───────────────────────────────────────────────────────────────
+// ─── Field ───────────────────────────────────────────────────────────────────────
 
 function Field({
   label, id, required, error, children,
@@ -173,8 +191,8 @@ function Field({
   label: string; id?: string; required?: boolean; error?: string; children: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-[13px] font-medium text-slate-700">
+    <div className="flex flex-col gap-1">
+      <label htmlFor={id} className="text-[12px] font-medium text-slate-600">
         {label}{required && <span className="text-red-400 ml-0.5">*</span>}
       </label>
       {children}
@@ -185,10 +203,10 @@ function Field({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.13 }}
+            transition={{ duration: 0.12 }}
             className="flex items-center gap-1 text-[11px] text-red-500 font-medium overflow-hidden"
           >
-            <AlertCircle size={10} className="flex-shrink-0" />{error}
+            <AlertCircle size={9} className="flex-shrink-0" />{error}
           </motion.p>
         )}
       </AnimatePresence>
@@ -196,251 +214,474 @@ function Field({
   )
 }
 
-// ─── Status chip — minimal dot + label, no colored box ──────────────────────────
+// ─── Status Pill ─────────────────────────────────────────────────────────────────
 
-function StatusChip({ status }: { status: AppointmentStatus }) {
+function StatusPill({ status }: { status: AppointmentStatus }) {
   const m = STATUS_META[status]
   return (
-    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold"
-      style={{ color: m.textColor }}>
-      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-        style={{ backgroundColor: m.dotColor }} />
+    <span
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold"
+      style={{ color: m.text, backgroundColor: m.bg, border: `1px solid ${m.border}` }}
+    >
+      <span className="w-1 h-1 rounded-full" style={{ backgroundColor: m.dot }} />
       {m.label}
     </span>
   )
 }
 
-// ─── Notify line — compact inline, no badge box ──────────────────────────────────
+// ─── Mini Calendar ────────────────────────────────────────────────────────────────
 
-function NotifyLine({ channel, phone, email }: {
-  channel: NotifyChannel; phone: string; email: string
+function MiniCalendar({
+  selected, onSelect, appointments,
+}: {
+  selected: string
+  onSelect: (d: string) => void
+  appointments: Appointment[]
 }) {
-  if (channel === "none") return null
-  return (
-    <span className="inline-flex items-center gap-2.5 text-[11px] text-slate-400">
-      {(channel === "whatsapp" || channel === "both") && phone && (
-        <span className="flex items-center gap-1">
-          <MessageCircle size={10} className="text-green-500" />{phone}
-        </span>
-      )}
-      {(channel === "email" || channel === "both") && email && (
-        <span className="flex items-center gap-1">
-          <Mail size={10} className="text-blue-400" />{email}
-        </span>
-      )}
-    </span>
+  const [viewMonth, setViewMonth] = useState(() => {
+    const d = new Date(selected + "T00:00:00")
+    return { year: d.getFullYear(), month: d.getMonth() }
+  })
+
+  const daysInMonth = new Date(viewMonth.year, viewMonth.month + 1, 0).getDate()
+  const firstDay = new Date(viewMonth.year, viewMonth.month, 1).getDay()
+  const offset = (firstDay + 6) % 7 // Monday start
+
+  const apptDays = new Set(
+    appointments
+      .filter(a => {
+        const d = new Date(a.date + "T00:00:00")
+        return d.getFullYear() === viewMonth.year && d.getMonth() === viewMonth.month
+      })
+      .map(a => new Date(a.date + "T00:00:00").getDate())
   )
-}
 
-// ─── Date Navigator ──────────────────────────────────────────────────────────────
+  const DAYS = ["S", "S", "R", "K", "J", "S", "M"]
+  const monthLabel = new Date(viewMonth.year, viewMonth.month, 1)
+    .toLocaleDateString("id-ID", { month: "long", year: "numeric" })
 
-function DateNav({ date, onChange }: { date: string; onChange: (d: string) => void }) {
+  const prevMonth = () => setViewMonth(v => {
+    const d = new Date(v.year, v.month - 1, 1)
+    return { year: d.getFullYear(), month: d.getMonth() }
+  })
+  const nextMonth = () => setViewMonth(v => {
+    const d = new Date(v.year, v.month + 1, 1)
+    return { year: d.getFullYear(), month: d.getMonth() }
+  })
+
   return (
-    <div className="flex items-center gap-0.5">
-      <button
-        onClick={() => onChange(addDays(date, -1))}
-        className="w-7 h-7 rounded flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-        aria-label="Hari sebelumnya"
-      >
-        <ChevronLeft size={14} />
-      </button>
-
-      {/* invisible date input layered under the text label */}
-      <div className="relative">
-        <input
-          type="date" value={date}
-          onChange={e => onChange(e.target.value)}
-          className="opacity-0 absolute inset-0 w-full cursor-pointer"
-          aria-label="Pilih tanggal"
-        />
-        <span className="px-2.5 py-1 text-sm font-semibold text-slate-800 pointer-events-none whitespace-nowrap">
-          {date === TODAY
-            ? <><span className="text-[#01696f]">Hari ini</span>{" · "}{fmtDateShort(date)}</>
-            : fmtDateLong(date)
-          }
-        </span>
+    <div className="select-none">
+      {/* Month nav */}
+      <div className="flex items-center justify-between mb-2 px-0.5">
+        <span className="text-[12px] font-semibold text-slate-700 capitalize">{monthLabel}</span>
+        <div className="flex gap-0.5">
+          <button onClick={prevMonth}
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors">
+            <ChevronLeft size={12} />
+          </button>
+          <button onClick={nextMonth}
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors">
+            <ChevronRight size={12} />
+          </button>
+        </div>
       </div>
 
-      <button
-        onClick={() => onChange(addDays(date, 1))}
-        className="w-7 h-7 rounded flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-        aria-label="Hari berikutnya"
-      >
-        <ChevronRight size={14} />
-      </button>
+      {/* Day headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {DAYS.map((d, i) => (
+          <div key={i} className="text-center text-[10px] font-semibold text-slate-400 py-0.5">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Cells */}
+      <div className="grid grid-cols-7 gap-y-0.5">
+        {Array.from({ length: offset }).map((_, i) => <div key={`e${i}`} />)}
+        {Array.from({ length: daysInMonth }, (_, i) => {
+          const day = i + 1
+          const iso = `${viewMonth.year}-${String(viewMonth.month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+          const isSelected = iso === selected
+          const isToday    = iso === TODAY
+          const hasDot     = apptDays.has(day)
+          return (
+            <button
+              key={day}
+              onClick={() => onSelect(iso)}
+              className={[
+                "relative w-full aspect-square flex items-center justify-center rounded-full",
+                "text-[12px] font-medium transition-all",
+                isSelected
+                  ? "bg-teal-600 text-white"
+                  : isToday
+                  ? "bg-teal-50 text-teal-700 font-semibold"
+                  : "text-slate-600 hover:bg-slate-100",
+              ].join(" ")}
+            >
+              {day}
+              {hasDot && !isSelected && (
+                <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-teal-500" />
+              )}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
 
-// ─── Appointment Card ────────────────────────────────────────────────────────────
+// ─── Week Strip ───────────────────────────────────────────────────────────────────
 
-function AppointmentCard({
-  apt, onStatusChange, onDelete,
+function WeekStrip({
+  selected, onSelect, appointments,
+}: {
+  selected: string
+  onSelect: (d: string) => void
+  appointments: Appointment[]
+}) {
+  const weekStart = startOfWeek(selected)
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+
+  const countMap: Record<string, number> = {}
+  appointments.forEach(a => { countMap[a.date] = (countMap[a.date] ?? 0) + 1 })
+
+  return (
+    <div className="flex items-stretch gap-0.5 bg-white border border-slate-200 rounded-xl p-1">
+      {days.map(day => {
+        const isSelected = day === selected
+        const isToday    = day === TODAY
+        const count      = countMap[day] ?? 0
+        const d          = new Date(day + "T00:00:00")
+        return (
+          <button
+            key={day}
+            onClick={() => onSelect(day)}
+            className={[
+              "flex-1 flex flex-col items-center gap-0.5 py-2 px-1 rounded-lg transition-all",
+              isSelected
+                ? "bg-teal-600 text-white shadow-sm"
+                : isToday
+                ? "bg-teal-50 text-teal-700"
+                : "hover:bg-slate-50 text-slate-600",
+            ].join(" ")}
+          >
+            <span className={[
+              "text-[10px] font-semibold uppercase tracking-wide",
+              isSelected ? "text-teal-100" : "text-slate-400",
+            ].join(" ")}>
+              {fmtWeekday(day)}
+            </span>
+            <span className={[
+              "text-[14px] font-bold leading-none",
+              isSelected ? "text-white" : isToday ? "text-teal-600" : "text-slate-800",
+            ].join(" ")}>
+              {d.getDate()}
+            </span>
+            {count > 0 && (
+              <span className={[
+                "text-[9px] font-semibold leading-none",
+                isSelected ? "text-teal-200" : "text-teal-500",
+              ].join(" ")}>
+                {count}
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Time Grid ────────────────────────────────────────────────────────────────────
+
+function TimeGrid({
+  appointments, date, onStatusChange, onDelete, onNewAtTime,
+}: {
+  appointments: Appointment[]
+  date: string
+  onStatusChange: (id: string, s: AppointmentStatus) => void
+  onDelete: (id: string) => void
+  onNewAtTime: (time: string) => void
+}) {
+  const dayApts = appointments
+    .filter(a => a.date === date)
+    .sort((a, b) => a.time.localeCompare(b.time))
+
+  // Current time indicator
+  const now = new Date()
+  const nowMin = now.getHours() * 60 + now.getMinutes()
+  const isToday = date === TODAY
+  const showNow = isToday && nowMin >= 8 * 60 && nowMin <= 18 * 60
+  const nowTop  = ((nowMin - 8 * 60) / 60) * SLOT_HEIGHT
+
+  return (
+    <div className="relative flex">
+      {/* Hour labels */}
+      <div className="flex-shrink-0 w-12">
+        {HOURS.map(h => (
+          <div key={h} style={{ height: SLOT_HEIGHT }}
+            className="flex items-start justify-end pr-3 pt-1">
+            <span className="text-[10px] font-medium text-slate-400 tabular-nums">
+              {String(h).padStart(2, "0")}:00
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Grid area */}
+      <div className="flex-1 relative border-l border-slate-200">
+        {/* Hour lines */}
+        {HOURS.map((h, i) => (
+          <div
+            key={h}
+            style={{ top: i * SLOT_HEIGHT, height: SLOT_HEIGHT }}
+            className="absolute left-0 right-0 border-t border-slate-100 group/hour"
+          >
+            {/* Half-hour tick */}
+            <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-slate-100" />
+            {/* Hover: click to create */}
+            <div
+              className="absolute inset-0 hover:bg-teal-50/30 cursor-pointer transition-colors"
+              onClick={() => onNewAtTime(`${String(h).padStart(2, "0")}:00`)}
+              title={`Jadwalkan jam ${h}:00`}
+            />
+          </div>
+        ))}
+
+        {/* Now indicator */}
+        {showNow && (
+          <div
+            className="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
+            style={{ top: nowTop }}
+          >
+            <span className="w-2 h-2 rounded-full bg-red-500 -ml-1 flex-shrink-0" />
+            <div className="flex-1 h-px bg-red-400" />
+          </div>
+        )}
+
+        {/* Appointment blocks */}
+        {dayApts.map(apt => {
+          const startMin = timeToMinutes(apt.time)
+          const top    = ((startMin - 8 * 60) / 60) * SLOT_HEIGHT
+          const height = Math.max((apt.duration / 60) * SLOT_HEIGHT, 24)
+          const doc    = DOCTOR_MAP[apt.doctorId]
+          const m      = STATUS_META[apt.status]
+          const isCancelled = apt.status === "cancelled"
+
+          return (
+            <GridBlock
+              key={apt.id}
+              apt={apt}
+              top={top}
+              height={height}
+              doc={doc}
+              m={m}
+              isCancelled={isCancelled}
+              onStatusChange={onStatusChange}
+              onDelete={onDelete}
+            />
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Grid Block ──────────────────────────────────────────────────────────────────
+
+function GridBlock({
+  apt, top, height, doc, m, isCancelled, onStatusChange, onDelete,
 }: {
   apt: Appointment
+  top: number; height: number
+  doc: Doctor | undefined
+  m: typeof STATUS_META[AppointmentStatus]
+  isCancelled: boolean
   onStatusChange: (id: string, s: AppointmentStatus) => void
   onDelete: (id: string) => void
 }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const doc = DOCTOR_MAP[apt.doctorId]
+  const [menu, setMenu] = useState(false)
+  const [detail, setDetail] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false)
     }
     document.addEventListener("mousedown", h)
     return () => document.removeEventListener("mousedown", h)
   }, [])
 
-  const isCancelled = apt.status === "cancelled"
-  const isCompleted = apt.status === "completed"
-  const canAdvance  = apt.status === "scheduled" || apt.status === "confirmed"
   const nextStatus: Partial<Record<AppointmentStatus, AppointmentStatus>> = {
     scheduled: "confirmed", confirmed: "completed",
   }
+  const canAdvance = apt.status === "scheduled" || apt.status === "confirmed"
+  const isSmall    = height <= 36
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 5 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.98 }}
-      transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-      className={[
-        "group relative bg-white rounded-xl border transition-all duration-150",
-        isCancelled
-          ? "border-slate-100 opacity-50"
-          : "border-slate-200 hover:border-slate-300 hover:shadow-[0_2px_8px_rgba(15,23,42,0.06)]",
-      ].join(" ")}
-    >
-      {/* doctor color rail */}
+    <>
       <div
-        className="absolute left-0 top-3 bottom-3 w-[2.5px] rounded-full"
-        style={{ backgroundColor: doc?.color ?? "#cbd5e1" }}
-      />
-
-      <div className="pl-4 pr-3.5 py-3 flex items-start gap-4">
-
-        {/* ── Time column ── */}
-        <div className="flex-shrink-0 w-11 pt-0.5 text-center">
-          <p className="text-[13px] font-bold tabular-nums text-slate-800 leading-none">{apt.time}</p>
-        </div>
-
-        {/* ── Main content ── */}
-        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-
-          {/* Name + status */}
-          <div className="flex items-baseline gap-2.5 flex-wrap">
-            <span className="text-[13px] font-semibold text-slate-900 leading-tight">
-              {apt.patientName}
-            </span>
-            <span className="font-mono text-[10px] text-slate-400 tracking-wide">{apt.patientId}</span>
-            <StatusChip status={apt.status} />
-          </div>
-
-          {/* Doctor + type — one line, muted */}
-          <p className="text-[12px] text-slate-500 leading-snug">
-            {doc?.name ?? apt.doctorId}
-            <span className="mx-1.5 text-slate-300">·</span>
-            {apt.type}
+        className={[
+          "absolute left-1.5 right-1.5 rounded-md cursor-pointer overflow-hidden",
+          "border transition-all duration-150",
+          isCancelled ? "opacity-40" : "hover:shadow-md hover:z-10",
+        ].join(" ")}
+        style={{
+          top,
+          height,
+          backgroundColor: m.gridBg,
+          borderColor: m.border,
+          borderLeftWidth: 3,
+          borderLeftColor: doc?.color ?? m.dot,
+          zIndex: detail ? 15 : 5,
+        }}
+        onClick={() => setDetail(true)}
+      >
+        <div className="px-2 py-1 h-full flex flex-col justify-start gap-0.5">
+          <p className={[
+            "font-semibold leading-tight truncate",
+            isSmall ? "text-[10px]" : "text-[11px]",
+          ].join(" ")}
+            style={{ color: m.text }}
+          >
+            {apt.patientName}
           </p>
-
-          {/* Notify + notes — only if present */}
-          {(apt.notify !== "none" || apt.notes) && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
-              <NotifyLine channel={apt.notify} phone={apt.notifyPhone} email={apt.notifyEmail} />
-              {apt.notes && (
-                <span className="flex items-center gap-1 text-[11px] text-slate-400 italic">
-                  <FileText size={9} className="text-slate-300" />{apt.notes}
-                </span>
-              )}
-            </div>
+          {!isSmall && (
+            <p className="text-[10px] truncate" style={{ color: m.text, opacity: 0.7 }}>
+              {apt.time} · {apt.type}
+            </p>
           )}
-        </div>
-
-        {/* ── Actions ── */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          {canAdvance && (
-            <button
-              onClick={() => onStatusChange(apt.id, nextStatus[apt.status]!)}
-              className="px-2.5 py-1 rounded-md text-[11px] font-semibold
-                border border-[#01696f]/25 text-[#01696f] bg-[#01696f]/[0.04]
-                hover:bg-[#01696f]/[0.09] transition-colors whitespace-nowrap"
-            >
-              {apt.status === "scheduled" ? "Konfirmasi" : "Selesai"}
-            </button>
-          )}
-
-          <div className="relative" ref={ref}>
-            <button
-              onClick={() => setOpen(v => !v)}
-              className="w-7 h-7 rounded flex items-center justify-center
-                text-slate-300 hover:text-slate-600 hover:bg-slate-100
-                opacity-0 group-hover:opacity-100 transition-all"
-              aria-label="Opsi"
-            >
-              <MoreHorizontal size={14} />
-            </button>
-
-            <AnimatePresence>
-              {open && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.96, y: -4 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.96, y: -4 }}
-                  transition={{ duration: 0.1 }}
-                  className="absolute right-0 top-full mt-1 z-20 w-36 bg-white
-                    rounded-lg border border-slate-200
-                    shadow-[0_4px_16px_rgba(15,23,42,0.1)] overflow-hidden"
-                >
-                  <button
-                    onClick={() => setOpen(false)}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-[12px]
-                      font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-                  >
-                    <Pencil size={11} /> Edit Janji
-                  </button>
-                  {!isCancelled && (
-                    <button
-                      onClick={() => { setOpen(false); onStatusChange(apt.id, "cancelled") }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-[12px]
-                        font-medium text-red-500 hover:bg-red-50 transition-colors"
-                    >
-                      <XCircle size={11} /> Batalkan
-                    </button>
-                  )}
-                  <div className="h-px bg-slate-100 mx-2" />
-                  <button
-                    onClick={() => { setOpen(false); onDelete(apt.id) }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-[12px]
-                      font-medium text-red-500 hover:bg-red-50 transition-colors"
-                  >
-                    <Trash2 size={11} /> Hapus
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
         </div>
       </div>
-    </motion.div>
+
+      {/* Detail popup */}
+      <AnimatePresence>
+        {detail && (
+          <>
+            <div
+              className="fixed inset-0 z-30"
+              onClick={() => setDetail(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: -6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: -6 }}
+              transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+              className="absolute z-40 w-72 bg-white rounded-xl border border-slate-200
+                shadow-[0_8px_32px_rgba(15,23,42,0.12)] overflow-hidden"
+              style={{ top: top + height + 6, left: 8 }}
+            >
+              {/* Color bar */}
+              <div className="h-1" style={{ backgroundColor: doc?.color ?? m.dot }} />
+              <div className="p-4 flex flex-col gap-3">
+                {/* Header */}
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-[14px] font-semibold text-slate-900">{apt.patientName}</p>
+                    <p className="font-mono text-[11px] text-slate-400 mt-0.5">{apt.patientId}</p>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <StatusPill status={apt.status} />
+                    <button
+                      onClick={() => setDetail(false)}
+                      className="w-6 h-6 flex items-center justify-center rounded text-slate-400
+                        hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Info rows */}
+                <div className="flex flex-col gap-1.5 text-[12px] text-slate-600">
+                  <div className="flex items-center gap-2">
+                    <Clock size={11} className="text-slate-400 flex-shrink-0" />
+                    <span>{apt.time} · {apt.duration} menit</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: doc?.color }} />
+                    <span>{doc?.name} <span className="text-slate-400">— {doc?.specialty}</span></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FileText size={11} className="text-slate-400 flex-shrink-0" />
+                    <span>{apt.type}</span>
+                  </div>
+                  {apt.notes && (
+                    <div className="flex items-start gap-2">
+                      <FileText size={11} className="text-slate-400 flex-shrink-0 mt-0.5" />
+                      <span className="italic text-slate-500">{apt.notes}</span>
+                    </div>
+                  )}
+                  {apt.notify !== "none" && (
+                    <div className="flex items-center gap-2">
+                      {(apt.notify === "whatsapp" || apt.notify === "both") && apt.notifyPhone && (
+                        <span className="flex items-center gap-1">
+                          <MessageCircle size={10} className="text-green-500" />
+                          <span className="text-[11px]">{apt.notifyPhone}</span>
+                        </span>
+                      )}
+                      {(apt.notify === "email" || apt.notify === "both") && apt.notifyEmail && (
+                        <span className="flex items-center gap-1">
+                          <Mail size={10} className="text-blue-400" />
+                          <span className="text-[11px]">{apt.notifyEmail}</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                  {canAdvance && (
+                    <button
+                      onClick={() => { onStatusChange(apt.id, nextStatus[apt.status]!); setDetail(false) }}
+                      className="flex-1 py-1.5 rounded-md text-[12px] font-semibold
+                        bg-teal-600 text-white hover:bg-teal-700 transition-colors"
+                    >
+                      {apt.status === "scheduled" ? "Konfirmasi" : "Tandai Selesai"}
+                    </button>
+                  )}
+                  {!isCancelled && (
+                    <button
+                      onClick={() => { onStatusChange(apt.id, "cancelled"); setDetail(false) }}
+                      className="py-1.5 px-2.5 rounded-md text-[12px] font-medium
+                        text-red-500 hover:bg-red-50 border border-red-200 transition-colors"
+                    >
+                      Batalkan
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { onDelete(apt.id); setDetail(false) }}
+                    className="w-8 h-8 flex items-center justify-center rounded-md
+                      text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   )
 }
 
-// ─── New Appointment Drawer ──────────────────────────────────────────────────────
+// ─── New Appointment Drawer ───────────────────────────────────────────────────────
 
 function NewApptDrawer({
-  defaultDate, onClose, onSave,
+  defaultDate, defaultTime, onClose, onSave,
 }: {
   defaultDate: string
+  defaultTime?: string
   onClose: () => void
   onSave: (apt: Appointment) => void
 }) {
   const EMPTY: NewApptForm = {
     patientId: "", patientName: "", date: defaultDate,
-    time: "", doctorId: "", type: "", notes: "",
-    notify: "whatsapp", notifyPhone: "", notifyEmail: "",
+    time: defaultTime ?? "", duration: "30", doctorId: "", type: "", notes: "",
+    notify: "none", notifyPhone: "", notifyEmail: "",
   }
   const [form, setForm]       = useState<NewApptForm>(EMPTY)
   const [errors, setErrors]   = useState<FormErrors>({})
@@ -472,6 +713,7 @@ function NewApptDrawer({
       patientId:   form.patientId.trim(),
       patientName: form.patientName.trim(),
       date: form.date, time: form.time,
+      duration: parseInt(form.duration) || 30,
       doctorId: form.doctorId, type: form.type,
       status: "scheduled",
       notes: form.notes.trim(),
@@ -485,46 +727,44 @@ function NewApptDrawer({
   const showWA    = form.notify === "whatsapp" || form.notify === "both"
   const showEmail = form.notify === "email"    || form.notify === "both"
 
-  // Notify channel options — segmented, not card grid
   const NOTIFY_OPTS: { val: NotifyChannel; label: string }[] = [
     { val: "none",     label: "Tidak" },
-    { val: "whatsapp", label: "WhatsApp" },
+    { val: "whatsapp", label: "WA" },
     { val: "email",    label: "Email" },
     { val: "both",     label: "Keduanya" },
   ]
 
+  const TIME_SLOTS: string[] = []
+  for (let h = 8; h < 18; h++) {
+    TIME_SLOTS.push(`${String(h).padStart(2, "0")}:00`)
+    TIME_SLOTS.push(`${String(h).padStart(2, "0")}:30`)
+  }
+
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 24 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 24 }}
-      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-      className="bg-white rounded-xl border border-slate-200
-        shadow-[0_4px_24px_rgba(15,23,42,0.07)] overflow-hidden"
-    >
-      {/* Header — plain, no bg fill */}
-      <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-slate-100">
-        <p className="text-[13px] font-semibold text-slate-800">Jadwalkan Janji Baru</p>
+    <div className="h-full flex flex-col bg-white border-l border-slate-200">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-slate-100 flex-shrink-0">
+        <div>
+          <p className="text-[13px] font-semibold text-slate-800">Jadwalkan Janji</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">{fmtDateShort(form.date)}</p>
+        </div>
         <button
           onClick={onClose}
-          className="w-6 h-6 rounded flex items-center justify-center
+          className="w-7 h-7 rounded-lg flex items-center justify-center
             text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
           aria-label="Tutup"
         >
-          <X size={13} />
+          <X size={14} />
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} noValidate
-        className="overflow-y-auto max-h-[calc(100vh-13rem)]">
-        <div className="px-5 py-4 flex flex-col gap-5">
+      <form onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto">
+        <div className="px-4 py-4 flex flex-col gap-4">
 
-          {/* ── Pasien ── */}
-          <div className="flex flex-col gap-3">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
-              Pasien
-            </span>
-            <div className="grid grid-cols-2 gap-3">
+          {/* Pasien */}
+          <section className="flex flex-col gap-2.5">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pasien</p>
+            <div className="grid grid-cols-2 gap-2">
               <Field label="ID Pasien" id="f-pid" required error={err("patientId")}>
                 <input id="f-pid" value={form.patientId}
                   onChange={e => set("patientId", e.target.value)}
@@ -540,16 +780,14 @@ function NewApptDrawer({
                   className={err("patientName") ? inputErrCls : inputCls} />
               </Field>
             </div>
-          </div>
+          </section>
 
           <div className="h-px bg-slate-100" />
 
-          {/* ── Jadwal ── */}
-          <div className="flex flex-col gap-3">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
-              Jadwal
-            </span>
-            <div className="grid grid-cols-2 gap-3">
+          {/* Jadwal */}
+          <section className="flex flex-col gap-2.5">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Jadwal</p>
+            <div className="grid grid-cols-2 gap-2">
               <Field label="Tanggal" id="f-date" required error={err("date")}>
                 <input id="f-date" type="date" value={form.date} min={TODAY}
                   onChange={e => set("date", e.target.value)}
@@ -561,63 +799,68 @@ function NewApptDrawer({
                   <select id="f-time" value={form.time}
                     onChange={e => set("time", e.target.value)}
                     onBlur={() => blur("time")}
-                    className={`${err("time") ? inputErrCls : inputCls} appearance-none pr-8`}>
-                    <option value="" disabled>Pilih waktu</option>
+                    className={`${err("time") ? inputErrCls : inputCls} appearance-none pr-7`}>
+                    <option value="" disabled>Pilih</option>
                     {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
-                  <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
               </Field>
             </div>
-            <Field label="Dokter" id="f-doc" required error={err("doctorId")}>
-              <div className="relative">
-                <select id="f-doc" value={form.doctorId}
-                  onChange={e => set("doctorId", e.target.value)}
-                  onBlur={() => blur("doctorId")}
-                  className={`${err("doctorId") ? inputErrCls : inputCls} appearance-none pr-8`}>
-                  <option value="" disabled>Pilih dokter</option>
-                  {DOCTORS.map(d => (
-                    <option key={d.id} value={d.id}>{d.name} — {d.specialty}</option>
-                  ))}
-                </select>
-                <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              </div>
-            </Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Durasi" id="f-dur">
+                <div className="relative">
+                  <select id="f-dur" value={form.duration}
+                    onChange={e => set("duration", e.target.value)}
+                    className={`${inputCls} appearance-none pr-7`}>
+                    {[15,30,45,60,90,120].map(n =>
+                      <option key={n} value={n}>{n} menit</option>
+                    )}
+                  </select>
+                  <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              </Field>
+              <Field label="Dokter" id="f-doc" required error={err("doctorId")}>
+                <div className="relative">
+                  <select id="f-doc" value={form.doctorId}
+                    onChange={e => set("doctorId", e.target.value)}
+                    onBlur={() => blur("doctorId")}
+                    className={`${err("doctorId") ? inputErrCls : inputCls} appearance-none pr-7`}>
+                    <option value="" disabled>Pilih</option>
+                    {DOCTORS.map(d => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              </Field>
+            </div>
             <Field label="Jenis Janji" id="f-type" required error={err("type")}>
               <div className="relative">
                 <select id="f-type" value={form.type}
                   onChange={e => set("type", e.target.value)}
                   onBlur={() => blur("type")}
-                  className={`${err("type") ? inputErrCls : inputCls} appearance-none pr-8`}>
+                  className={`${err("type") ? inputErrCls : inputCls} appearance-none pr-7`}>
                   <option value="" disabled>Pilih jenis</option>
                   {APPOINTMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
-                <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>
             </Field>
             <Field label="Catatan" id="f-notes">
               <textarea id="f-notes" value={form.notes}
                 onChange={e => set("notes", e.target.value)}
-                placeholder="Instruksi khusus, keluhan pasien…"
+                placeholder="Instruksi khusus, keluhan…"
                 rows={2} maxLength={300}
                 className={`${inputCls} resize-none`} />
             </Field>
-          </div>
+          </section>
 
           <div className="h-px bg-slate-100" />
 
-          {/* ── Notifikasi — segmented control, not card grid ── */}
-          <div className="flex flex-col gap-3">
-            <div className="flex items-baseline justify-between">
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
-                Notifikasi
-              </span>
-              <span className="text-[11px] text-slate-400">
-                WA API · Google Calendar (.ics)
-              </span>
-            </div>
-
-            {/* Segmented control */}
+          {/* Notifikasi */}
+          <section className="flex flex-col gap-2.5">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Notifikasi</p>
             <div className="flex rounded-lg border border-slate-200 overflow-hidden bg-slate-50 p-0.5 gap-0.5">
               {NOTIFY_OPTS.map(opt => (
                 <button
@@ -625,9 +868,9 @@ function NewApptDrawer({
                   type="button"
                   onClick={() => set("notify", opt.val)}
                   className={[
-                    "flex-1 py-1.5 text-[12px] font-medium rounded-md transition-all",
+                    "flex-1 py-1.5 text-[11px] font-medium rounded-md transition-all",
                     form.notify === opt.val
-                      ? "bg-white text-slate-800 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
+                      ? "bg-white text-slate-800 shadow-sm"
                       : "text-slate-400 hover:text-slate-600",
                   ].join(" ")}
                 >
@@ -636,26 +879,25 @@ function NewApptDrawer({
               ))}
             </div>
 
-            {/* Conditional inputs — slide in inline, no cards */}
             <AnimatePresence>
               {showWA && (
                 <motion.div key="wa"
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.15 }}
+                  transition={{ duration: 0.14 }}
                   className="overflow-hidden"
                 >
                   <Field label="Nomor WhatsApp" id="f-wa" required error={err("notifyPhone")}>
                     <div className="relative">
-                      <MessageCircle size={12}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-green-500 pointer-events-none" />
+                      <MessageCircle size={11}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-green-500 pointer-events-none" />
                       <input id="f-wa" type="tel" inputMode="tel"
                         value={form.notifyPhone}
                         onChange={e => set("notifyPhone", e.target.value)}
                         onBlur={() => blur("notifyPhone")}
                         placeholder="+62 812 0000 0000"
-                        className={`${err("notifyPhone") ? inputErrCls : inputCls} pl-9`} />
+                        className={`${err("notifyPhone") ? inputErrCls : inputCls} pl-8`} />
                     </div>
                   </Field>
                 </motion.div>
@@ -665,103 +907,55 @@ function NewApptDrawer({
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.15 }}
+                  transition={{ duration: 0.14 }}
                   className="overflow-hidden"
                 >
                   <Field label="Alamat Email" id="f-email" required error={err("notifyEmail")}>
                     <div className="relative">
-                      <Mail size={12}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" />
+                      <Mail size={11}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" />
                       <input id="f-email" type="email" inputMode="email"
                         value={form.notifyEmail}
                         onChange={e => set("notifyEmail", e.target.value)}
                         onBlur={() => blur("notifyEmail")}
                         placeholder="pasien@example.com"
-                        className={`${err("notifyEmail") ? inputErrCls : inputCls} pl-9`} />
+                        className={`${err("notifyEmail") ? inputErrCls : inputCls} pl-8`} />
                     </div>
                   </Field>
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center gap-2 px-5 py-3.5 border-t border-slate-100">
-          <button type="button" onClick={onClose}
-            className="flex-1 py-2 rounded-lg border border-slate-200 text-[13px]
-              font-medium text-slate-600 hover:bg-slate-50 transition-colors">
-            Batal
-          </button>
-          <button type="submit"
-            className="flex-1 py-2 rounded-lg bg-[#16254c] text-white text-[13px]
-              font-semibold flex items-center justify-center gap-1.5
-              hover:bg-[#0f1a38] active:bg-[#0a1128] transition-colors shadow-sm">
-            <CalendarCheck size={13} /> Simpan
-          </button>
+          </section>
         </div>
       </form>
-    </motion.div>
-  )
-}
 
-// ─── Summary bar — replaces the 4-box KPI grid ──────────────────────────────────
-
-function SummaryBar({ apts }: { apts: Appointment[] }) {
-  const total = apts.length
-  if (total === 0) return null
-
-  const counts = { scheduled: 0, confirmed: 0, completed: 0, cancelled: 0 } as
-    Record<AppointmentStatus, number>
-  apts.forEach(a => counts[a.status]++)
-
-  const segments: { status: AppointmentStatus; pct: number }[] =
-    (["confirmed","scheduled","completed","cancelled"] as AppointmentStatus[])
-      .map(s => ({ status: s, pct: (counts[s] / total) * 100 }))
-      .filter(s => s.pct > 0)
-
-  return (
-    <div className="flex items-center gap-4">
-      {/* Progress bar */}
-      <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-slate-100 flex">
-        {segments.map(({ status, pct }) => (
-          <div key={status}
-            style={{ width: `${pct}%`, backgroundColor: STATUS_META[status].dotColor }}
-            className="transition-all duration-500" />
-        ))}
-      </div>
-
-      {/* Legend — only non-zero */}
-      <div className="flex items-center gap-3 flex-shrink-0">
-        {(["confirmed","scheduled","completed","cancelled"] as AppointmentStatus[])
-          .filter(s => counts[s] > 0)
-          .map(s => (
-            <span key={s} className="flex items-center gap-1 text-[11px] text-slate-500">
-              <span className="w-1.5 h-1.5 rounded-full"
-                style={{ backgroundColor: STATUS_META[s].dotColor }} />
-              {counts[s]} {STATUS_META[s].label}
-            </span>
-          ))
-        }
+      {/* Footer */}
+      <div className="flex gap-2 px-4 py-3 border-t border-slate-100 flex-shrink-0">
+        <button type="button" onClick={onClose}
+          className="flex-1 py-2 rounded-lg border border-slate-200 text-[12px]
+            font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+          Batal
+        </button>
+        <button
+          onClick={handleSubmit as unknown as React.MouseEventHandler}
+          className="flex-1 py-2 rounded-lg bg-slate-900 text-white text-[12px]
+            font-semibold flex items-center justify-center gap-1.5
+            hover:bg-slate-800 active:bg-slate-700 transition-colors">
+          <CalendarCheck size={12} /> Simpan
+        </button>
       </div>
     </div>
   )
 }
 
-// ─── Main ────────────────────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────────
 
 export function AppointmentScheduling() {
   const [appointments, setAppointments] = useState<Appointment[]>(INIT_APPOINTMENTS)
   const [selectedDate, setSelectedDate] = useState(TODAY)
   const [showForm, setShowForm]         = useState(false)
-  const [filterStatus, setFilterStatus] = useState<AppointmentStatus | "all">("all")
+  const [defaultTime, setDefaultTime]   = useState<string | undefined>()
   const [filterDoctor, setFilterDoctor] = useState("")
-
-  const dayApts = appointments.filter(a => a.date === selectedDate)
-  const filtered = dayApts
-    .filter(a => filterStatus === "all" || a.status === filterStatus)
-    .filter(a => !filterDoctor || a.doctorId === filterDoctor)
-    .sort((a, b) => a.time.localeCompare(b.time))
 
   const handleStatusChange = (id: string, status: AppointmentStatus) =>
     setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a))
@@ -770,143 +964,179 @@ export function AppointmentScheduling() {
   const handleSave = (apt: Appointment) =>
     setAppointments(prev => [...prev, apt])
 
-  return (
-    <div className="p-6 max-w-6xl mx-auto flex flex-col gap-5">
+  const handleNewAtTime = useCallback((time: string) => {
+    setDefaultTime(time)
+    setShowForm(true)
+  }, [])
 
-      {/* ── Header — editorial, not admin panel ── */}
-      <div className="flex items-end justify-between border-b border-slate-100 pb-4">
-        <div>
-          <p className="text-[11px] font-semibold text-[#01696f] uppercase tracking-widest mb-1">
+  const dayApts = appointments.filter(a => a.date === selectedDate)
+  const filteredApts = filterDoctor
+    ? dayApts.filter(a => a.doctorId === filterDoctor)
+    : dayApts
+
+  return (
+    <div className="flex h-full min-h-screen bg-slate-50 overflow-hidden">
+
+      {/* ── LEFT SIDEBAR ── */}
+      <div className="w-64 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
+
+        {/* Header */}
+        <div className="px-4 pt-5 pb-4">
+          <p className="text-[10px] font-bold text-teal-600 uppercase tracking-widest mb-1">
             Penjadwalan
           </p>
-          <h1 className="text-[22px] font-bold text-slate-900 leading-none">
-            Janji Temu
-          </h1>
+          <h1 className="text-[18px] font-bold text-slate-900 leading-none">Janji Temu</h1>
         </div>
-        <button
-          onClick={() => setShowForm(v => !v)}
-          className={[
-            "flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[13px] font-semibold transition-all",
-            showForm
-              ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              : "bg-[#16254c] text-white hover:bg-[#0f1a38] active:bg-[#0a1128] shadow-sm",
-          ].join(" ")}
-        >
-          {showForm ? <X size={13} /> : <Plus size={13} />}
-          {showForm ? "Tutup" : "Jadwalkan Baru"}
-        </button>
+
+        {/* New button */}
+        <div className="px-4 pb-4">
+          <button
+            onClick={() => { setDefaultTime(undefined); setShowForm(v => !v) }}
+            className={[
+              "w-full flex items-center justify-center gap-1.5 py-2 rounded-lg",
+              "text-[12px] font-semibold transition-all",
+              showForm
+                ? "bg-slate-100 text-slate-600 border border-slate-200"
+                : "bg-slate-900 text-white hover:bg-slate-800 shadow-sm",
+            ].join(" ")}
+          >
+            {showForm ? <X size={12} /> : <Plus size={12} />}
+            {showForm ? "Tutup Form" : "+ Jadwalkan Baru"}
+          </button>
+        </div>
+
+        <div className="h-px bg-slate-100 mx-4" />
+
+        {/* Mini calendar */}
+        <div className="px-4 py-4">
+          <MiniCalendar
+            selected={selectedDate}
+            onSelect={setSelectedDate}
+            appointments={appointments}
+          />
+        </div>
+
+        <div className="h-px bg-slate-100 mx-4" />
+
+        {/* Doctor legend */}
+        <div className="px-4 py-4 flex flex-col gap-2">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Dokter</p>
+          <button
+            onClick={() => setFilterDoctor("")}
+            className={[
+              "text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors",
+              !filterDoctor ? "bg-slate-100 text-slate-800" : "text-slate-500 hover:bg-slate-50",
+            ].join(" ")}
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-slate-400 flex-shrink-0" />
+            Semua Dokter
+          </button>
+          {DOCTORS.map(d => (
+            <button
+              key={d.id}
+              onClick={() => setFilterDoctor(filterDoctor === d.id ? "" : d.id)}
+              className={[
+                "text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] transition-colors",
+                filterDoctor === d.id ? "bg-slate-100 font-medium text-slate-800" : "text-slate-500 hover:bg-slate-50",
+              ].join(" ")}
+            >
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                style={{ backgroundColor: d.color }} />
+              <span className="truncate">{d.name}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* ── Date navigator + summary bar ── */}
-      <div className="flex flex-col gap-2.5">
-        <div className="flex items-center justify-between">
-          <DateNav date={selectedDate} onChange={setSelectedDate} />
-          <span className="text-[12px] text-slate-400">
-            {dayApts.length} janji temu
-          </span>
-        </div>
-        <SummaryBar apts={dayApts} />
-      </div>
+      {/* ── CENTER: Calendar view ── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-      {/* ── Main grid ── */}
-      <div className={`grid gap-5 items-start ${
-        showForm ? "grid-cols-1 lg:grid-cols-[1fr_380px]" : "grid-cols-1"
-      }`}>
-
-        {/* ── List ── */}
-        <div className="flex flex-col gap-3">
-
-          {/* Toolbar — tab-style filter + doctor select on same row */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center">
-              {(["all","scheduled","confirmed","completed","cancelled"] as const).map(s => (
-                <button
-                  key={s}
-                  onClick={() => setFilterStatus(s)}
-                  className={[
-                    "px-3 py-1.5 text-[12px] font-medium transition-colors relative whitespace-nowrap",
-                    filterStatus === s
-                      ? "text-slate-900"
-                      : "text-slate-400 hover:text-slate-600",
-                  ].join(" ")}
-                >
-                  {s === "all" ? "Semua" : STATUS_META[s].label}
-                  {filterStatus === s && (
-                    <motion.span
-                      layoutId="filter-underline"
-                      className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full bg-[#01696f]"
-                    />
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <div className="relative flex-shrink-0">
-              <select
-                value={filterDoctor}
-                onChange={e => setFilterDoctor(e.target.value)}
-                className="text-[12px] pl-3 pr-7 py-1.5 rounded-lg border border-slate-200
-                  bg-white text-slate-600 focus:outline-none focus:border-[#01696f]/40
-                  appearance-none transition-colors"
+        {/* Toolbar */}
+        <div className="bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedDate(TODAY)}
+              className="px-2.5 py-1 rounded-md text-[11px] font-semibold border border-slate-200
+                text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              Hari Ini
+            </button>
+            <div className="flex gap-0.5">
+              <button
+                onClick={() => setSelectedDate(d => addDays(d, -1))}
+                className="w-7 h-7 flex items-center justify-center rounded text-slate-400
+                  hover:text-slate-700 hover:bg-slate-100 transition-colors"
               >
-                <option value="">Semua Dokter</option>
-                {DOCTORS.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-              <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <ChevronLeft size={14} />
+              </button>
+              <button
+                onClick={() => setSelectedDate(d => addDays(d, 1))}
+                className="w-7 h-7 flex items-center justify-center rounded text-slate-400
+                  hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                <ChevronRight size={14} />
+              </button>
             </div>
+            <h2 className="text-[14px] font-semibold text-slate-800 capitalize">
+              {fmtDateLong(selectedDate)}
+            </h2>
           </div>
-
-          {/* Cards */}
-          <AnimatePresence mode="popLayout">
-            {filtered.length === 0 ? (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="py-14 flex flex-col items-start gap-3
-                  bg-white rounded-xl border border-slate-100 px-8"
-              >
-                <p className="text-[13px] font-medium text-slate-400">
-                  {dayApts.length > 0
-                    ? "Tidak ada janji dengan filter ini."
-                    : `Tidak ada jadwal untuk ${fmtDateShort(selectedDate)}.`
-                  }
-                </p>
-                {dayApts.length === 0 && (
-                  <button
-                    onClick={() => setShowForm(true)}
-                    className="text-[12px] font-semibold text-[#01696f] hover:underline
-                      underline-offset-2 transition-colors"
-                  >
-                    Jadwalkan sekarang →
-                  </button>
-                )}
-              </motion.div>
-            ) : (
-              filtered.map(apt => (
-                <AppointmentCard
-                  key={apt.id} apt={apt}
-                  onStatusChange={handleStatusChange}
-                  onDelete={handleDelete}
-                />
-              ))
+          <div className="flex items-center gap-2 text-[11px] text-slate-500">
+            {dayApts.length > 0 && (
+              <span className="px-2 py-0.5 bg-slate-100 rounded-full font-medium">
+                {filteredApts.length}{filterDoctor ? "" : `/${dayApts.length}`} janji
+              </span>
             )}
-          </AnimatePresence>
+          </div>
         </div>
 
-        {/* ── Drawer ── */}
-        <AnimatePresence>
-          {showForm && (
-            <NewApptDrawer
-              key="drawer"
-              defaultDate={selectedDate}
-              onClose={() => setShowForm(false)}
-              onSave={handleSave}
+        {/* Week strip */}
+        <div className="bg-white border-b border-slate-200 px-5 py-2 flex-shrink-0">
+          <WeekStrip
+            selected={selectedDate}
+            onSelect={setSelectedDate}
+            appointments={appointments}
+          />
+        </div>
+
+        {/* Time grid */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="min-h-full p-4">
+            <TimeGrid
+              appointments={filteredApts}
+              date={selectedDate}
+              onStatusChange={handleStatusChange}
+              onDelete={handleDelete}
+              onNewAtTime={handleNewAtTime}
             />
-          )}
-        </AnimatePresence>
+          </div>
+        </div>
       </div>
+
+      {/* ── RIGHT DRAWER ── */}
+      <AnimatePresence>
+        {showForm && (
+          <motion.div
+            key="drawer"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 320, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="flex-shrink-0 overflow-hidden border-l border-slate-200"
+            style={{ minWidth: 0 }}
+          >
+            <div className="w-80 h-full">
+              <NewApptDrawer
+                key={`${selectedDate}-${defaultTime ?? "x"}`}
+                defaultDate={selectedDate}
+                defaultTime={defaultTime}
+                onClose={() => setShowForm(false)}
+                onSave={handleSave}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
