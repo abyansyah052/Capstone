@@ -46,7 +46,8 @@ const APPOINTMENT_TYPES = [
   "Konsultasi", "Pemeriksaan Lab", "Vaksinasi", "Gawat Darurat",
 ]
 
-const HOURS = Array.from({ length: 10 }, (_, i) => i + 8) // 08–17
+// 24-hour grid: jam 00 s.d. 23
+const HOURS = Array.from({ length: 24 }, (_, i) => i) // 00–23
 const SLOT_HEIGHT = 64 // px per hour
 
 // BUG-06 FIX: getToday() dipanggil saat runtime, bukan module-load time
@@ -141,12 +142,9 @@ const addDays = (iso: string, n: number) => {
 }
 
 // BUG-01 FIX: Sunday (getDay()=0) dianggap hari ke-7 (akhir) minggu Senin–Minggu.
-// Formula lama: (0+6)%7 = 6 → mundur 6 hari ke Senin minggu SEBELUMNYA ❌
-// Formula baru: Sunday → offset 6 (tetap di minggu yang sama, Senin s.d. Minggu) ✓
 const startOfWeek = (iso: string) => {
   const d = new Date(iso + "T00:00:00")
   const day = d.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
-  // Mon=0 offset, Tue=1, ..., Sat=5, Sun=6
   const offset = day === 0 ? 6 : day - 1
   d.setDate(d.getDate() - offset)
   return d.toISOString().split("T")[0]
@@ -166,7 +164,6 @@ function computeLayout(apts: Appointment[]): Map<string, LayoutCol> {
     return diff !== 0 ? diff : a.id.localeCompare(b.id)
   })
 
-  // Group overlapping appointments into clusters
   const clusters: Appointment[][] = []
   for (const apt of sorted) {
     const aptStart = timeToMinutes(apt.time)
@@ -183,7 +180,6 @@ function computeLayout(apts: Appointment[]): Map<string, LayoutCol> {
     if (!placed) clusters.push([apt])
   }
 
-  // Within each cluster, assign column positions
   for (const cluster of clusters) {
     const cols: Array<{ end: number; ids: string[] }> = []
     for (const apt of cluster) {
@@ -418,7 +414,6 @@ function WeekStrip({
   today: string
 }) {
   // BUG-02 FIX: useMemo memastikan weekStart selalu derived dari prop `selected`
-  // secara synchronous di render cycle yang sama — tidak ada delay 1 frame.
   const days = useMemo(() => {
     const weekStart = startOfWeek(selected)
     return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -493,15 +488,16 @@ function TimeGrid({
   // BUG-03 FIX: hitung layout kolom untuk semua apt di hari ini
   const layoutMap = useMemo(() => computeLayout(dayApts), [dayApts])
 
-  // Current time indicator
+  // Current time indicator — full 24-hour range
   const now = new Date()
   const nowMin = now.getHours() * 60 + now.getMinutes()
   const isToday = date === today
-  const showNow = isToday && nowMin >= 8 * 60 && nowMin <= 18 * 60
-  const nowTop  = ((nowMin - 8 * 60) / 60) * SLOT_HEIGHT
+  // Grid sekarang mencakup 00:00–23:59, jadi nowTop selalu valid saat isToday
+  const showNow = isToday
+  const nowTop  = (nowMin / 60) * SLOT_HEIGHT
 
-  // BUG-12 FIX: empty state kalau tidak ada janji
   const isEmpty = dayApts.length === 0
+  const totalGridHeight = HOURS.length * SLOT_HEIGHT // 24 * 64 = 1536px
 
   return (
     <div className="relative flex">
@@ -532,16 +528,16 @@ function TimeGrid({
             <div
               className="absolute inset-0 hover:bg-teal-50/30 cursor-pointer transition-colors"
               onClick={() => onNewAtTime(`${String(h).padStart(2, "0")}:00`)}
-              title={`Jadwalkan jam ${h}:00`}
+              title={`Jadwalkan jam ${String(h).padStart(2, "0")}:00`}
             />
           </div>
         ))}
 
-        {/* BUG-12: Empty state overlay */}
+        {/* Empty state overlay */}
         {isEmpty && (
           <div
             className="absolute inset-0 flex flex-col items-center justify-center gap-2 pointer-events-none"
-            style={{ top: SLOT_HEIGHT * 3 }}
+            style={{ top: SLOT_HEIGHT * 6 }}
           >
             <Calendar size={28} className="text-slate-200" />
             <p className="text-[12px] text-slate-300 font-medium">Tidak ada janji di hari ini</p>
@@ -563,13 +559,13 @@ function TimeGrid({
         {/* Appointment blocks */}
         {dayApts.map(apt => {
           const startMin = timeToMinutes(apt.time)
-          const top    = ((startMin - 8 * 60) / 60) * SLOT_HEIGHT
+          // top dihitung dari 00:00 (bukan 08:00)
+          const top    = (startMin / 60) * SLOT_HEIGHT
           const height = Math.max((apt.duration / 60) * SLOT_HEIGHT, 24)
           const doc    = DOCTOR_MAP[apt.doctorId]
           const m      = STATUS_META[apt.status]
           const isCancelled = apt.status === "cancelled"
           const layout = layoutMap.get(apt.id) ?? { colIndex: 0, colCount: 1 }
-          const totalHours = HOURS.length * SLOT_HEIGHT
 
           return (
             <GridBlock
@@ -577,7 +573,7 @@ function TimeGrid({
               apt={apt}
               top={top}
               height={height}
-              totalGridHeight={totalHours}
+              totalGridHeight={totalGridHeight}
               layout={layout}
               doc={doc}
               m={m}
@@ -804,7 +800,7 @@ function NewApptDrawer({
   const [touched, setTouched] = useState<Partial<Record<keyof NewApptForm, boolean>>>({})
   const [submitted, setSubmitted] = useState(false)
 
-  // BUG-10 FIX: sync defaultDate/defaultTime via useEffect, bukan lewat key remount
+  // BUG-10 FIX: sync defaultDate/defaultTime via useEffect
   useEffect(() => {
     setForm(prev => ({ ...prev, date: defaultDate }))
   }, [defaultDate])
@@ -827,7 +823,7 @@ function NewApptDrawer({
   const err = (k: keyof NewApptForm) =>
     (touched[k] || submitted) ? errors[k] : undefined
 
-  // BUG-05 FIX: handleSubmit hanya dari form onSubmit — footer button type="submit"
+  // BUG-05 FIX: handleSubmit hanya dari form onSubmit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitted(true)
@@ -860,8 +856,9 @@ function NewApptDrawer({
     { val: "both",     label: "Keduanya" },
   ]
 
+  // Time slots 24 jam: 00:00–23:30 dengan interval 30 menit
   const TIME_SLOTS: string[] = []
-  for (let h = 8; h < 18; h++) {
+  for (let h = 0; h < 24; h++) {
     TIME_SLOTS.push(`${String(h).padStart(2, "0")}:00`)
     TIME_SLOTS.push(`${String(h).padStart(2, "0")}:30`)
   }
@@ -884,7 +881,7 @@ function NewApptDrawer({
         </button>
       </div>
 
-      {/* BUG-05 FIX: form onSubmit, footer button type="submit" — tidak ada double-fire */}
+      {/* BUG-05 FIX: form onSubmit, footer button type="submit" */}
       <form id="appt-form" onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto">
         <div className="px-4 py-4 flex flex-col gap-4">
 
@@ -1056,7 +1053,7 @@ function NewApptDrawer({
         </div>
       </form>
 
-      {/* Footer — BUG-05 FIX: type="submit" form="appt-form", tidak ada onClick handler */}
+      {/* Footer */}
       <div className="flex gap-2 px-4 py-3 border-t border-slate-100 flex-shrink-0">
         <button type="button" onClick={onClose}
           className="flex-1 py-2 rounded-lg border border-slate-200 text-[12px]
@@ -1086,7 +1083,6 @@ export function AppointmentScheduling() {
       const t = getToday()
       setToday(prev => prev !== t ? t : prev)
     }
-    // cek setiap menit apakah sudah ganti hari
     const id = setInterval(tick, 60_000)
     return () => clearInterval(id)
   }, [])
@@ -1104,7 +1100,6 @@ export function AppointmentScheduling() {
   const handleSave = (apt: Appointment) =>
     setAppointments(prev => [...prev, apt])
 
-  // BUG-09 FIX: tidak perlu useCallback — TimeGrid bukan React.memo
   const handleNewAtTime = (time: string) => {
     setDefaultTime(time)
     setShowForm(true)
@@ -1279,7 +1274,6 @@ export function AppointmentScheduling() {
             style={{ minWidth: 0 }}
           >
             <div className="w-80 h-full">
-              {/* BUG-10 FIX: key dihapus, sync lewat useEffect di dalam drawer */}
               <NewApptDrawer
                 defaultDate={selectedDate}
                 defaultTime={defaultTime}
