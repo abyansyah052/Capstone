@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import {
-  ChevronLeft, ChevronRight, Plus, X, CheckCircle2,
-  AlertCircle, XCircle, ChevronDown, FileText,
-  CalendarCheck, MoreHorizontal, Trash2, MessageCircle, Mail,
-  Clock,
+  ChevronLeft, ChevronRight, Plus, X,
+  AlertCircle, ChevronDown, FileText,
+  CalendarCheck, Trash2, MessageCircle, Mail,
+  Clock, Calendar,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 
@@ -49,40 +49,43 @@ const APPOINTMENT_TYPES = [
 const HOURS = Array.from({ length: 10 }, (_, i) => i + 8) // 08–17
 const SLOT_HEIGHT = 64 // px per hour
 
-const TODAY = new Date().toISOString().split("T")[0]
+// BUG-06 FIX: getToday() dipanggil saat runtime, bukan module-load time
+function getToday() {
+  return new Date().toISOString().split("T")[0]
+}
 
 const INIT_APPOINTMENTS: Appointment[] = [
   {
     id: "1", patientId: "PT-8842-A", patientName: "Eleanor James",
-    date: TODAY, time: "09:00", duration: 30, doctorId: "D1",
+    date: getToday(), time: "09:00", duration: 30, doctorId: "D1",
     type: "Pemeriksaan Umum", status: "confirmed",
     notes: "Kontrol tekanan darah rutin",
     notify: "whatsapp", notifyPhone: "+62 812 0011 2233", notifyEmail: "",
   },
   {
     id: "2", patientId: "PT-9105-C", patientName: "Marcus Chen",
-    date: TODAY, time: "10:30", duration: 45, doctorId: "D2",
+    date: getToday(), time: "10:30", duration: 45, doctorId: "D2",
     type: "Kontrol & Tindak Lanjut", status: "scheduled",
     notes: "Evaluasi hasil EKG",
     notify: "both", notifyPhone: "+62 813 9988 7766", notifyEmail: "m.chen99@example.com",
   },
   {
     id: "3", patientId: "PT-4421-B", patientName: "Sarah Lin",
-    date: TODAY, time: "13:00", duration: 30, doctorId: "D1",
+    date: getToday(), time: "13:00", duration: 30, doctorId: "D1",
     type: "Konsultasi", status: "completed",
     notes: "Diskusi hasil lab",
     notify: "email", notifyPhone: "", notifyEmail: "slin@example.com",
   },
   {
     id: "4", patientId: "PT-6631-D", patientName: "Budi Santoso",
-    date: TODAY, time: "15:00", duration: 30, doctorId: "D3",
+    date: getToday(), time: "15:00", duration: 30, doctorId: "D3",
     type: "Vaksinasi", status: "cancelled",
     notes: "Pasien tidak hadir",
     notify: "none", notifyPhone: "", notifyEmail: "",
   },
   {
     id: "5", patientId: "PT-1102-A", patientName: "Rina Hartono",
-    date: TODAY, time: "11:00", duration: 30, doctorId: "D4",
+    date: getToday(), time: "11:00", duration: 30, doctorId: "D4",
     type: "Konsultasi", status: "scheduled",
     notes: "",
     notify: "none", notifyPhone: "", notifyEmail: "",
@@ -124,8 +127,12 @@ const fmtDateLong = (iso: string) =>
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   })
 
-const fmtWeekday = (iso: string) =>
-  new Date(iso + "T00:00:00").toLocaleDateString("id-ID", { weekday: "short" })
+// BUG-11 FIX: fallback array agar tidak bergantung pada locale browser
+const WEEKDAY_SHORT = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
+const fmtWeekday = (iso: string) => {
+  const day = new Date(iso + "T00:00:00").getDay()
+  return WEEKDAY_SHORT[day]
+}
 
 const addDays = (iso: string, n: number) => {
   const d = new Date(iso + "T00:00:00")
@@ -133,10 +140,15 @@ const addDays = (iso: string, n: number) => {
   return d.toISOString().split("T")[0]
 }
 
+// BUG-01 FIX: Sunday (getDay()=0) dianggap hari ke-7 (akhir) minggu Senin–Minggu.
+// Formula lama: (0+6)%7 = 6 → mundur 6 hari ke Senin minggu SEBELUMNYA ❌
+// Formula baru: Sunday → offset 6 (tetap di minggu yang sama, Senin s.d. Minggu) ✓
 const startOfWeek = (iso: string) => {
   const d = new Date(iso + "T00:00:00")
-  const day = d.getDay() // 0=Sun
-  d.setDate(d.getDate() - ((day + 6) % 7)) // Monday-start
+  const day = d.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
+  // Mon=0 offset, Tue=1, ..., Sat=5, Sun=6
+  const offset = day === 0 ? 6 : day - 1
+  d.setDate(d.getDate() - offset)
   return d.toISOString().split("T")[0]
 }
 
@@ -145,14 +157,66 @@ const timeToMinutes = (t: string) => {
   return h * 60 + m
 }
 
+// BUG-03 HELPER: Hitung column layout untuk appointment yang overlap
+interface LayoutCol { colIndex: number; colCount: number }
+function computeLayout(apts: Appointment[]): Map<string, LayoutCol> {
+  const result = new Map<string, LayoutCol>()
+  const sorted = [...apts].sort((a, b) => {
+    const diff = timeToMinutes(a.time) - timeToMinutes(b.time)
+    return diff !== 0 ? diff : a.id.localeCompare(b.id)
+  })
+
+  // Group overlapping appointments into clusters
+  const clusters: Appointment[][] = []
+  for (const apt of sorted) {
+    const aptStart = timeToMinutes(apt.time)
+    const aptEnd   = aptStart + apt.duration
+    let placed = false
+    for (const cluster of clusters) {
+      const clusterEnd = Math.max(...cluster.map(a => timeToMinutes(a.time) + a.duration))
+      if (aptStart < clusterEnd) {
+        cluster.push(apt)
+        placed = true
+        break
+      }
+    }
+    if (!placed) clusters.push([apt])
+  }
+
+  // Within each cluster, assign column positions
+  for (const cluster of clusters) {
+    const cols: Array<{ end: number; ids: string[] }> = []
+    for (const apt of cluster) {
+      const aptStart = timeToMinutes(apt.time)
+      const aptEnd   = aptStart + apt.duration
+      let assigned = false
+      for (const col of cols) {
+        if (aptStart >= col.end) {
+          col.end = aptEnd
+          col.ids.push(apt.id)
+          assigned = true
+          break
+        }
+      }
+      if (!assigned) cols.push({ end: aptEnd, ids: [apt.id] })
+    }
+    const colCount = cols.length
+    cols.forEach((col, colIndex) => {
+      col.ids.forEach(id => result.set(id, { colIndex, colCount }))
+    })
+  }
+
+  return result
+}
+
 // ─── Validation ──────────────────────────────────────────────────────────────────
 
-function validateAppt(form: NewApptForm): FormErrors {
+function validateAppt(form: NewApptForm, today: string): FormErrors {
   const e: FormErrors = {}
   if (!form.patientId.trim())   e.patientId   = "ID pasien wajib diisi."
   if (!form.patientName.trim()) e.patientName = "Nama pasien wajib diisi."
   if (!form.date)               e.date        = "Tanggal wajib dipilih."
-  else if (form.date < TODAY)   e.date        = "Tanggal tidak boleh di masa lalu."
+  else if (form.date < today)   e.date        = "Tanggal tidak boleh di masa lalu."
   if (!form.time)               e.time        = "Waktu wajib dipilih."
   if (!form.doctorId)           e.doctorId    = "Dokter wajib dipilih."
   if (!form.type)               e.type        = "Jenis janji wajib dipilih."
@@ -232,18 +296,18 @@ function StatusPill({ status }: { status: AppointmentStatus }) {
 // ─── Mini Calendar ────────────────────────────────────────────────────────────────
 
 function MiniCalendar({
-  selected, onSelect, appointments,
+  selected, onSelect, appointments, today,
 }: {
   selected: string
   onSelect: (d: string) => void
   appointments: Appointment[]
+  today: string
 }) {
   const [viewMonth, setViewMonth] = useState(() => {
     const d = new Date(selected + "T00:00:00")
     return { year: d.getFullYear(), month: d.getMonth() }
   })
 
-  // Sync viewMonth when selected date moves to a different month (e.g. via toolbar arrows)
   useEffect(() => {
     const d = new Date(selected + "T00:00:00")
     const newYear  = d.getFullYear()
@@ -256,7 +320,8 @@ function MiniCalendar({
 
   const daysInMonth = new Date(viewMonth.year, viewMonth.month + 1, 0).getDate()
   const firstDay = new Date(viewMonth.year, viewMonth.month, 1).getDay()
-  const offset = (firstDay + 6) % 7 // Monday start
+  // BUG-08 FIX: konsisten dengan startOfWeek — Sunday=6, Monday=0
+  const offset = firstDay === 0 ? 6 : firstDay - 1
 
   const apptDays = new Set(
     appointments
@@ -267,7 +332,8 @@ function MiniCalendar({
       .map(a => new Date(a.date + "T00:00:00").getDate())
   )
 
-  const DAYS = ["S", "S", "R", "K", "J", "S", "M"]
+  // BUG-08 FIX: header hari sesuai urutan Senin–Minggu yang jelas
+  const DAY_HEADERS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"]
   const monthLabel = new Date(viewMonth.year, viewMonth.month, 1)
     .toLocaleDateString("id-ID", { month: "long", year: "numeric" })
 
@@ -299,7 +365,7 @@ function MiniCalendar({
 
       {/* Day headers */}
       <div className="grid grid-cols-7 mb-1">
-        {DAYS.map((d, i) => (
+        {DAY_HEADERS.map((d, i) => (
           <div key={i} className="text-center text-[10px] font-semibold text-slate-400 py-0.5">
             {d}
           </div>
@@ -313,7 +379,7 @@ function MiniCalendar({
           const day = i + 1
           const iso = `${viewMonth.year}-${String(viewMonth.month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
           const isSelected = iso === selected
-          const isToday    = iso === TODAY
+          const isToday    = iso === today
           const hasDot     = apptDays.has(day)
           return (
             <button
@@ -344,14 +410,19 @@ function MiniCalendar({
 // ─── Week Strip ───────────────────────────────────────────────────────────────────
 
 function WeekStrip({
-  selected, onSelect, appointments,
+  selected, onSelect, appointments, today,
 }: {
   selected: string
   onSelect: (d: string) => void
   appointments: Appointment[]
+  today: string
 }) {
-  const weekStart = startOfWeek(selected)
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  // BUG-02 FIX: useMemo memastikan weekStart selalu derived dari prop `selected`
+  // secara synchronous di render cycle yang sama — tidak ada delay 1 frame.
+  const days = useMemo(() => {
+    const weekStart = startOfWeek(selected)
+    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  }, [selected])
 
   const countMap: Record<string, number> = {}
   appointments.forEach(a => { countMap[a.date] = (countMap[a.date] ?? 0) + 1 })
@@ -360,7 +431,7 @@ function WeekStrip({
     <div className="flex items-stretch gap-0.5 bg-white border border-slate-200 rounded-xl p-1">
       {days.map(day => {
         const isSelected = day === selected
-        const isToday    = day === TODAY
+        const isToday    = day === today
         const count      = countMap[day] ?? 0
         const d          = new Date(day + "T00:00:00")
         return (
@@ -406,10 +477,11 @@ function WeekStrip({
 // ─── Time Grid ────────────────────────────────────────────────────────────────────
 
 function TimeGrid({
-  appointments, date, onStatusChange, onDelete, onNewAtTime,
+  appointments, date, today, onStatusChange, onDelete, onNewAtTime,
 }: {
   appointments: Appointment[]
   date: string
+  today: string
   onStatusChange: (id: string, s: AppointmentStatus) => void
   onDelete: (id: string) => void
   onNewAtTime: (time: string) => void
@@ -418,12 +490,18 @@ function TimeGrid({
     .filter(a => a.date === date)
     .sort((a, b) => a.time.localeCompare(b.time))
 
+  // BUG-03 FIX: hitung layout kolom untuk semua apt di hari ini
+  const layoutMap = useMemo(() => computeLayout(dayApts), [dayApts])
+
   // Current time indicator
   const now = new Date()
   const nowMin = now.getHours() * 60 + now.getMinutes()
-  const isToday = date === TODAY
+  const isToday = date === today
   const showNow = isToday && nowMin >= 8 * 60 && nowMin <= 18 * 60
   const nowTop  = ((nowMin - 8 * 60) / 60) * SLOT_HEIGHT
+
+  // BUG-12 FIX: empty state kalau tidak ada janji
+  const isEmpty = dayApts.length === 0
 
   return (
     <div className="relative flex">
@@ -446,7 +524,7 @@ function TimeGrid({
           <div
             key={h}
             style={{ top: i * SLOT_HEIGHT, height: SLOT_HEIGHT }}
-            className="absolute left-0 right-0 border-t border-slate-100 group/hour"
+            className="absolute left-0 right-0 border-t border-slate-100"
           >
             {/* Half-hour tick */}
             <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-slate-100" />
@@ -458,6 +536,18 @@ function TimeGrid({
             />
           </div>
         ))}
+
+        {/* BUG-12: Empty state overlay */}
+        {isEmpty && (
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center gap-2 pointer-events-none"
+            style={{ top: SLOT_HEIGHT * 3 }}
+          >
+            <Calendar size={28} className="text-slate-200" />
+            <p className="text-[12px] text-slate-300 font-medium">Tidak ada janji di hari ini</p>
+            <p className="text-[11px] text-slate-200">Klik area jam untuk menjadwalkan</p>
+          </div>
+        )}
 
         {/* Now indicator */}
         {showNow && (
@@ -478,6 +568,8 @@ function TimeGrid({
           const doc    = DOCTOR_MAP[apt.doctorId]
           const m      = STATUS_META[apt.status]
           const isCancelled = apt.status === "cancelled"
+          const layout = layoutMap.get(apt.id) ?? { colIndex: 0, colCount: 1 }
+          const totalHours = HOURS.length * SLOT_HEIGHT
 
           return (
             <GridBlock
@@ -485,6 +577,8 @@ function TimeGrid({
               apt={apt}
               top={top}
               height={height}
+              totalGridHeight={totalHours}
+              layout={layout}
               doc={doc}
               m={m}
               isCancelled={isCancelled}
@@ -501,27 +595,29 @@ function TimeGrid({
 // ─── Grid Block ──────────────────────────────────────────────────────────────────
 
 function GridBlock({
-  apt, top, height, doc, m, isCancelled, onStatusChange, onDelete,
+  apt, top, height, totalGridHeight, layout, doc, m, isCancelled, onStatusChange, onDelete,
 }: {
   apt: Appointment
   top: number; height: number
+  totalGridHeight: number
+  layout: { colIndex: number; colCount: number }
   doc: Doctor | undefined
   m: typeof STATUS_META[AppointmentStatus]
   isCancelled: boolean
   onStatusChange: (id: string, s: AppointmentStatus) => void
   onDelete: (id: string) => void
 }) {
-  const [menu, setMenu] = useState(false)
   const [detail, setDetail] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
+  const blockRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    const h = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false)
-    }
-    document.addEventListener("mousedown", h)
-    return () => document.removeEventListener("mousedown", h)
-  }, [])
+  // BUG-03 FIX: posisi dan lebar berdasarkan collision layout
+  const GAP = 3
+  const colW  = 100 / layout.colCount
+  const left  = `calc(${layout.colIndex * colW}% + ${GAP}px)`
+  const width = `calc(${colW}% - ${GAP * 2}px)`
+
+  // BUG-04 FIX: popup posisi — kalau apt di bawah 60% grid, popup tampil di atas blok
+  const popupBelow = top + height < totalGridHeight * 0.6
 
   const nextStatus: Partial<Record<AppointmentStatus, AppointmentStatus>> = {
     scheduled: "confirmed", confirmed: "completed",
@@ -532,14 +628,17 @@ function GridBlock({
   return (
     <>
       <div
+        ref={blockRef}
         className={[
-          "absolute left-1.5 right-1.5 rounded-md cursor-pointer overflow-hidden",
+          "absolute rounded-md cursor-pointer overflow-hidden",
           "border transition-all duration-150",
           isCancelled ? "opacity-40" : "hover:shadow-md hover:z-10",
         ].join(" ")}
         style={{
           top,
           height,
+          left,
+          width,
           backgroundColor: m.gridBg,
           borderColor: m.border,
           borderLeftWidth: 3,
@@ -574,13 +673,17 @@ function GridBlock({
               onClick={() => setDetail(false)}
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: -6 }}
+              initial={{ opacity: 0, scale: 0.96, y: popupBelow ? -6 : 6 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: -6 }}
+              exit={{ opacity: 0, scale: 0.96, y: popupBelow ? -6 : 6 }}
               transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
               className="absolute z-40 w-72 bg-white rounded-xl border border-slate-200
                 shadow-[0_8px_32px_rgba(15,23,42,0.12)] overflow-hidden"
-              style={{ top: top + height + 6, left: 8 }}
+              style={
+                popupBelow
+                  ? { top: top + height + 6, left: 8 }
+                  : { bottom: totalGridHeight - top + 6, left: 8 }
+              }
             >
               {/* Color bar */}
               <div className="h-1" style={{ backgroundColor: doc?.color ?? m.dot }} />
@@ -625,7 +728,7 @@ function GridBlock({
                     </div>
                   )}
                   {apt.notify !== "none" && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {(apt.notify === "whatsapp" || apt.notify === "both") && apt.notifyPhone && (
                         <span className="flex items-center gap-1">
                           <MessageCircle size={10} className="text-green-500" />
@@ -682,41 +785,53 @@ function GridBlock({
 // ─── New Appointment Drawer ───────────────────────────────────────────────────────
 
 function NewApptDrawer({
-  defaultDate, defaultTime, onClose, onSave,
+  defaultDate, defaultTime, today, onClose, onSave,
 }: {
   defaultDate: string
   defaultTime?: string
+  today: string
   onClose: () => void
   onSave: (apt: Appointment) => void
 }) {
-  const EMPTY: NewApptForm = {
+  const makeEmpty = (): NewApptForm => ({
     patientId: "", patientName: "", date: defaultDate,
     time: defaultTime ?? "", duration: "30", doctorId: "", type: "", notes: "",
     notify: "none", notifyPhone: "", notifyEmail: "",
-  }
-  const [form, setForm]       = useState<NewApptForm>(EMPTY)
+  })
+
+  const [form, setForm]       = useState<NewApptForm>(makeEmpty)
   const [errors, setErrors]   = useState<FormErrors>({})
   const [touched, setTouched] = useState<Partial<Record<keyof NewApptForm, boolean>>>({})
   const [submitted, setSubmitted] = useState(false)
 
+  // BUG-10 FIX: sync defaultDate/defaultTime via useEffect, bukan lewat key remount
+  useEffect(() => {
+    setForm(prev => ({ ...prev, date: defaultDate }))
+  }, [defaultDate])
+
+  useEffect(() => {
+    if (defaultTime) setForm(prev => ({ ...prev, time: defaultTime }))
+  }, [defaultTime])
+
   const set = (k: keyof NewApptForm, v: string) => {
     setForm(p => ({ ...p, [k]: v }))
     if (touched[k] || submitted) {
-      const e = validateAppt({ ...form, [k]: v })
+      const e = validateAppt({ ...form, [k]: v }, today)
       setErrors(p => ({ ...p, [k]: e[k] }))
     }
   }
   const blur = (k: keyof NewApptForm) => {
     setTouched(p => ({ ...p, [k]: true }))
-    setErrors(p => ({ ...p, [k]: validateAppt(form)[k] }))
+    setErrors(p => ({ ...p, [k]: validateAppt(form, today)[k] }))
   }
   const err = (k: keyof NewApptForm) =>
     (touched[k] || submitted) ? errors[k] : undefined
 
+  // BUG-05 FIX: handleSubmit hanya dari form onSubmit — footer button type="submit"
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitted(true)
-    const errs = validateAppt(form)
+    const errs = validateAppt(form, today)
     setErrors(errs)
     if (Object.values(errs).some(Boolean)) return
     onSave({
@@ -769,7 +884,8 @@ function NewApptDrawer({
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto">
+      {/* BUG-05 FIX: form onSubmit, footer button type="submit" — tidak ada double-fire */}
+      <form id="appt-form" onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto">
         <div className="px-4 py-4 flex flex-col gap-4">
 
           {/* Pasien */}
@@ -800,7 +916,7 @@ function NewApptDrawer({
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Jadwal</p>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Tanggal" id="f-date" required error={err("date")}>
-                <input id="f-date" type="date" value={form.date} min={TODAY}
+                <input id="f-date" type="date" value={form.date} min={today}
                   onChange={e => set("date", e.target.value)}
                   onBlur={() => blur("date")}
                   className={err("date") ? inputErrCls : inputCls} />
@@ -940,7 +1056,7 @@ function NewApptDrawer({
         </div>
       </form>
 
-      {/* Footer */}
+      {/* Footer — BUG-05 FIX: type="submit" form="appt-form", tidak ada onClick handler */}
       <div className="flex gap-2 px-4 py-3 border-t border-slate-100 flex-shrink-0">
         <button type="button" onClick={onClose}
           className="flex-1 py-2 rounded-lg border border-slate-200 text-[12px]
@@ -948,7 +1064,8 @@ function NewApptDrawer({
           Batal
         </button>
         <button
-          onClick={handleSubmit as unknown as React.MouseEventHandler}
+          type="submit"
+          form="appt-form"
           className="flex-1 py-2 rounded-lg bg-slate-900 text-white text-[12px]
             font-semibold flex items-center justify-center gap-1.5
             hover:bg-slate-800 active:bg-slate-700 transition-colors">
@@ -962,8 +1079,20 @@ function NewApptDrawer({
 // ─── Main ─────────────────────────────────────────────────────────────────────────
 
 export function AppointmentScheduling() {
+  // BUG-06 FIX: today dihitung via state + effect, bukan konstanta module-level
+  const [today, setToday] = useState(getToday)
+  useEffect(() => {
+    const tick = () => {
+      const t = getToday()
+      setToday(prev => prev !== t ? t : prev)
+    }
+    // cek setiap menit apakah sudah ganti hari
+    const id = setInterval(tick, 60_000)
+    return () => clearInterval(id)
+  }, [])
+
   const [appointments, setAppointments] = useState<Appointment[]>(INIT_APPOINTMENTS)
-  const [selectedDate, setSelectedDate] = useState(TODAY)
+  const [selectedDate, setSelectedDate] = useState(today)
   const [showForm, setShowForm]         = useState(false)
   const [defaultTime, setDefaultTime]   = useState<string | undefined>()
   const [filterDoctor, setFilterDoctor] = useState("")
@@ -975,19 +1104,24 @@ export function AppointmentScheduling() {
   const handleSave = (apt: Appointment) =>
     setAppointments(prev => [...prev, apt])
 
-  const handleNewAtTime = useCallback((time: string) => {
+  // BUG-09 FIX: tidak perlu useCallback — TimeGrid bukan React.memo
+  const handleNewAtTime = (time: string) => {
     setDefaultTime(time)
     setShowForm(true)
-  }, [])
+  }
 
-  // Fix: arrow navigation — use current selectedDate value directly, not functional updater
-  const goToPrev = () => setSelectedDate(addDays(selectedDate, -1))
-  const goToNext = () => setSelectedDate(addDays(selectedDate, 1))
+  const goToPrev = () => setSelectedDate(d => addDays(d, -1))
+  const goToNext = () => setSelectedDate(d => addDays(d, 1))
 
-  const dayApts = appointments.filter(a => a.date === selectedDate)
+  const dayApts      = appointments.filter(a => a.date === selectedDate)
   const filteredApts = filterDoctor
     ? dayApts.filter(a => a.doctorId === filterDoctor)
     : dayApts
+
+  // BUG-07 FIX: counter yang informatif saat filter aktif
+  const counterLabel = filterDoctor
+    ? `${filteredApts.length} dari ${dayApts.length} janji`
+    : `${dayApts.length} janji`
 
   return (
     <div className="flex h-full min-h-screen bg-slate-50 overflow-hidden">
@@ -1028,6 +1162,7 @@ export function AppointmentScheduling() {
             selected={selectedDate}
             onSelect={setSelectedDate}
             appointments={appointments}
+            today={today}
           />
         </div>
 
@@ -1070,7 +1205,7 @@ export function AppointmentScheduling() {
         <div className="bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setSelectedDate(TODAY)}
+              onClick={() => setSelectedDate(today)}
               className="px-2.5 py-1 rounded-md text-[11px] font-semibold border border-slate-200
                 text-slate-600 hover:bg-slate-50 transition-colors"
             >
@@ -1096,10 +1231,11 @@ export function AppointmentScheduling() {
               {fmtDateLong(selectedDate)}
             </h2>
           </div>
+          {/* BUG-07 FIX: counter yang informatif */}
           <div className="flex items-center gap-2 text-[11px] text-slate-500">
             {dayApts.length > 0 && (
               <span className="px-2 py-0.5 bg-slate-100 rounded-full font-medium">
-                {filteredApts.length}{filterDoctor ? "" : `/${dayApts.length}`} janji
+                {counterLabel}
               </span>
             )}
           </div>
@@ -1111,6 +1247,7 @@ export function AppointmentScheduling() {
             selected={selectedDate}
             onSelect={setSelectedDate}
             appointments={appointments}
+            today={today}
           />
         </div>
 
@@ -1120,6 +1257,7 @@ export function AppointmentScheduling() {
             <TimeGrid
               appointments={filteredApts}
               date={selectedDate}
+              today={today}
               onStatusChange={handleStatusChange}
               onDelete={handleDelete}
               onNewAtTime={handleNewAtTime}
@@ -1141,10 +1279,11 @@ export function AppointmentScheduling() {
             style={{ minWidth: 0 }}
           >
             <div className="w-80 h-full">
+              {/* BUG-10 FIX: key dihapus, sync lewat useEffect di dalam drawer */}
               <NewApptDrawer
-                key={`${selectedDate}-${defaultTime ?? "x"}`}
                 defaultDate={selectedDate}
                 defaultTime={defaultTime}
+                today={today}
                 onClose={() => setShowForm(false)}
                 onSave={handleSave}
               />
