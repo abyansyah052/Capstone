@@ -1016,7 +1016,7 @@ export function AppointmentScheduling() {
             ].join(" ")}
           >
             {showForm ? <X size={12} /> : <Plus size={12} />}
-            {showForm ? "Tutup Form" : "+ Jadwalkan Baru"}
+            {showForm ? "Tutup Form" : "Jadwalkan Baru"}
           </button>
         </div>
 

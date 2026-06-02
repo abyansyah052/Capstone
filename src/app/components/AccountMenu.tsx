@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, forwardRef } from "react"
+import { createPortal } from "react-dom"
 import {
   User,
   Settings,
@@ -46,12 +47,13 @@ function Avatar({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
 }
 
 // ─── Dropdown menu ────────────────────────────────────────────────────────────
-function DropdownMenu({ onClose, onOpenModal }: { onClose: () => void; onOpenModal: (v: ModalView) => void }) {
-  return (
+const DropdownMenu = forwardRef<HTMLDivElement, { onClose: () => void; onOpenModal: (v: ModalView) => void }>(
+  ({ onClose, onOpenModal }, ref) => (
     <div
-      className="absolute z-50 w-52 rounded-xl overflow-hidden"
+      ref={ref}
+      className="z-50 w-52 rounded-xl overflow-hidden"
       style={{
-        background: "#1C243B",
+        background: "#26324D",
         border: "1px solid rgba(255,255,255,0.10)",
         boxShadow: "0 8px 24px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.2)",
       }}
@@ -83,8 +85,9 @@ function DropdownMenu({ onClose, onOpenModal }: { onClose: () => void; onOpenMod
         </button>
       </div>
     </div>
-  )
-}
+  ),
+)
+DropdownMenu.displayName = "DropdownMenu"
 
 // ─── Modal shell ──────────────────────────────────────────────────────────────
 function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
@@ -339,6 +342,7 @@ export function AccountMenu({ collapsed = false }: AccountMenuProps) {
   const [modal, setModal] = useState<ModalView>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -357,33 +361,72 @@ export function AccountMenu({ collapsed = false }: AccountMenuProps) {
 
   const closeAll = () => { setMenuOpen(false); setModal(null) }
 
+  useEffect(() => {
+    if (!menuOpen || !triggerRef.current || !menuRef.current) return
+
+    const updatePosition = () => {
+      const triggerRect = triggerRef.current?.getBoundingClientRect()
+      const menuRect = menuRef.current?.getBoundingClientRect()
+      if (!triggerRect || !menuRect) return
+
+      const frameLeft = 0
+      const frameRight = window.innerWidth
+      const frameTop = 0
+      const frameBottom = window.innerHeight
+      const targetLeft = triggerRect.right - menuRect.width
+      const left = Math.min(
+        Math.max(frameLeft + 8, targetLeft),
+        Math.max(frameLeft + 8, frameRight - menuRect.width - 8),
+      )
+      const top = Math.min(
+        Math.max(frameTop + 8, triggerRect.top - menuRect.height - 6),
+        Math.max(frameTop + 8, frameBottom - menuRect.height - 8),
+      )
+
+      setMenuPosition({ top, left })
+    }
+
+    updatePosition()
+    window.addEventListener("resize", updatePosition)
+    window.addEventListener("scroll", updatePosition, true)
+    return () => {
+      window.removeEventListener("resize", updatePosition)
+      window.removeEventListener("scroll", updatePosition, true)
+    }
+  }, [menuOpen])
+
   // ── Collapsed mode: small floating pop at bottom-left ──────────────────────
   if (collapsed) {
+    const collapsedTrigger = (
+      <>
+        <button
+          ref={triggerRef}
+          onClick={() => setMenuOpen((p) => !p)}
+          className="flex items-center gap-2.5 rounded-full border border-white/10 bg-[#23304A] px-3 py-2 shadow-md hover:bg-[#2B3A57] transition-colors"
+          aria-label="Account menu"
+          style={{ position: "fixed", bottom: 16, left: 12, zIndex: 60 }}
+        >
+          <Avatar size="sm" />
+          <div className="text-left">
+            <p className="text-[12px] font-semibold text-white leading-tight">{MOCK_USER.name}</p>
+            <p className="text-[10px] text-white/45 leading-tight">{MOCK_USER.email}</p>
+          </div>
+        </button>
+
+        {menuOpen && (
+          <div
+            ref={menuRef}
+            style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 70 }}
+          >
+            <DropdownMenu onClose={() => setMenuOpen(false)} onOpenModal={setModal} />
+          </div>
+        )}
+      </>
+    )
+
     return (
       <>
-        <div className="relative">
-          <button
-            ref={triggerRef}
-            onClick={() => setMenuOpen((p) => !p)}
-            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
-            aria-label="Account menu"
-          >
-            <Avatar size="sm" />
-          </button>
-
-          {menuOpen && (
-            <div
-              ref={menuRef}
-              style={{
-                position: "fixed",
-                bottom: 20,
-                left: 68,
-              }}
-            >
-              <DropdownMenu onClose={() => setMenuOpen(false)} onOpenModal={setModal} />
-            </div>
-          )}
-        </div>
+        {createPortal(collapsedTrigger, document.body)}
 
         {modal === "account-settings" && <AccountSettingsModal onClose={closeAll} onNav={setModal} />}
         {modal === "rename" && <RenameModal onClose={closeAll} onBack={() => setModal("account-settings")} />}
@@ -411,7 +454,7 @@ export function AccountMenu({ collapsed = false }: AccountMenuProps) {
           </div>
           <svg
             className={`w-3.5 h-3.5 text-white/30 flex-shrink-0 transition-transform duration-200 ${
-              menuOpen ? "rotate-180" : ""
+              menuOpen ? "rotate-180" : "rotate-0"
             }`}
             viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}
           >
@@ -422,8 +465,7 @@ export function AccountMenu({ collapsed = false }: AccountMenuProps) {
         {menuOpen && (
           <div
             ref={menuRef}
-            className="absolute left-0 right-0"
-            style={{ bottom: "calc(100% + 6px)" }}
+            style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 70 }}
           >
             <DropdownMenu onClose={() => setMenuOpen(false)} onOpenModal={setModal} />
           </div>
