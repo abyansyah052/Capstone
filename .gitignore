@@ -26,3 +26,8 @@ node_modules/.vite
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# Documentation & Credentials Metadata
+CREDENTIALS_AND_API.md
+imp.md
+std.md
