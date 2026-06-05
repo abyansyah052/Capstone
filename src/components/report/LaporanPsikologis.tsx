@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from "react"
 import {
   Folder, FolderOpen, FileText, Trash2, Upload,
-  ChevronRight, Home, MoreVertical, FilePlus, FolderPlus, X,
+  ChevronRight, ChevronLeft, Home, MoreVertical, FilePlus, FolderPlus, X,
   Search, SlidersHorizontal, ArrowUp, ArrowDown, PenLine,
   CheckSquare, Square, CheckCheck, Download, Eye,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
-import { Psychologist, PatientRecord, FsFile, FsFolder, FsNode, ReportForm } from "../../types"
+import { Psychologist, Patient, FsFile, FsFolder, FsNode, ReportForm, Batch } from "../../types"
 import { uid } from "../../lib/helpers"
 import { ReportCreator } from "./ReportCreator"
 
@@ -328,11 +328,12 @@ interface CtxMenu {
   nodeKind: "folder" | "file"
 }
 
-function CtxMenuPanel({ pos, onClose, onDelete, onRename, nodeKind, nodeId }: {
+function CtxMenuPanel({ pos, onClose, onDelete, onRename, nodeKind, nodeId, currentUser }: {
   pos: { x: number; y: number }
   onClose: () => void; onDelete: () => void; onRename: () => void
   nodeKind: "folder" | "file"
   nodeId: string
+  currentUser: { id: string; name: string; email: string; role: string }
 }) {
   useKeyClose(onClose)
 
@@ -359,7 +360,8 @@ function CtxMenuPanel({ pos, onClose, onDelete, onRename, nodeKind, nodeId }: {
           <>
             <button
               onClick={() => {
-                window.open(`/api/reports/${nodeId}/pdf`, "_blank");
+                const queryStr = `?userId=${currentUser.id}&role=${currentUser.role}&email=${currentUser.email}&name=${encodeURIComponent(currentUser.name || "User")}`;
+                window.open(`/api/reports/${nodeId}/pdf${queryStr}`, "_blank");
                 onClose();
               }}
               className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-[14px] text-slate-700 hover:bg-[#01696f]/[0.05] hover:text-[#01696f] transition-colors"
@@ -369,7 +371,8 @@ function CtxMenuPanel({ pos, onClose, onDelete, onRename, nodeKind, nodeId }: {
             </button>
             <button
               onClick={() => {
-                window.open(`/api/reports/${nodeId}/pdf?download=true`, "_blank");
+                const queryStr = `?userId=${currentUser.id}&role=${currentUser.role}&email=${currentUser.email}&name=${encodeURIComponent(currentUser.name || "User")}&download=true`;
+                window.open(`/api/reports/${nodeId}/pdf${queryStr}`, "_blank");
                 onClose();
               }}
               className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-[14px] text-slate-700 hover:bg-[#01696f]/[0.05] hover:text-[#01696f] transition-colors"
@@ -401,7 +404,7 @@ function CtxMenuPanel({ pos, onClose, onDelete, onRename, nodeKind, nodeId }: {
 }
 
 function NodeRow({
-  node, onOpen, onMenuOpen, selectMode, selected, onToggleSelect, pathLabel,
+  node, onOpen, onMenuOpen, selectMode, selected, onToggleSelect, pathLabel, onPreview,
 }: {
   node: FsNode
   onOpen: () => void
@@ -410,6 +413,7 @@ function NodeRow({
   selected: boolean
   onToggleSelect: () => void
   pathLabel?: string
+  onPreview: () => void
 }) {
   const isFolder = node.kind === "folder"
 
@@ -428,7 +432,7 @@ function NodeRow({
       <button
         onClick={selectMode ? onToggleSelect : () => {
           if (!isFolder) {
-            window.open(`/api/reports/${node.id}/pdf`, "_blank");
+            onPreview();
           } else {
             onOpen();
           }
@@ -493,12 +497,13 @@ function NodeRow({
 }
 
 type LaporanPsikologisProps = {
-  patients?: PatientRecord[]
+  patients?: Patient[]
   psychologists?: Psychologist[]
   currentUser: { id: string; name: string; email: string; role: string; signature: string | null }
+  batches?: Batch[]
 }
 
-export function LaporanPsikologis({ patients = [], psychologists = [], currentUser }: LaporanPsikologisProps) {
+export function LaporanPsikologis({ patients = [], psychologists = [], currentUser, batches = [] }: LaporanPsikologisProps) {
   const [tree, setTree]                   = useState<FsNode[]>([])
   const [path, setPath]                   = useState<string[]>([])
   const [newFolderOpen, setNewFolderOpen] = useState(false)
@@ -800,6 +805,15 @@ export function LaporanPsikologis({ patients = [], psychologists = [], currentUs
 
         {/* Breadcrumb */}
         <nav aria-label="breadcrumb" className="flex flex-wrap items-center gap-0.5 text-sm text-slate-500 mb-5 min-w-0">
+          {path.length > 0 && (
+            <button
+              onClick={() => setPath(path.slice(0, -1))}
+              className="mr-2 flex items-center gap-1 h-7 px-2.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-[#01696f] hover:border-[#01696f]/25 active:scale-[0.97] transition-all"
+            >
+              <ChevronLeft size={13} />
+              <span>Kembali</span>
+            </button>
+          )}
           <button
             onClick={() => setPath([])}
             className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-slate-100 hover:text-[#01696f] transition-colors text-slate-500"
@@ -997,6 +1011,10 @@ export function LaporanPsikologis({ patients = [], psychologists = [], currentUs
                 selectMode={selectMode}
                 selected={selected.has(node.id)}
                 onToggleSelect={() => toggleSelect(node.id)}
+                onPreview={() => {
+                  const queryStr = `?userId=${currentUser.id}&role=${currentUser.role}&email=${currentUser.email}&name=${encodeURIComponent(currentUser.name || "User")}`;
+                  window.open(`/api/reports/${node.id}/pdf${queryStr}`, "_blank");
+                }}
               />
             ))
           )}
@@ -1055,6 +1073,7 @@ export function LaporanPsikologis({ patients = [], psychologists = [], currentUs
             onDelete={() => setDeleteTarget(ctxMenu.menu)}
             nodeKind={ctxMenu.menu.nodeKind}
             nodeId={ctxMenu.menu.nodeId}
+            currentUser={currentUser}
           />
         )}
       </AnimatePresence>
@@ -1074,6 +1093,7 @@ export function LaporanPsikologis({ patients = [], psychologists = [], currentUs
               onSave={handleSaveReport}
               patients={patients}
               psychologists={psychologists}
+              batches={batches}
             />
           </motion.div>
         )}

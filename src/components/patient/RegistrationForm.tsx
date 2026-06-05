@@ -249,9 +249,6 @@ export function RegistrationForm({
   }, [form])
 
   const age = form.dateOfBirth ? calcAge(form.dateOfBirth) : null
-  const allErrors = validateAll(form)
-  const hasErrors = Object.values(allErrors).some(Boolean)
-  const isReadyToSubmit = completeness === 100 && !hasErrors
 
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -268,7 +265,90 @@ export function RegistrationForm({
     setSubmitted(true)
     const errs = validateAll(form)
     setErrors(errs)
-    if (Object.values(errs).some(Boolean) || !isReadyToSubmit) return
+    
+    const allKeys: (keyof FormData)[] = [
+      "fullName", "dateOfBirth", "gender", "phone",
+      "email", "occupation", "province", "city", "fullAddress",
+    ]
+    
+    // Force all fields to be touched to show visual red indicators
+    const allTouched: Partial<Record<keyof FormData, boolean>> = {}
+    allKeys.forEach(k => { allTouched[k] = true })
+    setTouched(allTouched)
+
+    // Check for missing required fields
+    const missingFields: string[] = []
+    if (!form.fullName.trim()) missingFields.push("Nama Lengkap")
+    if (!form.dateOfBirth) missingFields.push("Tanggal Lahir")
+    if (!form.gender) missingFields.push("Jenis Kelamin")
+    if (!form.phone.trim()) missingFields.push("Nomor Telepon")
+    if (!form.city.trim()) missingFields.push("Kota")
+    if (!form.fullAddress.trim()) missingFields.push("Alamat Lengkap")
+
+    if (missingFields.length > 0) {
+      alert(`Kolom berikut wajib diisi:\n- ${missingFields.join("\n- ")}`);
+      
+      const keyMap: Record<string, keyof FormData> = {
+        "Nama Lengkap": "fullName",
+        "Tanggal Lahir": "dateOfBirth",
+        "Jenis Kelamin": "gender",
+        "Nomor Telepon": "phone",
+        "Kota": "city",
+        "Alamat Lengkap": "fullAddress"
+      }
+      const firstMissing = missingFields[0]
+      const firstMissingKey = firstMissing ? keyMap[firstMissing] : undefined
+      if (firstMissingKey) {
+        const domId = firstMissingKey === "dateOfBirth" ? "dob" : firstMissingKey;
+        const el = document.getElementById(domId)
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" })
+          el.focus()
+        }
+      }
+      return
+    }
+
+    // Check for validation errors on filled fields
+    const invalidFields: string[] = []
+    const labelMap: Record<keyof FormData, string> = {
+      fullName: "Nama Lengkap",
+      dateOfBirth: "Tanggal Lahir",
+      gender: "Jenis Kelamin",
+      phone: "Nomor Telepon",
+      email: "Alamat Email",
+      occupation: "Pekerjaan / Instansi",
+      province: "Provinsi",
+      city: "Kota",
+      fullAddress: "Alamat Lengkap",
+      country: "Negara",
+      photo: "Foto",
+      batchId: "Batch ID",
+      birthPlace: "Tempat Lahir",
+      education: "Pendidikan",
+      siblingOrder: "Anak Ke-",
+      totalSiblings: "Jumlah Saudara"
+    }
+
+    allKeys.forEach(k => {
+      if (errs[k]) {
+        invalidFields.push(labelMap[k] || String(k))
+      }
+    })
+
+    if (invalidFields.length > 0) {
+      const firstInvalidKey = allKeys.find(k => errs[k])
+      if (firstInvalidKey && errs[firstInvalidKey]) {
+        alert(`Data tidak valid pada kolom ${labelMap[firstInvalidKey] || String(firstInvalidKey)}:\n${errs[firstInvalidKey]}`)
+        const domId = firstInvalidKey === "dateOfBirth" ? "dob" : firstInvalidKey;
+        const el = document.getElementById(domId)
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" })
+          el.focus()
+        }
+      }
+      return
+    }
 
     const savedPatient: Patient = {
       id:           initialPatient?.id ?? String(Date.now()),
@@ -471,8 +551,10 @@ export function RegistrationForm({
                 <select id="batchId" value={form.batchId} onChange={e => set("batchId", e.target.value)}
                   className={`${inputCls} w-full appearance-none pr-9`}>
                   <option value="">— Pilih batch (opsional) —</option>
-                  {batches.map(b => (
-                    <option key={b.id} value={b.id}>{b.name} · {b.company}</option>
+                  {batches.filter(b => !b.deleted || b.id === form.batchId).map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} · {b.company} {b.deleted ? " (Nonaktif)" : ""}
+                    </option>
                   ))}
                 </select>
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -670,13 +752,7 @@ export function RegistrationForm({
           <div className="flex flex-col gap-2">
             <button
               type="submit"
-              disabled={!isReadyToSubmit}
-              title={!isReadyToSubmit ? "Lengkapi semua kolom wajib terlebih dahulu" : undefined}
-              className={`w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
-                isReadyToSubmit
-                  ? "bg-[#16254c] text-white hover:bg-[#0f1a38] active:bg-[#0a1128] shadow-sm"
-                  : "bg-slate-100 text-slate-400 cursor-not-allowed"
-              }`}
+              className="w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all bg-[#16254c] text-white hover:bg-[#0f1a38] active:bg-[#0a1128] shadow-sm"
             >
               <CheckCircle2 size={15} />
               {initialPatient ? "Simpan Perubahan" : "Selesaikan Registrasi"}

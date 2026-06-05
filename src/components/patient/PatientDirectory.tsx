@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from "react"
-import { Search, Filter, Plus, Trash2, X, Pencil } from "lucide-react"
+import { Search, Filter, Plus, Trash2, X, Pencil, Upload } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 import { Patient, Batch } from "../../types"
 import { FilterState, FilterPanel } from "./FilterPanel"
 import { DeleteModal } from "./DeleteModal"
 import { avatarColor, formatRegistered } from "../../lib/helpers"
+import * as XLSX from "xlsx"
 
 // ─── Batch Map Helper ───
 const buildBatchMap = (batches: readonly Batch[] | Batch[]) =>
@@ -92,6 +93,7 @@ type PatientDirectoryProps = {
   setPatients: React.Dispatch<React.SetStateAction<Patient[]>>
   onNew: () => void
   onEdit: (p: Patient) => void
+  currentUser: { id: string; role: string; email: string }
 }
 
 export function PatientDirectory({
@@ -100,6 +102,7 @@ export function PatientDirectory({
   setPatients,
   onNew,
   onEdit,
+  currentUser,
 }: PatientDirectoryProps) {
   const [search, setSearch]         = useState("")
   const [showFilter, setShowFilter] = useState(false)
@@ -141,11 +144,214 @@ export function PatientDirectory({
   const openDelete = (ids: string[]) =>
     setDeleteTargets(patients.filter(p => ids.includes(p.id)))
 
-  const confirmDelete = () => {
+  const [showUploadModal, setShowUploadModal] = useState(false)
+  const [excelFile, setExcelFile] = useState<File | null>(null)
+  const [parsedRows, setParsedRows] = useState<any[]>([])
+  const [uploadStatus, setUploadStatus] = useState<"idle" | "preview" | "saving" | "done">("idle")
+
+  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setExcelFile(file)
+    setUploadStatus("preview")
+
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      try {
+        const data = evt.target?.result
+        const workbook = XLSX.read(data, { type: "binary" })
+        const sheetName = workbook.SheetNames[0]
+        if (!sheetName) throw new Error("Excel sheet is empty")
+        const worksheet = workbook.Sheets[sheetName]
+        if (!worksheet) throw new Error("Excel sheet is empty")
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+        
+        if (jsonData.length <= 1) {
+          alert("Excel template kosong atau tidak memiliki baris data.")
+          return
+        }
+
+        const rows = jsonData.slice(1) as any[][]
+
+        const mapped = rows.map((row, index) => {
+          const name = String(row[0] || "").trim()
+          const email = String(row[1] || "").trim()
+          const idNumber = String(row[2] || "").trim()
+          const age = Number(row[3]) || 0
+          const genderText = String(row[4] || "").trim()
+          const phone = String(row[5] || "").trim()
+          const batchId = String(row[6] || "").trim()
+          const birthPlace = String(row[7] || "").trim()
+          const education = String(row[8] || "").trim()
+          const siblingOrder = String(row[9] || "").trim()
+          const totalSiblings = String(row[10] || "").trim()
+          const dateOfBirth = String(row[11] || "").trim()
+          const occupation = String(row[12] || "").trim()
+          const city = String(row[13] || "").trim()
+          const fullAddress = String(row[14] || "").trim()
+
+          const errors: string[] = []
+          if (!name) errors.push("Nama Lengkap wajib diisi.")
+          if (!idNumber) errors.push("No. KTP/ID wajib diisi.")
+          if (!phone) errors.push("No. HP wajib diisi.")
+          if (!city) errors.push("Kota wajib diisi.")
+          if (!fullAddress) errors.push("Alamat Lengkap wajib diisi.")
+          if (!dateOfBirth) {
+            errors.push("Tanggal Lahir wajib diisi.")
+          }
+
+          let mappedGender = ""
+          if (genderText.toLowerCase().startsWith("l") || genderText.toLowerCase() === "m") {
+            mappedGender = "Laki-laki"
+          } else if (genderText.toLowerCase().startsWith("p") || genderText.toLowerCase() === "f") {
+            mappedGender = "Perempuan"
+          } else if (genderText) {
+            mappedGender = genderText
+          } else {
+            errors.push("Jenis Kelamin wajib diisi.")
+          }
+
+          if (batchId && !batches.some(b => b.id === batchId)) {
+            errors.push(`Batch ID '${batchId}' tidak terdaftar di sistem.`)
+          }
+
+          return {
+            rowNum: index + 2,
+            name, email, idNumber, age, gender: mappedGender, phone, batchId,
+            birthPlace, education, siblingOrder, totalSiblings, dateOfBirth,
+            occupation, city, fullAddress, errors, isValid: errors.length === 0
+          }
+        })
+
+        setParsedRows(mapped)
+      } catch (err) {
+        console.error(err)
+        alert("Gagal membaca file Excel. Harap periksa format file Anda.")
+        setUploadStatus("idle")
+        setExcelFile(null)
+      }
+    }
+    reader.readAsBinaryString(file)
+  }
+
+  const downloadTemplate = () => {
+    const headers = [
+      "Nama Lengkap", "Email", "No. KTP/ID", "Usia", "Jenis Kelamin (L/P)", 
+      "No. HP", "ID Batch (e.g. B001)", "Tempat Lahir", "Pendidikan", "Anak Ke-", 
+      "Jumlah Saudara", "Tanggal Lahir (YYYY-MM-DD)", "Pekerjaan", "Kota", "Alamat Lengkap"
+    ];
+    
+    const sampleRows = [
+      [
+        "Andi Firmansyah", "andi.f@example.com", "3578011212950002", "30", "L",
+        "+6281234567890", "B001", "Jakarta", "S1", "1",
+        "3", "1995-05-12", "Karyawan Swasta", "Surabaya", "Jl. Dharmahusada Indah No. 12"
+      ],
+      [
+        "Siti Rahayu", "siti.r@example.com", "3578022408980003", "27", "P",
+        "+6281399887766", "B002", "Bandung", "S1", "2",
+        "2", "1998-08-24", "PNS", "Sidoarjo", "Jl. Raya Dipatiukur No. 45"
+      ]
+    ];
+    
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template Peserta");
+    XLSX.writeFile(workbook, "template_peserta.xlsx");
+  };
+
+  const saveAllUploaded = async () => {
+    const validRows = parsedRows.filter(r => r.isValid)
+    if (validRows.length === 0) {
+      alert("Tidak ada baris data valid untuk disimpan.")
+      return
+    }
+
+    setUploadStatus("saving")
+    
+    let successCount = 0
+    let failCount = 0
+    const newPatientsList: Patient[] = []
+
+    for (const r of validRows) {
+      try {
+        const payload = {
+          name: r.name,
+          email: r.email,
+          idNumber: r.idNumber,
+          age: r.age,
+          gender: r.gender,
+          phone: r.phone,
+          batchId: r.batchId || null,
+          birthPlace: r.birthPlace,
+          education: r.education,
+          siblingOrder: r.siblingOrder,
+          totalSiblings: r.totalSiblings,
+          dateOfBirth: r.dateOfBirth,
+          occupation: r.occupation,
+          country: "ID",
+          province: "",
+          city: r.city,
+          fullAddress: r.fullAddress,
+          photo: null
+        }
+
+        const res = await fetch("/api/patients", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-user-id": currentUser.id,
+            "x-user-role": currentUser.role,
+            "x-user-email": currentUser.email,
+          },
+          body: JSON.stringify(payload)
+        })
+        const json = await res.json()
+        if (json.ok) {
+          successCount++
+          newPatientsList.push(json.data)
+        } else {
+          failCount++
+        }
+      } catch (err) {
+        console.error(err)
+        failCount++
+      }
+    }
+
+    if (newPatientsList.length > 0) {
+      setPatients(prev => [...newPatientsList, ...prev])
+    }
+
+    alert(`Proses selesai!\n- Berhasil mengimpor: ${successCount} peserta\n- Gagal: ${failCount} peserta`);
+    setShowUploadModal(false)
+    setUploadStatus("idle")
+    setExcelFile(null)
+    setParsedRows([])
+  }
+
+  const confirmDelete = async () => {
     if (!deleteTargets) return
     const ids = deleteTargets.map(p => p.id)
-    setPatients(prev => prev.filter(p => !ids.includes(p.id)))
-    setSelectedIds(prev => { const s = new Set(prev); ids.forEach(id => s.delete(id)); return s })
+    try {
+      await Promise.all(
+        ids.map(id =>
+          fetch(`/api/patients/${id}`, {
+            method: "DELETE",
+            headers: {
+              "x-user-id": currentUser.id,
+              "x-user-role": currentUser.role,
+              "x-user-email": currentUser.email,
+            },
+          })
+        )
+      )
+      setPatients(prev => prev.filter(p => !ids.includes(p.id)))
+      setSelectedIds(prev => { const s = new Set(prev); ids.forEach(id => s.delete(id)); return s })
+    } catch (e) {
+      console.error(e)
+      alert("Gagal menghapus data pasien dari database.")
+    }
     setDeleteTargets(null)
   }
 
@@ -180,6 +386,18 @@ export function PatientDirectory({
               )}
             </AnimatePresence>
           </div>
+          <button
+            onClick={() => {
+              setShowUploadModal(true)
+              setUploadStatus("idle")
+              setExcelFile(null)
+              setParsedRows([])
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-sm font-medium hover:border-[#01696f]/25 hover:bg-[#01696f]/[0.04] transition-all shadow-sm"
+          >
+            <Upload size={14} />
+            Unggah Excel
+          </button>
           <button
             onClick={onNew}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#16254c] text-white text-sm font-medium hover:bg-[#0f1a38] active:bg-[#0a1128] transition-all shadow-sm"
@@ -368,6 +586,171 @@ export function PatientDirectory({
             onConfirm={confirmDelete}
             onCancel={() => setDeleteTargets(null)}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Excel Upload Modal */}
+      <AnimatePresence>
+        {showUploadModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="bg-white rounded-2xl w-full max-w-[850px] max-h-[85vh] shadow-2xl border border-slate-100 flex flex-col p-6 overflow-hidden relative"
+            >
+              {/* Close button */}
+              <button
+                onClick={() => {
+                  if (uploadStatus !== "saving") setShowUploadModal(false)
+                }}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors text-xl font-bold"
+              >
+                &times;
+              </button>
+
+              <div className="border-b border-slate-100 pb-3 mb-4 flex items-center gap-2">
+                <Upload className="text-[#01696f]" size={18} />
+                <h2 className="text-base font-bold text-slate-800">Unggah Peserta Secara Batch (Excel)</h2>
+              </div>
+
+              {uploadStatus === "idle" ? (
+                <div className="flex flex-col items-center justify-center py-8 px-4 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 gap-4">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+                    <Upload className="text-slate-400" size={24} />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-semibold text-slate-700">Pilih berkas Excel untuk diunggah</p>
+                    <p className="text-xs text-slate-400 mt-1">Gunakan template resmi kami agar format data dibaca dengan benar.</p>
+                  </div>
+                  <div className="flex gap-3 mt-2">
+                    <button
+                      onClick={downloadTemplate}
+                      className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-all flex items-center gap-1.5 shadow-sm"
+                    >
+                      Unduh Template Excel
+                    </button>
+                    <button
+                      onClick={() => {
+                        const el = document.getElementById("excel-file-input")
+                        el?.click()
+                      }}
+                      className="px-4 py-2 bg-[#16254c] text-white rounded-xl text-xs font-semibold hover:bg-[#0f1a38] transition-all flex items-center gap-1.5 shadow-sm"
+                    >
+                      Pilih Berkas
+                    </button>
+                  </div>
+                  <input
+                    id="excel-file-input"
+                    type="file"
+                    accept=".xlsx, .xls"
+                    className="hidden"
+                    onChange={handleExcelUpload}
+                  />
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div className="flex items-center justify-between bg-slate-50 border border-slate-150 rounded-xl p-3 mb-4">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#01696f] animate-pulse flex-shrink-0" />
+                      <p className="text-xs font-semibold text-slate-700 truncate">
+                        File: {excelFile?.name} ({parsedRows.length} baris data ditemukan)
+                      </p>
+                    </div>
+                    {uploadStatus === "preview" && (
+                      <button
+                        onClick={() => {
+                          setExcelFile(null)
+                          setParsedRows([])
+                          setUploadStatus("idle")
+                        }}
+                        className="text-[11px] font-semibold text-red-500 hover:underline"
+                      >
+                        Ganti File
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Preview Table */}
+                  <div className="flex-1 overflow-auto border border-slate-150 rounded-xl mb-4 bg-white">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-100 bg-slate-50/70 text-[10px] font-bold text-slate-400 uppercase tracking-wider sticky top-0 z-10">
+                          <th className="px-4 py-2.5 w-12 text-center">Baris</th>
+                          <th className="px-4 py-2.5">Nama Lengkap</th>
+                          <th className="px-4 py-2.5">No. KTP/ID</th>
+                          <th className="px-4 py-2.5">No. HP</th>
+                          <th className="px-4 py-2.5">Batch ID</th>
+                          <th className="px-4 py-2.5">Kota</th>
+                          <th className="px-4 py-2.5">Status Validasi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {parsedRows.map((r, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/40">
+                            <td className="px-4 py-3 text-center text-slate-400 font-mono font-bold">{r.rowNum}</td>
+                            <td className="px-4 py-3 font-semibold text-slate-800">{r.name || <span className="text-red-400 italic">Kosong</span>}</td>
+                            <td className="px-4 py-3 text-slate-600 font-mono">{r.idNumber || <span className="text-red-400 italic">Kosong</span>}</td>
+                            <td className="px-4 py-3 text-slate-600">{r.phone || <span className="text-red-400 italic">Kosong</span>}</td>
+                            <td className="px-4 py-3">
+                              {r.batchId ? (
+                                <span className="px-1.5 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] text-slate-600 font-bold">
+                                  {r.batchId}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 italic">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-slate-600">{r.city || <span className="text-red-400 italic">Kosong</span>}</td>
+                            <td className="px-4 py-3">
+                              {r.isValid ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-semibold text-emerald-700">
+                                  Valid
+                                </span>
+                              ) : (
+                                <span
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-[10px] font-semibold text-red-700 cursor-help"
+                                  title={r.errors.join("\n")}
+                                >
+                                  Error ({r.errors.length})
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Actions footer */}
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-3 flex-shrink-0">
+                    <p className="text-[11px] text-slate-500">
+                      Total Valid: <span className="font-semibold text-emerald-600">{parsedRows.filter(r => r.isValid).length}</span> · Total Error: <span className="font-semibold text-red-500">{parsedRows.filter(r => !r.isValid).length}</span>
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={uploadStatus === "saving"}
+                        onClick={() => setShowUploadModal(false)}
+                        className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="button"
+                        disabled={uploadStatus === "saving" || parsedRows.filter(r => r.isValid).length === 0}
+                        onClick={saveAllUploaded}
+                        className="px-4 py-2 bg-[#01696f] text-white rounded-xl text-xs font-semibold hover:bg-[#0c4e54] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {uploadStatus === "saving" ? "Menyimpan..." : `Simpan ${parsedRows.filter(r => r.isValid).length} Data Valid`}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

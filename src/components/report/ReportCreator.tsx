@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react"
 import { Search, ChevronDown, X, Download, ChevronRight } from "lucide-react"
-import { Psychologist, PatientRecord, ReportForm } from "../../types"
-import { BATCHES } from "../patient/PatientRegistration"
+import { Psychologist, Patient, ReportForm, Batch } from "../../types"
 import { ReportPreview } from "./ReportPreview"
 
 const EMPTY_FORM: ReportForm = {
@@ -18,6 +17,8 @@ const EMPTY_FORM: ReportForm = {
   prosesKonseling: "",
   diagnosisKlinis: "",
   saranPengembangan: "",
+  pasienKonseling: false,
+  patientId: null,
 }
 
 function useKeyClose(onClose: () => void, enabled = true) {
@@ -34,8 +35,9 @@ function useKeyClose(onClose: () => void, enabled = true) {
 type ReportCreatorProps = {
   onClose: () => void
   onSave: (name: string, form: ReportForm) => void
-  patients?: PatientRecord[]
+  patients?: Patient[]
   psychologists?: Psychologist[]
+  batches?: Batch[]
 }
 
 export function ReportCreator({
@@ -43,6 +45,7 @@ export function ReportCreator({
   onSave,
   patients = [],
   psychologists = [],
+  batches = [],
 }: ReportCreatorProps) {
   const [form, setForm] = useState<ReportForm>(EMPTY_FORM)
   const set = (k: keyof ReportForm, v: string) => setForm(p => ({ ...p, [k]: v }))
@@ -59,32 +62,41 @@ export function ReportCreator({
     return matchesSearch && matchesBatch
   })
 
-  const importPatient = (p: PatientRecord) => {
+  const importPatient = (p: Patient) => {
     const genderLabel = p.gender === "F" ? "Perempuan" : p.gender === "M" ? "Laki-laki" : ""
     const dobISO = p.dateOfBirth ?? ""
-    set("namaLengkap", p.name)
-    set("tempatLahir", p.birthPlace ?? "")
-    set("tanggalLahir", dobISO)
-    set("jenisKelamin", genderLabel)
-    set("usia", p.age ? String(p.age) : "")
-    set("pendidikan", p.education ?? "")
-    set("anakKeberapa", p.siblingOrder ?? "")
-    set("jumlahSaudara", p.totalSiblings ?? "")
-    set("alamat", p.fullAddress ?? p.city ?? "")
+    setForm(prev => ({
+      ...prev,
+      namaLengkap: p.name,
+      tempatLahir: p.birthPlace ?? "",
+      tanggalLahir: dobISO,
+      jenisKelamin: genderLabel,
+      usia: p.age ? String(p.age) : "",
+      pendidikan: p.education ?? "",
+      anakKeberapa: p.siblingOrder ?? "",
+      jumlahSaudara: p.totalSiblings ?? "",
+      alamat: p.fullAddress ?? p.city ?? "",
+      pasienKonseling: prev.pasienKonseling,
+      patientId: p.id,
+    }))
     setImportSearch("")
     setSelectedPatientId(p.id)
   }
 
   const clearBiodata = () => {
-    set("namaLengkap", "")
-    set("tempatLahir", "")
-    set("tanggalLahir", "")
-    set("jenisKelamin", "")
-    set("usia", "")
-    set("pendidikan", "")
-    set("anakKeberapa", "")
-    set("jumlahSaudara", "")
-    set("alamat", "")
+    setForm(prev => ({
+      ...prev,
+      namaLengkap: "",
+      tempatLahir: "",
+      tanggalLahir: "",
+      jenisKelamin: "",
+      usia: "",
+      pendidikan: "",
+      anakKeberapa: "",
+      jumlahSaudara: "",
+      alamat: "",
+      patientId: null,
+    }))
     setSelectedPatientId(null)
   }
 
@@ -134,6 +146,15 @@ export function ReportCreator({
         <label className={labelCls}>Alamat</label>
         <textarea disabled={isDisabled} value={form.alamat} onChange={e => set("alamat", e.target.value)} placeholder="[Alamat Lengkap]" rows={2} className={textareaCls} />
       </div>
+      <div className="col-span-2 mt-1 py-1 px-3 border border-slate-100 rounded-lg bg-slate-50 flex items-center justify-between">
+        <span className="text-[12px] font-semibold text-slate-700">Pasien Konseling (Riwayat Klinis)</span>
+        <input
+          type="checkbox"
+          checked={!!form.pasienKonseling}
+          onChange={e => setForm(p => ({ ...p, pasienKonseling: e.target.checked }))}
+          className="h-4 w-4 rounded border-slate-300 text-[#01696f] focus:ring-[#01696f]"
+        />
+      </div>
     </div>
   )
 
@@ -182,28 +203,26 @@ export function ReportCreator({
               </div>
               <div className="bg-[#01696f]/[0.045] rounded-2xl p-4 flex flex-col gap-3 border border-[#01696f]/[0.08]">
                 {/* Tabs */}
-                {patients.length > 0 && (
-                  <div className="flex bg-slate-200/60 p-0.5 rounded-lg mb-2">
-                    <button
-                      type="button"
-                      onClick={() => setBioTab("manual")}
-                      className={`flex-1 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                        bioTab === "manual" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                      }`}
-                    >
-                      Isi Manual
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setBioTab("database")}
-                      className={`flex-1 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                        bioTab === "database" ? "bg-white text-[#01696f] shadow-sm" : "text-slate-500 hover:text-slate-700"
-                      }`}
-                    >
-                      Cari di Database
-                    </button>
-                  </div>
-                )}
+                <div className="flex bg-slate-200/60 p-0.5 rounded-lg mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setBioTab("manual")}
+                    className={`flex-1 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                      bioTab === "manual" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    Isi Manual
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBioTab("database")}
+                    className={`flex-1 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                      bioTab === "database" ? "bg-white text-[#01696f] shadow-sm" : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    Cari di Database
+                  </button>
+                </div>
 
                 {bioTab === "manual" ? (
                   renderBiodataFields(false)
@@ -220,6 +239,10 @@ export function ReportCreator({
                       </button>
                     </div>
                     {renderBiodataFields(true)}
+                  </div>
+                ) : patients.length === 0 ? (
+                  <div className="text-center py-5 px-3 border border-dashed border-slate-200 rounded-xl bg-white">
+                    <span className="text-[11px] text-slate-400 font-medium leading-relaxed block">Belum ada data pasien terdaftar di database. Silakan registrasi pasien terlebih dahulu.</span>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-3">
@@ -240,7 +263,7 @@ export function ReportCreator({
                           className="w-full pl-2.5 pr-6 py-1.5 text-[11px] border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#01696f]/30 focus:border-[#01696f] bg-white appearance-none text-slate-600 font-medium cursor-pointer"
                         >
                           <option value="">Semua Grup</option>
-                          {BATCHES.map(b => (
+                          {batches.map(b => (
                             <option key={b.id} value={b.id}>
                               {b.name.replace("Batch ", "")}
                             </option>

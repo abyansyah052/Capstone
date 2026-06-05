@@ -11,15 +11,15 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export const requireAuth = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
-  const userId = req.headers["x-user-id"] as string;
-  const userRole = req.headers["x-user-role"] as string;
-  const userEmail = req.headers["x-user-email"] as string;
-  const userName = req.headers["x-user-name"] as string;
+  const userId = (req.headers["x-user-id"] || req.query.userId) as string;
+  const userRole = (req.headers["x-user-role"] || req.query.role) as string;
+  const userEmail = (req.headers["x-user-email"] || req.query.email) as string;
+  const userName = (req.headers["x-user-name"] || req.query.name) as string;
 
   if (!userId || !userRole || !userEmail) {
     res.status(401).json({
       ok: false,
-      error: "Authentication credentials missing in request headers",
+      error: "Authentication credentials missing in request headers or query parameters",
     });
     return;
   }

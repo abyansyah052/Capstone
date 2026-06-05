@@ -13,7 +13,7 @@ const router = Router();
 // Apply authentication to all patient routes
 router.use(requireAuth);
 
-router.get("/", requireRole(["staff"]), getAllPatients);
+router.get("/", requireRole(["staff", "psikolog", "apex"]), getAllPatients);
 router.get("/:id", requireRole(["staff", "psikolog"]), getPatientById);
 router.post("/", requireRole(["staff", "psikolog"]), createPatient);
 router.put("/:id", requireRole(["staff"]), updatePatient);

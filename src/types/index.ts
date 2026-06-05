@@ -5,6 +5,7 @@ export type Batch = {
   name: string;
   company: string;
   color: string;
+  deleted?: boolean;
 };
 
 export type Patient = {
@@ -94,6 +95,8 @@ export type ReportForm = {
   prosesKonseling: string;
   diagnosisKlinis: string;
   saranPengembangan: string;
+  pasienKonseling?: boolean;
+  patientId?: string | null;
 };
 
 export interface FsFile {

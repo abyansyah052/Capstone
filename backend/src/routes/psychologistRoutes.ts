@@ -13,7 +13,7 @@ const router = Router();
 // Apply authentication
 router.use(requireAuth);
 
-router.get("/", requireRole(["staff", "apex"]), getAllPsychologists);
+router.get("/", requireRole(["staff", "apex", "psikolog"]), getAllPsychologists);
 router.get("/:id", requireRole(["staff", "apex"]), getPsychologistById);
 router.post("/", requireRole(["staff", "apex"]), createPsychologist);
 router.put("/:id", requireRole(["staff", "apex"]), updatePsychologist);

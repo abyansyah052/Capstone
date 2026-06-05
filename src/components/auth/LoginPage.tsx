@@ -9,12 +9,80 @@ type LoginPageProps = {
 };
 
 export function LoginPage({ onLoginSuccess }: LoginPageProps) {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+  
+  const [nameError, setNameError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [tokenClient, setTokenClient] = useState<any>(null);
+
+  // Initialize Google OAuth2 Client
+  useEffect(() => {
+    const initGoogleOAuth = () => {
+      const g = (window as any).google;
+      if (g?.accounts?.oauth2) {
+        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
+        const client = g.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: "https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email",
+          callback: async (tokenResponse: any) => {
+            if (tokenResponse && tokenResponse.access_token) {
+              setIsLoading(true);
+              try {
+                const userInfoRes = await fetch(
+                  `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${tokenResponse.access_token}`
+                );
+                const userInfo = await userInfoRes.json();
+
+                if (!userInfo.email) {
+                  alert("Gagal mengambil email dari Google");
+                  setIsLoading(false);
+                  return;
+                }
+
+                // Call backend API with real Google details
+                const res = await fetch("/api/auth/google", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ email: userInfo.email, name: userInfo.name || userInfo.email }),
+                });
+                const json = await res.json();
+                setIsLoading(false);
+                if (json.ok) {
+                  onLoginSuccess(json.data);
+                } else {
+                  alert(json.error || "Gagal login Google");
+                }
+              } catch (err) {
+                setIsLoading(false);
+                alert("Koneksi ke server backend atau Google gagal.");
+              }
+            }
+          },
+        });
+        setTokenClient(client);
+      }
+    };
+
+    if ((window as any).google?.accounts?.oauth2) {
+      initGoogleOAuth();
+    } else {
+      const interval = setInterval(() => {
+        if ((window as any).google?.accounts?.oauth2) {
+          initGoogleOAuth();
+          clearInterval(interval);
+        }
+      }, 500);
+      return () => clearInterval(interval);
+    }
+  }, []);
 
   // Load email if remember me was previously checked
   useEffect(() => {
@@ -25,15 +93,37 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     }
   }, []);
 
+  const toggleMode = () => {
+    setIsSignUp(prev => !prev);
+    setName("");
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setNameError("");
+    setEmailError("");
+    setPasswordError("");
+    setConfirmPasswordError("");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (rememberMe && email.trim()) {
+    if (!isSignUp && rememberMe && email.trim()) {
       localStorage.setItem("asisya_remember_email", email);
-    } else {
+    } else if (!isSignUp) {
       localStorage.removeItem("asisya_remember_email");
     }
 
     let valid = true;
+
+    if (isSignUp) {
+      if (!name.trim()) {
+        setNameError("Name is required");
+        valid = false;
+      } else {
+        setNameError("");
+      }
+    }
+
     if (!email.trim()) {
       setEmailError("Email is required");
       valid = false;
@@ -47,96 +137,94 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     if (!password) {
       setPasswordError("Password is required");
       valid = false;
+    } else if (isSignUp && password.length < 6) {
+      setPasswordError("Password must be at least 6 characters");
+      valid = false;
     } else {
       setPasswordError("");
+    }
+
+    if (isSignUp) {
+      if (!confirmPassword) {
+        setConfirmPasswordError("Confirm password is required");
+        valid = false;
+      } else if (confirmPassword !== password) {
+        setConfirmPasswordError("Passwords do not match");
+        valid = false;
+      } else {
+        setConfirmPasswordError("");
+      }
     }
 
     if (!valid) return;
 
     setIsLoading(true);
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const json = await res.json();
-      setIsLoading(false);
-      if (json.ok) {
-        onLoginSuccess(json.data);
-      } else {
-        setPasswordError(json.error || "Gagal masuk");
+    if (isSignUp) {
+      try {
+        const res = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password }),
+        });
+        const json = await res.json();
+        setIsLoading(false);
+        if (json.ok) {
+          onLoginSuccess(json.data);
+        } else {
+          setConfirmPasswordError(json.error || "Gagal mendaftar");
+        }
+      } catch (err: any) {
+        setIsLoading(false);
+        setConfirmPasswordError("Koneksi ke server backend gagal.");
       }
-    } catch (err: any) {
-      setIsLoading(false);
-      setPasswordError("Koneksi ke server backend gagal.");
+    } else {
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const json = await res.json();
+        setIsLoading(false);
+        if (json.ok) {
+          onLoginSuccess(json.data);
+        } else {
+          setPasswordError(json.error || "Gagal masuk");
+        }
+      } catch (err: any) {
+        setIsLoading(false);
+        setPasswordError("Koneksi ke server backend gagal.");
+      }
     }
-
-    /* ──── INSTANT BYPASS LOGIN CODE (COMMENTED OUT FOR FE TESTING) ────
-    // Instant login for FE testing
-    onLoginSuccess({ id: "u-mock", name: "Mock User", email, role: "staff", signature: null });
-    */
   };
 
-  const handleGoogleLogin = async () => {
-    setIsLoading(true);
-    try {
-      const mockGoogleUser = {
-        email: email || "google_user@gmail.com",
-        name: "Google Account User",
-        googleId: `google-${Date.now()}`,
-      };
-      const res = await fetch("/api/auth/google", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mockGoogleUser),
-      });
-      const json = await res.json();
-      setIsLoading(false);
-      if (json.ok) {
-        onLoginSuccess(json.data);
-      } else {
-        alert(json.error || "Gagal login Google");
-      }
-    } catch (err) {
-      setIsLoading(false);
-      alert("Koneksi ke server backend gagal.");
+  const handleGoogleLogin = () => {
+    if (tokenClient) {
+      tokenClient.requestAccessToken();
+    } else {
+      alert("API Google Sign-in sedang memuat. Silakan tunggu sebentar atau pastikan koneksi internet aktif.");
     }
-
-    /* ──── INSTANT BYPASS LOGIN CODE (COMMENTED OUT FOR FE TESTING) ────
-    // Instant login for FE testing
-    onLoginSuccess({ id: "u-mock", name: "Google Mock User", email: "google_user@gmail.com", role: "reguler", signature: null });
-    */
   };
 
   return (
     <div className="min-h-screen w-full flex bg-[#F4F6F9] p-4 lg:p-6 select-none font-sans overflow-hidden">
       {/* Left decorative panel (Hidden on mobile/tablet, shown on desktop) */}
-      <div className="hidden lg:flex lg:w-[42%] relative rounded-[28px] overflow-hidden bg-black flex-col justify-between p-12">
+      <div className="hidden lg:flex lg:w-[48%] relative rounded-tl-[120px] rounded-br-[120px] rounded-tr-[28px] rounded-bl-[28px] overflow-hidden bg-black flex-col justify-between p-12">
         {/* Background Image overlayed with gradient */}
         <div 
-          className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105" 
-          style={{ backgroundImage: "url('/src/assets/login_bg.png')" }}
+          className="absolute inset-0 bg-cover bg-bottom transition-transform duration-700 hover:scale-105" 
+          style={{ backgroundImage: "url('/src/assets/Psikolog Asisya Web Design.png')", backgroundPosition: "bottom" }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent mix-blend-multiply opacity-90" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/80" />
 
-        {/* Top Content */}
-        <div className="relative z-10 flex items-center gap-3">
-          <span className="text-[10px] font-bold text-white/60 tracking-[0.2em] uppercase">
-            A Wise Quote
-          </span>
-          <div className="h-px w-16 bg-white/20" />
-        </div>
-
-        {/* Bottom Content */}
-        <div className="relative z-10 flex flex-col gap-4">
-          <h2 className="text-[42px] font-bold leading-[1.15] text-white tracking-tight max-w-[380px]">
-            Get Everything You Want
-          </h2>
-          <p className="text-[13px] text-white/60 leading-relaxed font-normal max-w-[280px]">
-            You can get everything you want if you work hard, trust the process, and stick to the plan.
-          </p>
+        {/* Large SVG Branding Logo in bottom left */}
+        <div className="relative z-10 mt-auto flex items-end justify-start">
+          <img 
+            src="/SI Capstone 1 Group 2.svg" 
+            alt="SI Capstone 1 Group 2 Logo" 
+            className="w-full max-w-[340px] h-auto object-contain" 
+          />
         </div>
       </div>
 
@@ -145,26 +233,61 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full lg:w-[58%] bg-white rounded-3xl lg:rounded-none lg:bg-transparent flex flex-col justify-center items-center p-8 lg:p-12 overflow-y-auto"
+        className="w-full lg:w-[52%] bg-white rounded-3xl lg:rounded-none lg:bg-transparent flex flex-col justify-center items-center p-8 lg:p-12 overflow-y-auto"
       >
-        <div className="w-full max-w-[400px] flex flex-col gap-10">
+        <div className="w-full max-w-[440px] flex flex-col gap-10">
           {/* Top Header Logo */}
           <div className="flex justify-center items-center">
-            <img src="/LogoAuth.png" alt="Asisya Logo" className="h-20 w-auto object-contain" />
+            <img src="/LogoAuth.png" alt="Asisya Logo" className="h-32 w-auto object-contain" />
           </div>
 
           {/* Main Form container */}
           <div className="w-full flex flex-col gap-6">
             <div className="text-center flex flex-col gap-2">
               <h1 className="text-[30px] font-bold text-[#1C243B] tracking-tight">
-                Welcome Back
+                {isSignUp ? "Daftar Akun Baru" : "Welcome Back"}
               </h1>
               <p className="text-[13px] text-[#6B7280] font-normal leading-relaxed">
-                Enter your email and password to access your account
+                {isSignUp 
+                  ? "Lengkapi formulir di bawah ini untuk membuat akun baru" 
+                  : "Enter your email and password to access your account"
+                }
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4.5">
+              {/* Full Name Input (Register Only) */}
+              {isSignUp && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-[#1C243B]">Nama Lengkap</label>
+                  <TextInput
+                    placeholder="Enter your full name"
+                    value={name}
+                    onChange={(e) => {
+                      setName(e.currentTarget.value);
+                      if (nameError) setNameError("");
+                    }}
+                    error={nameError || undefined}
+                    styles={{
+                      input: {
+                        backgroundColor: "#ffffff",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: "12px",
+                        height: "44px",
+                        fontSize: "13px",
+                        color: "#1C243B",
+                        transition: "all 0.15s ease",
+                        "&:focus": {
+                          borderColor: "#1C243B",
+                          borderWidth: "1px",
+                          backgroundColor: "#ffffff",
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              )}
+
               {/* Email Input */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-[#1C243B]">Email</label>
@@ -237,33 +360,79 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 />
               </div>
 
-              {/* Remember & Forgot Row */}
-              <div className="flex items-center justify-between text-[13px] text-[#6B7280] mt-1">
-                <Checkbox
-                  label="Remember me"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.currentTarget.checked)}
-                  styles={{
-                    label: {
-                      fontSize: "13px",
-                      color: "#6B7280",
-                      paddingLeft: "8px",
-                    },
-                    input: {
-                      borderColor: "#cbd5e1",
-                      "&:checked": {
-                        backgroundColor: "#1C243B",
-                        borderColor: "#1C243B",
-                      }
+              {/* Confirm Password Input (Register Only) */}
+              {isSignUp && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-[#1C243B]">Konfirmasi Password</label>
+                  <PasswordInput
+                    placeholder="Repeat your password"
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.currentTarget.value);
+                      if (confirmPasswordError) setConfirmPasswordError("");
+                    }}
+                    error={confirmPasswordError || undefined}
+                    visibilityToggleIcon={({ reveal }) =>
+                      reveal ? <EyeOff size={15} className="text-[#6B7280]" /> : <Eye size={15} className="text-[#6B7280]" />
                     }
-                  }}
-                />
-                <a href="/forgot-password" onClick={(e) => e.preventDefault()} className="font-medium hover:text-[#1C243B] transition-colors">
-                  Forgot Password
-                </a>
-              </div>
+                    styles={{
+                      input: {
+                        backgroundColor: "#ffffff",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: "12px",
+                        height: "44px",
+                        fontSize: "13px",
+                        color: "#1C243B",
+                        transition: "all 0.15s ease",
+                        "&:focus": {
+                          borderColor: "#1C243B",
+                          borderWidth: "1px",
+                          backgroundColor: "#ffffff",
+                        }
+                      },
+                      innerInput: {
+                        height: "42px",
+                        fontSize: "13px",
+                      },
+                      visibilityToggle: {
+                        "&:hover": {
+                          backgroundColor: "transparent"
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              )}
 
-              {/* Sign In Button */}
+              {/* Remember & Forgot Row (Login Only) */}
+              {!isSignUp && (
+                <div className="flex items-center justify-between text-[13px] text-[#6B7280] mt-1">
+                  <Checkbox
+                    label="Remember me"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.currentTarget.checked)}
+                    styles={{
+                      label: {
+                        fontSize: "13px",
+                        color: "#6B7280",
+                        paddingLeft: "8px",
+                      },
+                      input: {
+                        borderColor: "#cbd5e1",
+                        "&:checked": {
+                          backgroundColor: "#1C243B",
+                          borderColor: "#1C243B",
+                        }
+                      }
+                    }}
+                  />
+                  <a href="/forgot-password" onClick={(e) => e.preventDefault()} className="font-medium hover:text-[#1C243B] transition-colors">
+                    Forgot Password
+                  </a>
+                </div>
+              )}
+
+              {/* Submit Button */}
               <motion.div whileTap={{ scale: 0.975 }} className="w-full mt-2">
                 <Button
                   type="submit"
@@ -283,7 +452,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     }
                   }}
                 >
-                  Sign In
+                  {isSignUp ? "Sign Up" : "Sign In"}
                 </Button>
               </motion.div>
 
@@ -318,7 +487,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     }
                   }}
                 >
-                  Sign In with Google
+                  {isSignUp ? "Sign Up with Google" : "Sign In with Google"}
                 </Button>
               </motion.div>
             </form>
@@ -326,9 +495,9 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
           {/* Bottom footer registration link */}
           <div className="text-center text-[13px] text-[#6B7280] font-normal">
-            Don't have an account?{" "}
-            <a href="/register" onClick={(e) => e.preventDefault()} className="font-bold text-[#1C243B] hover:underline">
-              Sign Up
+            {isSignUp ? "Already have an account? " : "Don't have an account? "}
+            <a href={isSignUp ? "/login" : "/register"} onClick={(e) => { e.preventDefault(); toggleMode(); }} className="font-bold text-[#1C243B] hover:underline">
+              {isSignUp ? "Sign In" : "Sign Up"}
             </a>
           </div>
         </div>

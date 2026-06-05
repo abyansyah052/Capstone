@@ -40,9 +40,11 @@ export const initDb = async () => {
         id VARCHAR(255) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         company VARCHAR(255) NOT NULL,
-        color VARCHAR(50) NOT NULL
+        color VARCHAR(50) NOT NULL,
+        deleted BOOLEAN DEFAULT FALSE
       );
     `);
+    await pool.query("ALTER TABLE batches ADD COLUMN IF NOT EXISTS deleted BOOLEAN DEFAULT FALSE;");
 
     // Create psychologists table
     await pool.query(`
@@ -93,15 +95,27 @@ export const initDb = async () => {
       CREATE TABLE IF NOT EXISTS appointments (
         id VARCHAR(255) PRIMARY KEY,
         patient_id VARCHAR(255) REFERENCES patients(id) ON DELETE CASCADE,
+        patient_name VARCHAR(255),
         psychologist_id VARCHAR(255) REFERENCES psychologists(id) ON DELETE SET NULL,
         date VARCHAR(50) NOT NULL,
         time_slot VARCHAR(50) NOT NULL,
+        duration INTEGER DEFAULT 60,
+        type VARCHAR(255),
         notes TEXT,
         status VARCHAR(50) DEFAULT 'scheduled',
+        notify VARCHAR(50) DEFAULT 'none',
+        notify_phone VARCHAR(50),
+        notify_email VARCHAR(255),
         visible_to_regular BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_name VARCHAR(255);");
+    await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS duration INTEGER DEFAULT 60;");
+    await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS type VARCHAR(255);");
+    await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS notify VARCHAR(50) DEFAULT 'none';");
+    await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS notify_phone VARCHAR(50);");
+    await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS notify_email VARCHAR(255);");
 
     // Create activity_logs table
     await pool.query(`

@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react"
 import { Users, Calendar, ClipboardList, Activity, FileText, GraduationCap, Shield } from "lucide-react"
 import { Card, CardContent } from "../ui/card"
 import bannerImg from "../../assets/Psikolog Asisya Web Design.png"
@@ -5,25 +6,8 @@ import bannerImg from "../../assets/Psikolog Asisya Web Design.png"
 interface DashboardProps {
   onNavigate: (module: string) => void
   currentUserRole?: string
+  currentUser?: { id: string; role: string; email: string } | null
 }
-
-const scorecards = [
-  {
-    label: "Total Pasien",
-    value: "1,125",
-    icon: Users,
-  },
-  {
-    label: "Janji Temu Hari Ini",
-    value: "26",
-    icon: Calendar,
-  },
-  {
-    label: "Janji Temu Internal",
-    value: "18",
-    icon: ClipboardList,
-  },
-]
 
 const ALL_MODULES = [
   {
@@ -77,8 +61,52 @@ const ALL_MODULES = [
   },
 ]
 
-export function Dashboard({ onNavigate, currentUserRole = "staff" }: DashboardProps) {
-  const modules = ALL_MODULES.filter(m => m.roles.includes(currentUserRole))
+export function Dashboard({ onNavigate, currentUserRole = "staff", currentUser = null }: DashboardProps) {
+  const effectiveRole = currentUser?.role || currentUserRole
+  const modules = ALL_MODULES.filter(m => m.roles.includes(effectiveRole))
+
+  const [stats, setStats] = useState({ totalPatients: 0, todayAppointments: 0, internalAppointments: 0 })
+
+  useEffect(() => {
+    if (!currentUser) return
+    const fetchStats = async () => {
+      try {
+        const res = await fetch("/api/dashboard/stats", {
+          headers: {
+            "x-user-id": currentUser.id,
+            "x-user-role": currentUser.role,
+            "x-user-email": currentUser.email,
+          }
+        })
+        const json = await res.json()
+        if (json.ok) {
+          setStats(json.data)
+        }
+      } catch (err) {
+        console.error("Failed to fetch dashboard stats", err)
+      }
+    }
+    fetchStats()
+  }, [currentUser])
+
+  const scorecards = [
+    {
+      label: "Total Pasien",
+      value: stats.totalPatients.toLocaleString("id-ID"),
+      icon: Users,
+    },
+    {
+      label: "Janji Temu Hari Ini",
+      value: stats.todayAppointments.toLocaleString("id-ID"),
+      icon: Calendar,
+    },
+    {
+      label: "Janji Temu Internal",
+      value: stats.internalAppointments.toLocaleString("id-ID"),
+      icon: ClipboardList,
+    },
+  ]
+
   return (
     <div className="p-6 space-y-6">
 

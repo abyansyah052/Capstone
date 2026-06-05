@@ -398,3 +398,30 @@ export const batchDownloadReports = async (req: AuthenticatedRequest, res: Respo
     }
   }
 };
+
+// GET /api/reports/counseling - Get only counseling reports (non-PDF upload nodes)
+export const getCounselingReports = async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const result = await query(
+      "SELECT id, name, kind, parent_id as \"parentId\", mime_type as \"mimeType\", size, file_content as \"fileContent\", created_at as \"createdAt\" FROM report_nodes WHERE kind = 'file' AND file_content NOT LIKE 'data:application/pdf%'"
+    );
+    const parsed = result.rows.map(row => {
+      let form = {};
+      try {
+        form = JSON.parse(row.fileContent || "{}");
+      } catch (e) {
+        form = {};
+      }
+      return {
+        id: row.id,
+        name: row.name,
+        parentId: row.parentId,
+        createdAt: row.createdAt,
+        form
+      };
+    });
+    res.json({ ok: true, data: parsed });
+  } catch (error: any) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+};

@@ -69,7 +69,7 @@ export function FilterPanel({ filter, batches, onChange, onClose }: FilterPanelP
                   filter.batchId === b.id ? "bg-[#01696f] text-white" : "text-slate-600 hover:bg-slate-50"
                 }`}>
                 <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: b.color }} />
-                <span className="flex-1 truncate">{b.name}</span>
+                <span className="flex-1 truncate">{b.name}{b.deleted ? " (Nonaktif)" : ""}</span>
               </button>
             ))}
           </div>

@@ -20,8 +20,9 @@ import { AccountMenu } from "./components/AccountMenu"
 import { UserManagement } from "./components/apex/UserManagement"
 import { ActivityLogs } from "./components/apex/ActivityLogs"
 import { SignatureModal } from "./components/psychologist/SignatureModal"
-import { Patient, Psychologist } from "./types"
-import { Home, Users, Calendar, FileText, Activity, GraduationCap, Shield, History } from "lucide-react"
+import { BatchManagement } from "./components/staff/BatchManagement"
+import { Patient, Psychologist, Batch } from "./types"
+import { Home, Users, Calendar, FileText, Activity, GraduationCap, Shield, History, Building2 } from "lucide-react"
 import { LoginPage } from "./components/auth/LoginPage"
 
 export interface UserSession {
@@ -49,6 +50,7 @@ function AppInner({
 
   const [patients, setPatients] = useState<Patient[]>([])
   const [psychologists, setPsychologists] = useState<Psychologist[]>([])
+  const [batches, setBatches] = useState<Batch[]>([])
 
   // Dynamic navigation items based on user role
   const navigationItems = [
@@ -56,6 +58,7 @@ function AppInner({
     { id: "user_management", label: "User Management", icon: Shield, roles: ["apex"] },
     { id: "activity_logs", label: "Activity Logs", icon: History, roles: ["apex"] },
     { id: "patients", label: "Registrasi Pasien", icon: Users, roles: ["staff", "psikolog"] },
+    { id: "batches", label: "Grup Batch", icon: Building2, roles: ["staff"] },
     { id: "psychologists", label: "Database Psikolog", icon: GraduationCap, roles: ["staff"] },
     { id: "history", label: "Riwayat Psikologis", icon: Activity, roles: ["staff", "psikolog"] },
     { id: "appointments", label: "Janji Temu", icon: Calendar, roles: ["staff", "psikolog", "reguler"] },
@@ -73,7 +76,7 @@ function AppInner({
   // Fetch initial collections for staff
   const fetchCollections = async () => {
     try {
-      if (currentUser.role === "staff") {
+      if (currentUser.role === "staff" || currentUser.role === "psikolog" || currentUser.role === "apex") {
         // Patients
         const resPat = await fetch("/api/patients", {
           headers: {
@@ -95,6 +98,17 @@ function AppInner({
         });
         const jsonPsy = await resPsy.json();
         if (jsonPsy.ok) setPsychologists(jsonPsy.data);
+
+        // Batches
+        const resBat = await fetch("/api/batches", {
+          headers: {
+            "x-user-id": currentUser.id,
+            "x-user-role": currentUser.role,
+            "x-user-email": currentUser.email,
+          }
+        });
+        const jsonBat = await resBat.json();
+        if (jsonBat.ok) setBatches(jsonBat.data);
       }
     } catch (err) {
       console.error(err);
@@ -108,21 +122,23 @@ function AppInner({
   const renderActiveModule = () => {
     switch (activeModule) {
       case "dashboard":
-        return <Dashboard onNavigate={setActiveModule} currentUserRole={currentUser.role} />
+        return <Dashboard onNavigate={setActiveModule} currentUser={currentUser} />
       case "user_management":
         return <UserManagement currentUser={currentUser} />
       case "activity_logs":
         return <ActivityLogs currentUser={currentUser} />
       case "patients":
-        return <PatientRegistration patients={patients} onPatientsChange={setPatients} currentUserRole={currentUser.role} />
+        return <PatientRegistration patients={patients} onPatientsChange={setPatients} batches={batches} currentUser={currentUser} />
+      case "batches":
+        return <BatchManagement batches={batches} onBatchesChange={setBatches} currentUser={currentUser} />
       case "psychologists":
         return <PsychologistDatabase psychologists={psychologists} onPsychologistsChange={setPsychologists} currentUser={currentUser} />
       case "history":
-        return <MedicalHistory />
+        return <MedicalHistory patients={patients} currentUser={currentUser} batches={batches} />
       case "appointments":
         return <AppointmentScheduling psychologists={psychologists} currentUser={currentUser} />
       case "notes":
-        return <LaporanPsikologis patients={patients} psychologists={psychologists} currentUser={currentUser} />
+        return <LaporanPsikologis patients={patients} psychologists={psychologists} batches={batches} currentUser={currentUser} />
       default:
         return <Dashboard onNavigate={setActiveModule} currentUserRole={currentUser.role} />
     }

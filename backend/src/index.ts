@@ -7,6 +7,8 @@ import patientRoutes from "./routes/patientRoutes";
 import psychologistRoutes from "./routes/psychologistRoutes";
 import appointmentRoutes from "./routes/appointmentRoutes";
 import reportRoutes from "./routes/reportRoutes";
+import batchRoutes from "./routes/batchRoutes";
+import dashboardRoutes from "./routes/dashboardRoutes";
 import { errorHandler } from "./middlewares/errorMiddleware";
 
 // Load environment variables
@@ -25,6 +27,8 @@ app.use("/api/patients", patientRoutes);
 app.use("/api/psychologists", psychologistRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/batches", batchRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 // Health check endpoint
 app.get("/health", (_req: Request, res: Response) => {

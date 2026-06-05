@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   getAllReportNodes,
+  getCounselingReports,
   createReportNode,
   updateReportNode,
   deleteReportNode,
@@ -16,9 +17,10 @@ const router = Router();
 router.use(requireAuth);
 
 router.get("/", requireRole(["psikolog", "staff", "apex"]), getAllReportNodes);
+router.get("/counseling", requireRole(["psikolog", "staff", "apex"]), getCounselingReports);
 router.post("/", requireRole(["psikolog"]), createReportNode);
 router.put("/:id", requireRole(["psikolog"]), updateReportNode);
-router.delete("/bulk-delete", requireRole(["psikolog"]), deleteReportNodesBulk);
+router.post("/bulk-delete", requireRole(["psikolog"]), deleteReportNodesBulk);
 router.delete("/:id", requireRole(["psikolog"]), deleteReportNode);
 router.get("/:id/pdf", requireRole(["psikolog", "staff", "apex"]), previewOrDownloadPdf);
 router.post("/batch-download", requireRole(["psikolog", "staff", "apex"]), batchDownloadReports);
