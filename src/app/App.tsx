@@ -11,12 +11,13 @@ import {
   useSidebar,
 } from "./components/ui/sidebar"
 import { Dashboard } from "./components/Dashboard"
-import { PatientRegistration } from "./components/PatientRegistration"
+import { PatientRegistration, Patient, INIT_PATIENTS } from "./components/PatientRegistration"
 import { AppointmentScheduling } from "./components/AppointmentScheduling"
 import { MedicalHistory } from "./components/MedicalHistory"
 import { LaporanPsikologis } from "./components/LaporanPsikologis"
+import { PsychologistDatabase, Psychologist, INIT_PSYCHOLOGISTS } from "./components/PsychologistDatabase"
 import { AccountMenu } from "./components/AccountMenu"
-import { Home, Users, Calendar, FileText, Activity } from "lucide-react"
+import { Home, Users, Calendar, FileText, Activity, Award } from "lucide-react"
 
 // Inner component so we can use useSidebar hook (must be inside SidebarProvider)
 function AppInner() {
@@ -24,9 +25,13 @@ function AppInner() {
   const { state } = useSidebar()
   const isCollapsed = state === "collapsed"
 
+  const [patients, setPatients] = useState<Patient[]>(INIT_PATIENTS)
+  const [psychologists, setPsychologists] = useState<Psychologist[]>(INIT_PSYCHOLOGISTS)
+
   const navigationItems = [
     { id: "dashboard", label: "Dashboard", icon: Home },
     { id: "patients", label: "Registrasi Pasien", icon: Users },
+    { id: "psychologists", label: "Database Psikolog", icon: Award },
     { id: "history", label: "Riwayat Psikologis", icon: Activity },
     { id: "appointments", label: "Janji Temu", icon: Calendar },
     { id: "notes", label: "Laporan Psikologis", icon: FileText },
@@ -35,10 +40,11 @@ function AppInner() {
   const renderActiveModule = () => {
     switch (activeModule) {
       case "dashboard": return <Dashboard onNavigate={setActiveModule} />
-      case "patients": return <PatientRegistration />
+      case "patients": return <PatientRegistration patients={patients} onPatientsChange={setPatients} />
+      case "psychologists": return <PsychologistDatabase psychologists={psychologists} onPsychologistsChange={setPsychologists} />
       case "history": return <MedicalHistory />
       case "appointments": return <AppointmentScheduling />
-      case "notes": return <LaporanPsikologis />
+      case "notes": return <LaporanPsikologis patients={patients} psychologists={psychologists} />
       default: return <Dashboard onNavigate={setActiveModule} />
     }
   }

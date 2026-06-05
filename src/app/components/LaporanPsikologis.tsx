@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import {
   Folder, FolderOpen, FileText, Trash2, Upload,
-  ChevronRight, Home, MoreVertical, FilePlus, FolderPlus, X, Download,
+  ChevronRight, ChevronDown, Home, MoreVertical, FilePlus, FolderPlus, X, Download,
   Search, SlidersHorizontal, ArrowUp, ArrowDown, PenLine,
   CheckSquare, Square, CheckCheck,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
+import { Psychologist } from "./PsychologistDatabase"
+import { BATCHES } from "./PatientRegistration"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -172,8 +174,9 @@ function useKeyClose(onClose: () => void, enabled = true) {
 
 // ─── PDF Preview ─────────────────────────────────────────────────────────────
 
-function ReportPreview({ form }: { form: ReportForm }) {
+function ReportPreview({ form, psychologists = [] }: { form: ReportForm; psychologists?: Psychologist[] }) {
   const today = new Date().toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+  const activePsychologist = psychologists.find(p => p.name === "Dairy Team")
 
   const row = (label: string, value: string) => (
     <tr style={{ borderBottom: "1px solid #d1d5db" }}>
@@ -238,11 +241,25 @@ function ReportPreview({ form }: { form: ReportForm }) {
       <hr style={{ borderColor: "#6b7280", marginBottom: "8px" }} />
       {sectionBox(form.saranPengembangan, "(Rekomendasi tindak lanjut, rencana intervensi klinis lanjutan, tugas mandiri untuk klien, atau saran pengembangan diri spesifik)")}
 
-      <div style={{ marginTop: "24px", textAlign: "right" }}>
-        <p style={{ fontSize: "10px", color: "#374151" }}>Surabaya, {today}</p>
-        <div style={{ marginTop: "48px" }}>
-          <p style={{ fontSize: "10px", fontWeight: 700, color: "#111827" }}>Psikolog / Konselor</p>
-          <p style={{ fontSize: "10px", color: "#6b7280" }}>( _________________________ )</p>
+      <div style={{ marginTop: "24px", display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+          <p style={{ fontSize: "10px", color: "#374151", margin: "0 0 8px" }}>Surabaya, {today}</p>
+          <p style={{ fontSize: "10px", fontWeight: 700, color: "#111827", margin: "0 0 2px" }}>Psikolog / Konselor</p>
+          {activePsychologist?.signature ? (
+            <div style={{ height: "40px", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+              <img src={activePsychologist.signature} alt="Signature" style={{ height: "100%", objectFit: "contain" }} />
+            </div>
+          ) : (
+            <div style={{ height: "40px" }} />
+          )}
+          <p style={{ fontSize: "10px", fontWeight: 700, color: "#111827", margin: "2px 0 0" }}>
+            ( {activePsychologist ? activePsychologist.name : "_________________________"} )
+          </p>
+          {activePsychologist?.sipp && (
+            <p style={{ fontSize: "8px", color: "#6b7280", margin: "1px 0 0", fontStyle: "italic" }}>
+              No. SIPP: {activePsychologist.sipp}
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -535,14 +552,109 @@ function CtxMenuPanel({ menu, pos, onClose, onDelete, onRename }: {
 
 // ─── Report Creator ───────────────────────────────────────────────────────────
 
-function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name: string, form: ReportForm) => void }) {
+function ReportCreator({
+  onClose,
+  onSave,
+  patients = [],
+  psychologists = [],
+}: {
+  onClose: () => void
+  onSave: (name: string, form: ReportForm) => void
+  patients?: PatientRecord[]
+  psychologists?: Psychologist[]
+}) {
   const [form, setForm] = useState<ReportForm>(EMPTY_FORM)
   const set = (k: keyof ReportForm, v: string) => setForm(p => ({ ...p, [k]: v }))
   useKeyClose(onClose)
 
+  const [bioTab, setBioTab] = useState<"manual" | "database">("manual")
+  const [importSearch, setImportSearch] = useState("")
+  const [importBatchId, setImportBatchId] = useState("")
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
+
+  const filteredPatients = patients.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(importSearch.toLowerCase())
+    const matchesBatch = importBatchId === "" || p.batchId === importBatchId
+    return matchesSearch && matchesBatch
+  })
+
+  const importPatient = (p: PatientRecord) => {
+    const genderLabel = p.gender === "F" ? "Perempuan" : p.gender === "M" ? "Laki-laki" : ""
+    const dobISO = p.dateOfBirth ?? ""
+    set("namaLengkap", p.name)
+    set("tempatLahir", p.birthPlace ?? "")
+    set("tanggalLahir", dobISO)
+    set("jenisKelamin", genderLabel)
+    set("usia", p.age ? String(p.age) : "")
+    set("pendidikan", p.education ?? "")
+    set("anakKeberapa", p.siblingOrder ?? "")
+    set("jumlahSaudara", p.totalSiblings ?? "")
+    set("alamat", p.fullAddress ?? p.city ?? "")
+    setImportSearch("")
+    setSelectedPatientId(p.id)
+  }
+
+  const clearBiodata = () => {
+    set("namaLengkap", "")
+    set("tempatLahir", "")
+    set("tanggalLahir", "")
+    set("jenisKelamin", "")
+    set("usia", "")
+    set("pendidikan", "")
+    set("anakKeberapa", "")
+    set("jumlahSaudara", "")
+    set("alamat", "")
+    setSelectedPatientId(null)
+  }
+
   const inputCls = "w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#01696f] focus:ring-2 focus:ring-[#01696f]/10 transition-all"
   const labelCls = "text-[12px] font-medium text-slate-500 mb-1 block"
   const textareaCls = `${inputCls} resize-none leading-relaxed`
+
+  const renderBiodataFields = (isDisabled: boolean) => (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="col-span-2">
+        <label className={labelCls}>Nama Lengkap</label>
+        <input disabled={isDisabled} value={form.namaLengkap} onChange={e => set("namaLengkap", e.target.value)} placeholder="[Nama Lengkap Pasien/Klien]" className={inputCls} />
+      </div>
+      <div>
+        <label className={labelCls}>Tempat Lahir</label>
+        <input disabled={isDisabled} value={form.tempatLahir} onChange={e => set("tempatLahir", e.target.value)} placeholder="Kota" className={inputCls} />
+      </div>
+      <div>
+        <label className={labelCls}>Tanggal Lahir</label>
+        <input disabled={isDisabled} type="date" value={form.tanggalLahir} onChange={e => set("tanggalLahir", e.target.value)} className={inputCls} />
+      </div>
+      <div>
+        <label className={labelCls}>Jenis Kelamin</label>
+        <select disabled={isDisabled} value={form.jenisKelamin} onChange={e => set("jenisKelamin", e.target.value)} className={inputCls}>
+          <option value="">Pilih</option>
+          <option value="Laki-laki">Laki-laki</option>
+          <option value="Perempuan">Perempuan</option>
+        </select>
+      </div>
+      <div>
+        <label className={labelCls}>Usia</label>
+        <input disabled={isDisabled} value={form.usia} onChange={e => set("usia", e.target.value)} placeholder="Tahun" className={inputCls} />
+      </div>
+      <div className="col-span-2">
+        <label className={labelCls}>Pendidikan Terakhir</label>
+        <input disabled={isDisabled} value={form.pendidikan} onChange={e => set("pendidikan", e.target.value)} placeholder="[Pendidikan Terakhir Klien]" className={inputCls} />
+      </div>
+      <div>
+        <label className={labelCls}>Anak Ke-</label>
+        <input disabled={isDisabled} value={form.anakKeberapa} onChange={e => set("anakKeberapa", e.target.value)} placeholder="ke [ ]" className={inputCls} />
+      </div>
+      <div>
+        <label className={labelCls}>Dari [ ] Bersaudara</label>
+        <input disabled={isDisabled} value={form.jumlahSaudara} onChange={e => set("jumlahSaudara", e.target.value)} placeholder="[ ] saudara" className={inputCls} />
+      </div>
+      <div className="col-span-2">
+        <label className={labelCls}>Alamat</label>
+        <textarea disabled={isDisabled} value={form.alamat} onChange={e => set("alamat", e.target.value)} placeholder="[Alamat Lengkap]" rows={2} className={textareaCls} />
+      </div>
+    </div>
+  )
 
   const handleSave = () => {
     const name = form.namaLengkap.trim() || "Laporan Tanpa Nama"
@@ -588,48 +700,105 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
                 <p className="text-[13px] font-semibold text-slate-700">Bio data</p>
               </div>
               <div className="bg-[#01696f]/[0.045] rounded-2xl p-4 flex flex-col gap-3 border border-[#01696f]/[0.08]">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2">
-                    <label className={labelCls}>Nama Lengkap</label>
-                    <input value={form.namaLengkap} onChange={e => set("namaLengkap", e.target.value)} placeholder="[Nama Lengkap Pasien/Klien]" className={inputCls} />
+                {/* Tabs */}
+                {patients.length > 0 && (
+                  <div className="flex bg-slate-200/60 p-0.5 rounded-lg mb-2">
+                    <button
+                      type="button"
+                      onClick={() => setBioTab("manual")}
+                      className={`flex-1 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                        bioTab === "manual" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      Isi Manual
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBioTab("database")}
+                      className={`flex-1 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                        bioTab === "database" ? "bg-white text-[#01696f] shadow-sm" : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      Cari di Database
+                    </button>
                   </div>
-                  <div>
-                    <label className={labelCls}>Tempat Lahir</label>
-                    <input value={form.tempatLahir} onChange={e => set("tempatLahir", e.target.value)} placeholder="Kota" className={inputCls} />
+                )}
+
+                {bioTab === "manual" ? (
+                  renderBiodataFields(false)
+                ) : selectedPatientId !== null ? (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between bg-[#01696f]/10 px-3 py-2 rounded-xl">
+                      <span className="text-[11px] text-[#01696f] font-semibold">Tersambung ke Database Pasien</span>
+                      <button
+                        type="button"
+                        onClick={clearBiodata}
+                        className="text-[10px] text-red-600 hover:text-red-700 font-bold transition-colors"
+                      >
+                        Putuskan &amp; Cari Lain
+                      </button>
+                    </div>
+                    {renderBiodataFields(true)}
                   </div>
-                  <div>
-                    <label className={labelCls}>Tanggal Lahir</label>
-                    <input type="date" value={form.tanggalLahir} onChange={e => set("tanggalLahir", e.target.value)} className={inputCls} />
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          value={importSearch}
+                          onChange={e => setImportSearch(e.target.value)}
+                          placeholder="Cari nama..."
+                          className="w-full pl-7 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#01696f]/30 focus:border-[#01696f] bg-white"
+                        />
+                      </div>
+                      <div className="relative w-32 flex-shrink-0">
+                        <select
+                          value={importBatchId}
+                          onChange={e => setImportBatchId(e.target.value)}
+                          className="w-full pl-2.5 pr-6 py-1.5 text-[11px] border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#01696f]/30 focus:border-[#01696f] bg-white appearance-none text-slate-600 font-medium cursor-pointer"
+                        >
+                          <option value="">Semua Grup</option>
+                          {BATCHES.map(b => (
+                            <option key={b.id} value={b.id}>
+                              {b.name.replace("Batch ", "")}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                      </div>
+                    </div>
+                    <div className="overflow-y-auto max-h-60 border border-slate-100 rounded-xl bg-white divide-y divide-slate-50">
+                      {filteredPatients.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-6 text-slate-400">
+                          <p className="text-xs">Pasien tidak ditemukan</p>
+                        </div>
+                      ) : (
+                        filteredPatients.map(p => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => importPatient(p)}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 hover:bg-slate-50 transition-colors text-left"
+                          >
+                            <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-white text-[10px] font-bold"
+                              style={{ backgroundColor: "#01696f" }}>
+                              {p.name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-slate-800 truncate">{p.name}</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">
+                                {p.age} th · {p.gender === "F" ? "Perempuan" : "Laki-laki"}
+                                {p.city ? ` · ${p.city}` : ""}
+                              </p>
+                            </div>
+                            <ChevronRight size={12} className="text-slate-300 flex-shrink-0" />
+                          </button>
+                        ))
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <label className={labelCls}>Jenis Kelamin</label>
-                    <select value={form.jenisKelamin} onChange={e => set("jenisKelamin", e.target.value)} className={inputCls}>
-                      <option value="">Pilih</option>
-                      <option value="Laki-laki">Laki-laki</option>
-                      <option value="Perempuan">Perempuan</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className={labelCls}>Usia</label>
-                    <input value={form.usia} onChange={e => set("usia", e.target.value)} placeholder="Tahun" className={inputCls} />
-                  </div>
-                  <div className="col-span-2">
-                    <label className={labelCls}>Pendidikan Terakhir</label>
-                    <input value={form.pendidikan} onChange={e => set("pendidikan", e.target.value)} placeholder="[Pendidikan Terakhir Klien]" className={inputCls} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Anak Ke-</label>
-                    <input value={form.anakKeberapa} onChange={e => set("anakKeberapa", e.target.value)} placeholder="ke [ ]" className={inputCls} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Dari [ ] Bersaudara</label>
-                    <input value={form.jumlahSaudara} onChange={e => set("jumlahSaudara", e.target.value)} placeholder="[ ] saudara" className={inputCls} />
-                  </div>
-                  <div className="col-span-2">
-                    <label className={labelCls}>Alamat</label>
-                    <textarea value={form.alamat} onChange={e => set("alamat", e.target.value)} placeholder="[Alamat Lengkap]" rows={2} className={textareaCls} />
-                  </div>
-                </div>
+                )}
               </div>
             </section>
 
@@ -664,7 +833,7 @@ function ReportCreator({ onClose, onSave }: { onClose: () => void; onSave: (name
         {/* Preview panel */}
         <div className="flex-1 overflow-auto bg-slate-300/80 flex items-start justify-center py-10 px-4 sm:px-8">
           <div style={{ transform: "scale(1)", transformOrigin: "top center", marginBottom: "80px" }}>
-            <ReportPreview form={form} />
+            <ReportPreview form={form} psychologists={psychologists} />
           </div>
         </div>
       </div>
@@ -762,7 +931,27 @@ function NodeRow({
 
 // ─── Main Export ──────────────────────────────────────────────────────────────
 
-export function LaporanPsikologis() {
+interface PatientRecord {
+  id: string
+  name: string
+  gender: string
+  age: number
+  birthPlace?: string
+  dateOfBirth?: string    // ISO string
+  education?: string
+  siblingOrder?: string
+  totalSiblings?: string
+  fullAddress?: string
+  city?: string
+  batchId?: string
+}
+
+interface LaporanPsikologisProps {
+  patients?: PatientRecord[]
+  psychologists?: Psychologist[]
+}
+
+export function LaporanPsikologis({ patients = [], psychologists = [] }: LaporanPsikologisProps) {
   const [tree, setTree]                   = useState<FsNode[]>(INIT_TREE)
   const [path, setPath]                   = useState<string[]>([])
   const [newFolderOpen, setNewFolderOpen] = useState(false)
@@ -1192,7 +1381,7 @@ export function LaporanPsikologis() {
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             className="fixed inset-0 z-50"
           >
-            <ReportCreator onClose={() => setReportOpen(false)} onSave={handleSaveReport} />
+            <ReportCreator onClose={() => setReportOpen(false)} onSave={handleSaveReport} patients={patients} psychologists={psychologists} />
           </motion.div>
         )}
       </AnimatePresence>
