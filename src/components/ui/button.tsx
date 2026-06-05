@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Button as MantineButton } from "@mantine/core";
+import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "./utils";
@@ -41,12 +41,14 @@ const Button = React.forwardRef<
       asChild?: boolean;
     }
 >(({ className, variant, size, asChild = false, ...props }, ref) => {
+  const Comp = asChild ? Slot : "button";
+
   return (
-    <MantineButton
-      component="button"
-      ref={ref as any}
+    <Comp
+      data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
-      {...(props as any)}
+      ref={ref}
+      {...props}
     />
   );
 });

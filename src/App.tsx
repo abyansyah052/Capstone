@@ -44,7 +44,7 @@ function AppInner() {
       case "patients": return <PatientRegistration patients={patients} onPatientsChange={setPatients} />
       case "psychologists": return <PsychologistDatabase psychologists={psychologists} onPsychologistsChange={setPsychologists} />
       case "history": return <MedicalHistory />
-      case "appointments": return <AppointmentScheduling />
+      case "appointments": return <AppointmentScheduling psychologists={psychologists} />
       case "notes": return <LaporanPsikologis patients={patients} psychologists={psychologists} />
       default: return <Dashboard onNavigate={setActiveModule} />
     }

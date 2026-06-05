@@ -6,11 +6,10 @@ import {
   Clock, Calendar,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
+import { Psychologist } from "../../types"
 
 type AppointmentStatus = "scheduled" | "confirmed" | "completed" | "cancelled"
 type NotifyChannel    = "none" | "whatsapp" | "email" | "both"
-
-interface Doctor { id: string; name: string; specialty: string; color: string }
 
 interface Appointment {
   id: string; patientId: string; patientName: string
@@ -29,13 +28,37 @@ interface NewApptForm {
 
 type FormErrors = Partial<Record<keyof NewApptForm, string>>
 
-const DOCTORS: Doctor[] = [
-  { id: "D1", name: "dr. Anita Rahayu, Sp.PD",  specialty: "Penyakit Dalam",           color: "#0d9488" },
-  { id: "D2", name: "dr. Budi Santoso, Sp.JP",  specialty: "Jantung & Pembuluh Darah", color: "#2563eb" },
-  { id: "D3", name: "dr. Citra Dewi, Sp.A",     specialty: "Anak",                     color: "#db2777" },
-  { id: "D4", name: "dr. Dimas Pratama, Sp.N",  specialty: "Neurologi",                color: "#7c3aed" },
+const DEFAULT_PSYCHOLOGISTS: Psychologist[] = [
+  {
+    id: "psy-1",
+    name: "Dairy Team",
+    origin: "Surabaya",
+    age: 28,
+    phone: "+62 812 3456 7890",
+    address: "Ruko Grand City Regency A7 - A8 Jl. Rungkut Madya",
+    email: "Dairyteam@Gmail.com",
+    sipp: "SIPP/09/2026/01-DT",
+    signature: null,
+  },
+  {
+    id: "psy-2",
+    name: "Dr. Sarah Wijaya, M.Psi.",
+    origin: "Jakarta",
+    age: 35,
+    phone: "+62 811 9988 7766",
+    address: "Sudirman Central Business District Jakarta",
+    email: "sarah.w@asisya.com",
+    sipp: "SIPP/12/2024/02-SW",
+    signature: null,
+  }
 ]
-const DOCTOR_MAP = Object.fromEntries(DOCTORS.map(d => [d.id, d]))
+
+const PSY_COLORS: Record<string, string> = {
+  "psy-1": "#01696f",
+  "psy-2": "#6d28d9",
+}
+
+const getPsyColor = (id: string) => PSY_COLORS[id] ?? "#475569"
 
 const APPOINTMENT_TYPES = [
   "Pemeriksaan Umum", "Kontrol & Tindak Lanjut",
@@ -52,35 +75,35 @@ function getToday() {
 const INIT_APPOINTMENTS: Appointment[] = [
   {
     id: "1", patientId: "PT-8842-A", patientName: "Eleanor James",
-    date: getToday(), time: "09:00", duration: 30, doctorId: "D1",
+    date: getToday(), time: "09:00", duration: 30, doctorId: "psy-1",
     type: "Pemeriksaan Umum", status: "confirmed",
     notes: "Kontrol tekanan darah rutin",
     notify: "whatsapp", notifyPhone: "+62 812 0011 2233", notifyEmail: "",
   },
   {
     id: "2", patientId: "PT-9105-C", patientName: "Marcus Chen",
-    date: getToday(), time: "10:30", duration: 45, doctorId: "D2",
+    date: getToday(), time: "10:30", duration: 45, doctorId: "psy-2",
     type: "Kontrol & Tindak Lanjut", status: "scheduled",
     notes: "Evaluasi hasil EKG",
     notify: "both", notifyPhone: "+62 813 9988 7766", notifyEmail: "m.chen99@example.com",
   },
   {
     id: "3", patientId: "PT-4421-B", patientName: "Sarah Lin",
-    date: getToday(), time: "13:00", duration: 30, doctorId: "D1",
+    date: getToday(), time: "13:00", duration: 30, doctorId: "psy-1",
     type: "Konsultasi", status: "completed",
     notes: "Diskusi hasil lab",
     notify: "email", notifyPhone: "", notifyEmail: "slin@example.com",
   },
   {
     id: "4", patientId: "PT-6631-D", patientName: "Budi Santoso",
-    date: getToday(), time: "15:00", duration: 30, doctorId: "D3",
+    date: getToday(), time: "15:00", duration: 30, doctorId: "psy-2",
     type: "Vaksinasi", status: "cancelled",
     notes: "Pasien tidak hadir",
     notify: "none", notifyPhone: "", notifyEmail: "",
   },
   {
     id: "5", patientId: "PT-1102-A", patientName: "Rina Hartono",
-    date: getToday(), time: "11:00", duration: 30, doctorId: "D4",
+    date: getToday(), time: "11:00", duration: 30, doctorId: "psy-1",
     type: "Konsultasi", status: "scheduled",
     notes: "",
     notify: "none", notifyPhone: "", notifyEmail: "",
@@ -197,7 +220,7 @@ function validateAppt(form: NewApptForm, today: string): FormErrors {
   if (!form.date)               e.date        = "Tanggal wajib dipilih."
   else if (form.date < today)   e.date        = "Tanggal tidak boleh di masa lalu."
   if (!form.time)               e.time        = "Waktu wajib dipilih."
-  if (!form.doctorId)           e.doctorId    = "Dokter wajib dipilih."
+  if (!form.doctorId)           e.doctorId    = "Psikolog wajib dipilih."
   if (!form.type)               e.type        = "Jenis janji wajib dipilih."
   if (form.notify === "whatsapp" || form.notify === "both") {
     if (!form.notifyPhone.trim())
@@ -215,14 +238,12 @@ function validateAppt(form: NewApptForm, today: string): FormErrors {
 }
 
 const inputCls =
-  "w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-[13px] text-slate-800 " +
-  "placeholder:text-slate-400 focus:outline-none focus:border-teal-500/50 " +
-  "focus:ring-2 focus:ring-teal-500/10 transition-all"
+  "w-full px-3 py-1.5 h-9 rounded-lg border border-[#cbd5e1] bg-white text-[12px] text-slate-800 font-normal " +
+  "placeholder:text-slate-400 focus:outline-none focus:border-[#1C243B] focus:ring-1 focus:ring-[#1C243B]/10 transition-all"
 
 const inputErrCls =
-  "w-full px-3 py-2 rounded-md border border-red-300 bg-red-50/40 text-[13px] text-slate-800 " +
-  "placeholder:text-slate-400 focus:outline-none focus:border-red-400 " +
-  "focus:ring-2 focus:ring-red-100 transition-all"
+  "w-full px-3 py-1.5 h-9 rounded-lg border border-red-300 bg-red-50/20 text-[12px] text-slate-800 font-normal " +
+  "placeholder:text-slate-400 focus:outline-none focus:border-red-400 transition-all"
 
 function Field({
   label, id, required, error, children,
@@ -230,9 +251,9 @@ function Field({
   label: string; id?: string; required?: boolean; error?: string; children: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-[12px] font-medium text-slate-600">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+    <div className="flex flex-col gap-0.5">
+      <label htmlFor={id} className="text-[11px] font-semibold text-slate-500">
+        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
       {children}
       <AnimatePresence>
@@ -318,7 +339,7 @@ function MiniCalendar({
   return (
     <div className="select-none">
       <div className="flex items-center justify-between mb-2 px-0.5">
-        <span className="text-[12px] font-semibold text-slate-700 capitalize">{monthLabel}</span>
+        <span className="text-[14px] font-bold text-slate-800 capitalize">{monthLabel}</span>
         <div className="flex gap-0.5">
           <button onClick={prevMonth}
             className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors">
@@ -333,7 +354,7 @@ function MiniCalendar({
 
       <div className="grid grid-cols-7 mb-1">
         {DAY_HEADERS.map((d, i) => (
-          <div key={i} className="text-center text-[10px] font-semibold text-slate-400 py-0.5">
+          <div key={i} className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider py-0.5">
             {d}
           </div>
         ))}
@@ -353,7 +374,7 @@ function MiniCalendar({
               onClick={() => onSelect(iso)}
               className={[
                 "relative w-full aspect-square flex items-center justify-center rounded-full",
-                "text-[12px] font-medium transition-all",
+                "text-[12px] font-semibold transition-all",
                 isSelected
                   ? "bg-teal-600 text-white"
                   : isToday
@@ -437,7 +458,7 @@ function WeekStrip({
 }
 
 function TimeGrid({
-  appointments, date, today, onStatusChange, onDelete, onNewAtTime,
+  appointments, date, today, onStatusChange, onDelete, onNewAtTime, psychologistMap,
 }: {
   appointments: Appointment[]
   date: string
@@ -445,6 +466,7 @@ function TimeGrid({
   onStatusChange: (id: string, s: AppointmentStatus) => void
   onDelete: (id: string) => void
   onNewAtTime: (time: string) => void
+  psychologistMap: Map<string, Psychologist>
 }) {
   const dayApts = appointments
     .filter(a => a.date === date)
@@ -515,7 +537,7 @@ function TimeGrid({
           const startMin = timeToMinutes(apt.time)
           const top    = (startMin / 60) * SLOT_HEIGHT
           const height = Math.max((apt.duration / 60) * SLOT_HEIGHT, 24)
-          const doc    = DOCTOR_MAP[apt.doctorId]
+          const psy    = psychologistMap.get(apt.doctorId)
           const m      = STATUS_META[apt.status]
           const isCancelled = apt.status === "cancelled"
           const layout = layoutMap.get(apt.id) ?? { colIndex: 0, colCount: 1 }
@@ -528,7 +550,7 @@ function TimeGrid({
               height={height}
               totalGridHeight={totalGridHeight}
               layout={layout}
-              doc={doc}
+              psy={psy}
               m={m}
               isCancelled={isCancelled}
               onStatusChange={onStatusChange}
@@ -542,13 +564,13 @@ function TimeGrid({
 }
 
 function GridBlock({
-  apt, top, height, totalGridHeight, layout, doc, m, isCancelled, onStatusChange, onDelete,
+  apt, top, height, totalGridHeight, layout, psy, m, isCancelled, onStatusChange, onDelete,
 }: {
   apt: Appointment
   top: number; height: number
   totalGridHeight: number
   layout: { colIndex: number; colCount: number }
-  doc: Doctor | undefined
+  psy: Psychologist | undefined
   m: typeof STATUS_META[AppointmentStatus]
   isCancelled: boolean
   onStatusChange: (id: string, s: AppointmentStatus) => void
@@ -588,7 +610,7 @@ function GridBlock({
           backgroundColor: m.gridBg,
           borderColor: m.border,
           borderLeftWidth: 3,
-          borderLeftColor: doc?.color ?? m.dot,
+          borderLeftColor: getPsyColor(psy?.id ?? "") || m.dot,
           zIndex: detail ? 15 : 5,
         }}
         onClick={() => setDetail(true)}
@@ -655,8 +677,13 @@ function GridBlock({
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: doc?.color }} />
-                    <span>{doc?.name} <span className="text-slate-400">— {doc?.specialty}</span></span>
+                      style={{ backgroundColor: getPsyColor(psy?.id ?? "") }} />
+                    <span>
+                      {psy?.name}{" "}
+                      {psy?.sipp && (
+                        <span className="text-slate-400 font-mono text-[11px]">— {psy.sipp}</span>
+                      )}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <FileText size={11} className="text-slate-400 flex-shrink-0" />
@@ -723,13 +750,14 @@ function GridBlock({
 }
 
 function NewApptDrawer({
-  defaultDate, defaultTime, today, onClose, onSave,
+  defaultDate, defaultTime, today, onClose, onSave, psychologists,
 }: {
   defaultDate: string
   defaultTime?: string
   today: string
   onClose: () => void
   onSave: (apt: Appointment) => void
+  psychologists: Psychologist[]
 }) {
   const makeEmpty = (): NewApptForm => ({
     patientId: "", patientName: "", date: defaultDate,
@@ -741,6 +769,19 @@ function NewApptDrawer({
   const [errors, setErrors]   = useState<FormErrors>({})
   const [touched, setTouched] = useState<Partial<Record<keyof NewApptForm, boolean>>>({})
   const [submitted, setSubmitted] = useState(false)
+
+  const [showTimePicker, setShowTimePicker] = useState(false)
+  const timePickerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (timePickerRef.current && !timePickerRef.current.contains(e.target as Node)) {
+        setShowTimePicker(false)
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick)
+    return () => document.removeEventListener("mousedown", handleOutsideClick)
+  }, [])
 
   useEffect(() => {
     setForm(prev => ({ ...prev, date: defaultDate }))
@@ -806,8 +847,8 @@ function NewApptDrawer({
     <div className="h-full flex flex-col bg-white border-l border-slate-200">
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-slate-100 flex-shrink-0">
         <div>
-          <p className="text-[13px] font-semibold text-slate-800">Jadwalkan Janji</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">{fmtDateShort(form.date)}</p>
+          <h2 className="text-base font-bold text-slate-900">Jadwalkan Janji</h2>
+          <p className="text-xs font-semibold text-slate-500 mt-0.5">{fmtDateShort(form.date)}</p>
         </div>
         <button
           onClick={onClose}
@@ -821,8 +862,8 @@ function NewApptDrawer({
 
       <form id="appt-form" onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto">
         <div className="px-4 py-4 flex flex-col gap-4">
-          <section className="flex flex-col gap-2.5">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pasien</p>
+          <section className="flex flex-col gap-2">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">Pasien</h3>
             <div className="grid grid-cols-2 gap-2">
               <Field label="ID Pasien" id="f-pid" required error={err("patientId")}>
                 <input id="f-pid" value={form.patientId}
@@ -843,8 +884,8 @@ function NewApptDrawer({
 
           <div className="h-px bg-slate-100" />
 
-          <section className="flex flex-col gap-2.5">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Jadwal</p>
+          <section className="flex flex-col gap-2">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">Jadwal</h3>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Tanggal" id="f-date" required error={err("date")}>
                 <input id="f-date" type="date" value={form.date} min={today}
@@ -853,15 +894,111 @@ function NewApptDrawer({
                   className={err("date") ? inputErrCls : inputCls} />
               </Field>
               <Field label="Waktu" id="f-time" required error={err("time")}>
-                <div className="relative">
-                  <select id="f-time" value={form.time}
-                    onChange={e => set("time", e.target.value)}
-                    onBlur={() => blur("time")}
-                    className={`${err("time") ? inputErrCls : inputCls} appearance-none pr-7`}>
-                    <option value="" disabled>Pilih</option>
-                    {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                  <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <div className="relative" ref={timePickerRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowTimePicker(v => !v)}
+                    className={`${err("time") ? inputErrCls : inputCls} w-full flex items-center justify-between text-left`}
+                  >
+                    <span>{form.time || "Pilih"}</span>
+                    <Clock size={13} className="text-slate-400" />
+                  </button>
+
+                  <AnimatePresence>
+                    {showTimePicker && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 8 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-0 left-0 mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-xl p-3 flex flex-col gap-3.5 max-h-[280px] overflow-y-auto"
+                      >
+                        {/* Pagi */}
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Pagi (08:00 - 11:30)</p>
+                          <div className="grid grid-cols-4 gap-1">
+                            {["08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30"].map(t => (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => { set("time", t); setShowTimePicker(false); }}
+                                className={`py-1 text-[11px] font-semibold rounded-md text-center transition-all ${
+                                  form.time === t
+                                    ? "bg-[#1C243B] text-white"
+                                    : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+                                }`}
+                              >
+                                {t}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Siang */}
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Siang (12:00 - 14:30)</p>
+                          <div className="grid grid-cols-4 gap-1">
+                            {["12:00", "12:30", "13:00", "13:30", "14:00", "14:30"].map(t => (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => { set("time", t); setShowTimePicker(false); }}
+                                className={`py-1 text-[11px] font-semibold rounded-md text-center transition-all ${
+                                  form.time === t
+                                    ? "bg-[#1C243B] text-white"
+                                    : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+                                }`}
+                              >
+                                {t}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Sore */}
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Sore (15:00 - 17:30)</p>
+                          <div className="grid grid-cols-4 gap-1">
+                            {["15:00", "15:30", "16:00", "16:30", "17:00", "17:30"].map(t => (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => { set("time", t); setShowTimePicker(false); }}
+                                className={`py-1 text-[11px] font-semibold rounded-md text-center transition-all ${
+                                  form.time === t
+                                    ? "bg-[#1C243B] text-white"
+                                    : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+                                }`}
+                              >
+                                {t}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Malam */}
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Malam (18:00 - 21:00)</p>
+                          <div className="grid grid-cols-4 gap-1">
+                            {["18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00"].map(t => (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => { set("time", t); setShowTimePicker(false); }}
+                                className={`py-1 text-[11px] font-semibold rounded-md text-center transition-all ${
+                                  form.time === t
+                                    ? "bg-[#1C243B] text-white"
+                                    : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+                                }`}
+                              >
+                                {t}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </Field>
             </div>
@@ -878,15 +1015,15 @@ function NewApptDrawer({
                   <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
               </Field>
-              <Field label="Dokter" id="f-doc" required error={err("doctorId")}>
+              <Field label="Psikolog" id="f-doc" required error={err("doctorId")}>
                 <div className="relative">
                   <select id="f-doc" value={form.doctorId}
                     onChange={e => set("doctorId", e.target.value)}
                     onBlur={() => blur("doctorId")}
                     className={`${err("doctorId") ? inputErrCls : inputCls} appearance-none pr-7`}>
                     <option value="" disabled>Pilih</option>
-                    {DOCTORS.map(d => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
+                    {psychologists.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </select>
                   <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -916,19 +1053,20 @@ function NewApptDrawer({
 
           <div className="h-px bg-slate-100" />
 
-          <section className="flex flex-col gap-2.5">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Notifikasi</p>
-            <div className="flex rounded-lg border border-slate-200 overflow-hidden bg-slate-50 p-0.5 gap-0.5">
+          <section className="flex flex-col gap-2">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">Notifikasi</h3>
+            <div className="flex rounded-lg border border-slate-200 overflow-hidden bg-slate-50 p-0.5 gap-0.5 h-8 items-center">
               {NOTIFY_OPTS.map(opt => (
                 <button
                   key={opt.val}
                   type="button"
                   onClick={() => set("notify", opt.val)}
+                  style={{ fontSize: "10px" }}
                   className={[
-                    "flex-1 py-1.5 text-[11px] font-medium rounded-md transition-all",
+                    "flex-1 h-7 rounded-md transition-all flex items-center justify-center text-center font-semibold leading-none",
                     form.notify === opt.val
-                      ? "bg-white text-slate-800 shadow-sm"
-                      : "text-slate-400 hover:text-slate-600",
+                      ? "bg-white text-slate-800 shadow-sm border border-slate-200/50"
+                      : "text-slate-400 hover:text-slate-600 bg-transparent",
                   ].join(" ")}
                 >
                   {opt.label}
@@ -989,15 +1127,15 @@ function NewApptDrawer({
       <div className="flex gap-2 px-4 py-3 border-t border-slate-100 flex-shrink-0">
         <button type="button" onClick={onClose}
           className="flex-1 py-2 rounded-lg border border-slate-200 text-[12px]
-            font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+            font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
           Batal
         </button>
         <button
           type="submit"
           form="appt-form"
-          className="flex-1 py-2 rounded-lg bg-slate-900 text-white text-[12px]
+          className="flex-1 py-2 rounded-lg bg-[#1C243B] text-white text-[12px]
             font-semibold flex items-center justify-center gap-1.5
-            hover:bg-slate-800 active:bg-[#0a1128] transition-colors">
+            hover:bg-[#2c3754] transition-colors">
           <CalendarCheck size={12} /> Simpan
         </button>
       </div>
@@ -1005,7 +1143,11 @@ function NewApptDrawer({
   )
 }
 
-export function AppointmentScheduling() {
+interface AppointmentSchedulingProps {
+  psychologists?: Psychologist[]
+}
+
+export function AppointmentScheduling({ psychologists = DEFAULT_PSYCHOLOGISTS }: AppointmentSchedulingProps) {
   const [today, setToday] = useState(getToday)
   useEffect(() => {
     const tick = () => {
@@ -1020,7 +1162,13 @@ export function AppointmentScheduling() {
   const [selectedDate, setSelectedDate] = useState(today)
   const [showForm, setShowForm]         = useState(false)
   const [defaultTime, setDefaultTime]   = useState<string | undefined>()
-  const [filterDoctor, setFilterDoctor] = useState("")
+  const [filterPsychologist, setFilterPsychologist] = useState("")
+
+  const psychologistMap = useMemo(() => {
+    const map = new Map<string, Psychologist>()
+    psychologists.forEach(p => map.set(p.id, p))
+    return map
+  }, [psychologists])
 
   const handleStatusChange = (id: string, status: AppointmentStatus) =>
     setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a))
@@ -1038,11 +1186,11 @@ export function AppointmentScheduling() {
   const goToNext = () => setSelectedDate(d => addDays(d, 1))
 
   const dayApts      = appointments.filter(a => a.date === selectedDate)
-  const filteredApts = filterDoctor
-    ? dayApts.filter(a => a.doctorId === filterDoctor)
+  const filteredApts = filterPsychologist
+    ? dayApts.filter(a => a.doctorId === filterPsychologist)
     : dayApts
 
-  const counterLabel = filterDoctor
+  const counterLabel = filterPsychologist
     ? `${filteredApts.length} dari ${dayApts.length} janji`
     : `${dayApts.length} janji`
 
@@ -1061,11 +1209,10 @@ export function AppointmentScheduling() {
           <button
             onClick={() => { setDefaultTime(undefined); setShowForm(v => !v) }}
             className={[
-              "w-full flex items-center justify-center gap-1.5 py-2 rounded-lg",
-              "text-[12px] font-semibold transition-all",
+              "w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[12px] font-semibold transition-all",
               showForm
-                ? "bg-slate-100 text-slate-600 border border-slate-200"
-                : "bg-slate-900 text-white hover:bg-slate-800 shadow-sm",
+                ? "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200"
+                : "bg-[#1C243B] text-white hover:bg-[#2c3754] shadow-sm",
             ].join(" ")}
           >
             {showForm ? <X size={12} /> : <Plus size={12} />}
@@ -1087,29 +1234,29 @@ export function AppointmentScheduling() {
         <div className="h-px bg-slate-100 mx-4" />
 
         <div className="px-4 py-4 flex flex-col gap-2">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Dokter</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Psikolog</p>
           <button
-            onClick={() => setFilterDoctor("")}
+            onClick={() => setFilterPsychologist("")}
             className={[
               "text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors",
-              !filterDoctor ? "bg-slate-100 text-slate-800" : "text-slate-500 hover:bg-slate-50",
+              !filterPsychologist ? "bg-slate-100 text-slate-800" : "text-slate-500 hover:bg-slate-50",
             ].join(" ")}
           >
             <span className="w-2.5 h-2.5 rounded-full bg-slate-400 flex-shrink-0" />
-            Semua Dokter
+            Semua Psikolog
           </button>
-          {DOCTORS.map(d => (
+          {psychologists.map(p => (
             <button
-              key={d.id}
-              onClick={() => setFilterDoctor(filterDoctor === d.id ? "" : d.id)}
+              key={p.id}
+              onClick={() => setFilterPsychologist(filterPsychologist === p.id ? "" : p.id)}
               className={[
                 "text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] transition-colors",
-                filterDoctor === d.id ? "bg-slate-100 font-medium text-slate-800" : "text-slate-500 hover:bg-slate-50",
+                filterPsychologist === p.id ? "bg-slate-100 font-medium text-slate-800" : "text-slate-500 hover:bg-slate-50",
               ].join(" ")}
             >
               <span className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                style={{ backgroundColor: d.color }} />
-              <span className="truncate">{d.name}</span>
+                style={{ backgroundColor: getPsyColor(p.id) }} />
+              <span className="truncate">{p.name}</span>
             </button>
           ))}
         </div>
@@ -1173,6 +1320,7 @@ export function AppointmentScheduling() {
               onStatusChange={handleStatusChange}
               onDelete={handleDelete}
               onNewAtTime={handleNewAtTime}
+              psychologistMap={psychologistMap}
             />
           </div>
         </div>
@@ -1197,6 +1345,7 @@ export function AppointmentScheduling() {
                 today={today}
                 onClose={() => setShowForm(false)}
                 onSave={handleSave}
+                psychologists={psychologists}
               />
             </div>
           </motion.div>

@@ -243,9 +243,10 @@ function PatientList({
         <div className="flex gap-1 flex-wrap">
           <button
             onClick={() => setActiveBatch("all")}
-            className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all ${
+            className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
               activeBatch === "all" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
             }`}
+            style={{ fontSize: "10px" }}
           >
             Semua
           </button>
@@ -254,12 +255,13 @@ function PatientList({
               key={b.id}
               onClick={() => setActiveBatch(activeBatch === b.id ? "all" : b.id)}
               title={`${b.name} · ${b.company}`}
-              className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all ${
+              className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
                 activeBatch === b.id ? "text-white" : "opacity-60 hover:opacity-100"
               }`}
               style={{
                 backgroundColor: activeBatch === b.id ? b.color : b.color + "22",
                 color: activeBatch === b.id ? "#fff" : b.color,
+                fontSize: "10px"
               }}
             >
               {b.id}

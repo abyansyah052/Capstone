@@ -123,7 +123,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             return (
               <Card
                 key={mod.id}
-                className="bg-white border border-slate-200 rounded-2xl shadow-sm cursor-pointer hover:shadow-md transition-shadow duration-200"
+                className="bg-white border border-slate-200 rounded-md shadow-sm cursor-pointer hover:shadow-md transition-shadow duration-200"
                 onClick={() => onNavigate(mod.id)}
               >
                 <CardContent className="p-5">

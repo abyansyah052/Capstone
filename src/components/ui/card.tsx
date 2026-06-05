@@ -1,5 +1,4 @@
 import * as React from "react";
-import { Paper } from "@mantine/core";
 import { cn } from "./utils";
 
 const Card = React.forwardRef<
@@ -7,14 +6,14 @@ const Card = React.forwardRef<
   React.ComponentProps<"div">
 >(({ className, ...props }, ref) => {
   return (
-    <Paper
-      ref={ref as any}
+    <div
+      ref={ref}
       data-slot="card"
       className={cn(
         "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border",
         className,
       )}
-      {...(props as any)}
+      {...props}
     />
   );
 });
