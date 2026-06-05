@@ -12,9 +12,6 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
-  const [emailError, setEmailError] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
 
   // Load email if remember me was previously checked
   useEffect(() => {
@@ -27,47 +24,18 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    let valid = true;
-
-    if (!email.trim()) {
-      setEmailError("Email is required");
-      valid = false;
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      setEmailError("Please enter a valid email address");
-      valid = false;
+    if (rememberMe && email.trim()) {
+      localStorage.setItem("asisya_remember_email", email);
     } else {
-      setEmailError("");
+      localStorage.removeItem("asisya_remember_email");
     }
-
-    if (!password) {
-      setPasswordError("Password is required");
-      valid = false;
-    } else {
-      setPasswordError("");
-    }
-
-    if (!valid) return;
-
-    setIsLoading(true);
-
-    // Simulate login loading state
-    setTimeout(() => {
-      setIsLoading(false);
-      if (rememberMe) {
-        localStorage.setItem("asisya_remember_email", email);
-      } else {
-        localStorage.removeItem("asisya_remember_email");
-      }
-      onLoginSuccess();
-    }, 1200);
+    // Instant login for FE testing
+    onLoginSuccess();
   };
 
   const handleGoogleLogin = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      onLoginSuccess();
-    }, 800);
+    // Instant login for FE testing
+    onLoginSuccess();
   };
 
   return (
@@ -92,7 +60,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
         {/* Bottom Content */}
         <div className="relative z-10 flex flex-col gap-4">
-          <h2 className="font-serif text-[42px] font-medium leading-[1.15] text-white tracking-tight max-w-[380px]">
+          <h2 className="text-[42px] font-bold leading-[1.15] text-white tracking-tight max-w-[380px]">
             Get Everything You Want
           </h2>
           <p className="text-[13px] text-white/60 leading-relaxed font-normal max-w-[280px]">
@@ -117,7 +85,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         {/* Main Form container */}
         <div className="w-full max-w-[400px] mx-auto my-auto py-8 flex flex-col gap-6">
           <div className="text-center flex flex-col gap-2">
-            <h1 className="text-[30px] font-serif font-bold text-[#1C243B] tracking-tight">
+            <h1 className="text-[30px] font-bold text-[#1C243B] tracking-tight">
               Welcome Back
             </h1>
             <p className="text-[13px] text-[#6B7280] font-normal leading-relaxed">
@@ -133,11 +101,10 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.currentTarget.value)}
-                error={emailError}
                 styles={{
                   input: {
-                    backgroundColor: "#F4F6F9",
-                    border: emailError ? "1px solid var(--mantine-color-red-filled)" : "1px solid transparent",
+                    backgroundColor: "#ffffff",
+                    border: "1px solid #cbd5e1",
                     borderRadius: "12px",
                     height: "44px",
                     fontSize: "13px",
@@ -145,12 +112,9 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     transition: "all 0.15s ease",
                     "&:focus": {
                       borderColor: "#1C243B",
+                      borderWidth: "1px",
                       backgroundColor: "#ffffff",
                     }
-                  },
-                  error: {
-                    fontSize: "11px",
-                    marginTop: "3px"
                   }
                 }}
               />
@@ -163,14 +127,13 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.currentTarget.value)}
-                error={passwordError}
                 visibilityToggleIcon={({ reveal }) =>
                   reveal ? <EyeOff size={15} className="text-[#6B7280]" /> : <Eye size={15} className="text-[#6B7280]" />
                 }
                 styles={{
                   input: {
-                    backgroundColor: "#F4F6F9",
-                    border: passwordError ? "1px solid var(--mantine-color-red-filled)" : "1px solid transparent",
+                    backgroundColor: "#ffffff",
+                    border: "1px solid #cbd5e1",
                     borderRadius: "12px",
                     height: "44px",
                     fontSize: "13px",
@@ -178,6 +141,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     transition: "all 0.15s ease",
                     "&:focus": {
                       borderColor: "#1C243B",
+                      borderWidth: "1px",
                       backgroundColor: "#ffffff",
                     }
                   },
@@ -189,10 +153,6 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     "&:hover": {
                       backgroundColor: "transparent"
                     }
-                  },
-                  error: {
-                    fontSize: "11px",
-                    marginTop: "3px"
                   }
                 }}
               />
@@ -211,7 +171,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     paddingLeft: "8px",
                   },
                   input: {
-                    borderColor: "#e2e8f0",
+                    borderColor: "#cbd5e1",
                     "&:checked": {
                       backgroundColor: "#1C243B",
                       borderColor: "#1C243B",
@@ -228,7 +188,6 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             <motion.div whileTap={{ scale: 0.975 }} className="w-full mt-2">
               <Button
                 type="submit"
-                loading={isLoading}
                 styles={{
                   root: {
                     backgroundColor: "#1C243B",
@@ -254,29 +213,17 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 variant="default"
                 onClick={handleGoogleLogin}
                 leftSection={
-                  <svg className="h-[15px] w-[15px] mr-1" viewBox="0 0 24 24">
-                    <path
-                      fill="#EA4335"
-                      d="M5.266 9.765A7.077 7.077 0 0 1 12 4.909c1.69 0 3.218.6 4.418 1.582l3.51-3.51C17.642 1.09 14.99 0 12 0 7.354 0 3.307 2.662 1.343 6.551l3.923 3.214z"
-                    />
-                    <path
-                      fill="#4285F4"
-                      d="M16.04 15.343c1.15-.982 1.8-2.436 1.8-4.343 0-.545-.045-1.054-.136-1.5h-5.7v3.272h3.3c-.136.728-.545 1.319-1.136 1.727v3.546h1.864l1.808-2.702z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.8-2.95c-1.12.75-2.54 1.2-4.13 1.2-3.18 0-5.88-2.15-6.84-5.04l-3.97 3.07C3.19 21.34 7.24 24 12 24z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.16 14.3c-.25-.75-.4-1.55-.4-2.38s.15-1.63.4-2.38L1.19 6.47A11.96 11.96 0 0 0 0 11.92c0 1.95.47 3.8 1.28 5.45l3.88-3.07z"
-                    />
+                  <svg className="h-[18px] w-[18px]" viewBox="0 0 48 48" style={{ display: "block" }}>
+                    <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
+                    <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
+                    <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
+                    <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
                   </svg>
                 }
                 styles={{
                   root: {
                     backgroundColor: "#ffffff",
-                    border: "1px solid #e2e8f0",
+                    border: "1px solid #cbd5e1",
                     borderRadius: "12px",
                     height: "45px",
                     width: "100%",
