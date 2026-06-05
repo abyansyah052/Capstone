@@ -189,6 +189,7 @@ function ProgressBar({ value }: { value: number }) {
 type RegistrationFormProps = {
   initialPatient?: Patient | null
   batches: readonly Batch[] | Batch[]
+  hideBack?: boolean
   onBack: () => void
   onSave: (p: Patient) => void
 }
@@ -196,6 +197,7 @@ type RegistrationFormProps = {
 export function RegistrationForm({
   initialPatient = null,
   batches,
+  hideBack = false,
   onBack,
   onSave,
 }: RegistrationFormProps) {
@@ -303,13 +305,15 @@ export function RegistrationForm({
     <div className="flex flex-col gap-6">
       {/* Page header */}
       <div className="flex items-center gap-3">
-        <button
-          onClick={onBack}
-          className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300 transition-all"
-          aria-label="Kembali"
-        >
-          <ArrowLeft size={15} />
-        </button>
+        {!hideBack && (
+          <button
+            onClick={onBack}
+            className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300 transition-all"
+            aria-label="Kembali"
+          >
+            <ArrowLeft size={15} />
+          </button>
+        )}
         <div>
           <h1 className="text-xl font-semibold text-slate-900">
             {initialPatient ? "Edit Data Pasien" : "Registrasi Pasien Baru"}

@@ -132,16 +132,20 @@ export const INIT_PATIENTS: Patient[] = [
 type PatientRegistrationProps = {
   patients: Patient[]
   onPatientsChange: React.Dispatch<React.SetStateAction<Patient[]>>
+  currentUserRole?: string
 }
 
 export function PatientRegistration({
   patients,
   onPatientsChange,
+  currentUserRole = "staff",
 }: PatientRegistrationProps) {
-  const [view, setView] = useState<"list" | "form">("list")
+  const isPsychologist = currentUserRole === "psikolog"
+  const [view, setView] = useState<"list" | "form">(isPsychologist ? "form" : "list")
   const [editTarget, setEditTarget] = useState<Patient | null>(null)
 
   const handleSave = (p: Patient) => {
+    // Sync with state (which will be updated from DB or synced locally)
     onPatientsChange(prev => {
       const exists = prev.some(item => item.id === p.id)
       if (exists) {
@@ -150,12 +154,17 @@ export function PatientRegistration({
         return [p, ...prev]
       }
     })
-    setView("list")
-    setEditTarget(null)
+    if (isPsychologist) {
+      setView("form")
+      setEditTarget(null)
+    } else {
+      setView("list")
+      setEditTarget(null)
+    }
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-[1400px] w-full mx-auto">
       <AnimatePresence mode="wait">
         {view === "list" ? (
           <motion.div key="list"
@@ -176,6 +185,7 @@ export function PatientRegistration({
             <RegistrationForm
               initialPatient={editTarget}
               batches={BATCHES}
+              hideBack={isPsychologist}
               onBack={() => { setEditTarget(null); setView("list") }}
               onSave={handleSave}
             />

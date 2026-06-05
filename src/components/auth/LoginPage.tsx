@@ -5,7 +5,7 @@ import { TextInput, PasswordInput, Checkbox, Button } from "@mantine/core";
 import { Eye, EyeOff } from "lucide-react";
 
 type LoginPageProps = {
-  onLoginSuccess: () => void;
+  onLoginSuccess: (user: { id: string; name: string; email: string; role: string; signature: string | null }) => void;
 };
 
 export function LoginPage({ onLoginSuccess }: LoginPageProps) {
@@ -25,7 +25,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     }
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (rememberMe && email.trim()) {
       localStorage.setItem("asisya_remember_email", email);
@@ -54,27 +54,58 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     if (!valid) return;
 
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const json = await res.json();
       setIsLoading(false);
-      onLoginSuccess();
-    }, 1200);
+      if (json.ok) {
+        onLoginSuccess(json.data);
+      } else {
+        setPasswordError(json.error || "Gagal masuk");
+      }
+    } catch (err: any) {
+      setIsLoading(false);
+      setPasswordError("Koneksi ke server backend gagal.");
+    }
 
     /* ──── INSTANT BYPASS LOGIN CODE (COMMENTED OUT FOR FE TESTING) ────
     // Instant login for FE testing
-    onLoginSuccess();
+    onLoginSuccess({ id: "u-mock", name: "Mock User", email, role: "staff", signature: null });
     */
   };
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      const mockGoogleUser = {
+        email: email || "google_user@gmail.com",
+        name: "Google Account User",
+        googleId: `google-${Date.now()}`,
+      };
+      const res = await fetch("/api/auth/google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mockGoogleUser),
+      });
+      const json = await res.json();
       setIsLoading(false);
-      onLoginSuccess();
-    }, 800);
+      if (json.ok) {
+        onLoginSuccess(json.data);
+      } else {
+        alert(json.error || "Gagal login Google");
+      }
+    } catch (err) {
+      setIsLoading(false);
+      alert("Koneksi ke server backend gagal.");
+    }
 
     /* ──── INSTANT BYPASS LOGIN CODE (COMMENTED OUT FOR FE TESTING) ────
     // Instant login for FE testing
-    onLoginSuccess();
+    onLoginSuccess({ id: "u-mock", name: "Google Mock User", email: "google_user@gmail.com", role: "reguler", signature: null });
     */
   };
 

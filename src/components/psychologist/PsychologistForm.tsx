@@ -157,14 +157,23 @@ function ProgressBar({ value }: { value: number }) {
   )
 }
 
+interface UserOption {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
 type PsychologistFormProps = {
   initialPsychologist?: Psychologist | null
+  currentUser?: { id: string; role: string; email: string } | null
   onBack: () => void
-  onSave: (p: Psychologist) => void
+  onSave: (p: Psychologist, userId?: string) => void
 }
 
 export function PsychologistForm({
-  initialPsychologist,
+  initialPsychologist = null,
+  currentUser = null,
   onBack,
   onSave,
 }: PsychologistFormProps) {
@@ -181,10 +190,47 @@ export function PsychologistForm({
     signature: initialPsychologist?.signature ?? null,
   })
 
+  const [users, setUsers] = useState<UserOption[]>([])
+  const [selectedUserId, setSelectedUserId] = useState<string>("")
   const [touched, setTouched] = useState<Partial<Record<keyof FormData, boolean>>>({})
   const [errors, setErrors] = useState<FormErrors>({})
   const [completeness, setCompleteness] = useState(0)
   const [submitted, setSubmitted] = useState(false)
+
+  useEffect(() => {
+    if (!initialPsychologist && currentUser) {
+      const fetchUsers = async () => {
+        try {
+          const res = await fetch("/api/auth/users", {
+            headers: {
+              "x-user-id": currentUser.id,
+              "x-user-role": currentUser.role,
+              "x-user-email": currentUser.email,
+            }
+          })
+          const json = await res.json()
+          if (json.ok) {
+            setUsers(json.data.filter((u: any) => u.role !== "psikolog"))
+          }
+        } catch (err) {
+          console.error(err)
+        }
+      }
+      fetchUsers()
+    }
+  }, [initialPsychologist, currentUser])
+
+  const handleSelectUser = (userId: string) => {
+    setSelectedUserId(userId)
+    const user = users.find(u => u.id === userId)
+    if (user) {
+      setForm(p => ({
+        ...p,
+        name: user.name,
+        email: user.email,
+      }))
+    }
+  }
 
   const set = (key: keyof FormData, val: string) => {
     setForm(prev => ({ ...prev, [key]: val }))
@@ -237,7 +283,7 @@ export function PsychologistForm({
       sipp:      form.sipp,
       signature: form.signature,
     }
-    onSave(savedPsychologist)
+    onSave(savedPsychologist, selectedUserId || undefined)
   }
 
   const err = (key: keyof FormData) =>
@@ -271,6 +317,25 @@ export function PsychologistForm({
         <div className="lg:col-span-8 flex flex-col gap-4">
           {/* Data Pribadi */}
           <SectionCard title="Data Pribadi">
+            {!initialPsychologist && users.length > 0 && (
+              <div className="mb-4">
+                <Field label="Pilih Akun Terdaftar (Promosi ke Psikolog)" id="select-user">
+                  <select
+                    id="select-user"
+                    value={selectedUserId}
+                    onChange={e => handleSelectUser(e.target.value)}
+                    className={`${inputCls} w-full`}
+                  >
+                    <option value="">-- Pilih Akun Terdaftar (Opsional) --</option>
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.email}) - Role: {u.role}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field label="Nama Lengkap" id="name" required error={err("name")}>
                 <input

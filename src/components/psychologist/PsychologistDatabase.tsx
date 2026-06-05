@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { Psychologist } from "../../types"
 import { PsychologistDirectory } from "./PsychologistDirectory"
@@ -33,37 +33,122 @@ export const INIT_PSYCHOLOGISTS: Psychologist[] = [
 type PsychologistDatabaseProps = {
   psychologists: Psychologist[]
   onPsychologistsChange: React.Dispatch<React.SetStateAction<Psychologist[]>>
+  currentUser?: { id: string; role: string; email: string } | null
 }
 
 export function PsychologistDatabase({
   psychologists,
   onPsychologistsChange,
+  currentUser = null
 }: PsychologistDatabaseProps) {
   const [view, setView] = useState<"list" | "form">("list")
   const [editTarget, setEditTarget] = useState<Psychologist | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Psychologist | null>(null)
 
-  const handleSave = (saved: Psychologist) => {
-    onPsychologistsChange(prev => {
-      const exists = prev.some(p => p.id === saved.id)
-      if (exists) {
-        return prev.map(p => p.id === saved.id ? saved : p)
-      } else {
-        return [saved, ...prev]
+  const fetchPsychologists = async () => {
+    if (!currentUser) return
+    try {
+      const res = await fetch("/api/psychologists", {
+        headers: {
+          "x-user-id": currentUser.id,
+          "x-user-role": currentUser.role,
+          "x-user-email": currentUser.email,
+        }
+      })
+      const json = await res.json()
+      if (json.ok) {
+        onPsychologistsChange(json.data)
       }
-    })
-    setView("list")
-    setEditTarget(null)
+    } catch (err) {
+      console.error(err)
+    }
   }
 
-  const handleDelete = () => {
-    if (!deleteTarget) return
-    onPsychologistsChange(prev => prev.filter(p => p.id !== deleteTarget.id))
-    setDeleteTarget(null)
+  useEffect(() => {
+    fetchPsychologists()
+  }, [currentUser])
+
+  const handleSave = async (saved: Psychologist, promoteUserId?: string) => {
+    if (!currentUser) return
+    try {
+      if (promoteUserId) {
+        // Promotion flow
+        const res = await fetch(`/api/auth/users/${promoteUserId}/role`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "x-user-id": currentUser.id,
+            "x-user-role": currentUser.role,
+            "x-user-email": currentUser.email,
+          },
+          body: JSON.stringify({
+            role: "psikolog",
+            sipp: saved.sipp,
+            origin: saved.origin,
+            age: saved.age,
+            phone: saved.phone,
+            address: saved.address,
+          }),
+        })
+        const json = await res.json()
+        if (json.ok) {
+          fetchPsychologists()
+          setView("list")
+          setEditTarget(null)
+        } else {
+          alert(json.error || "Gagal mempromosikan user menjadi psikolog")
+        }
+      } else {
+        const isEdit = psychologists.some(p => p.id === saved.id)
+        const res = await fetch(isEdit ? `/api/psychologists/${saved.id}` : "/api/psychologists", {
+          method: isEdit ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-user-id": currentUser.id,
+            "x-user-role": currentUser.role,
+            "x-user-email": currentUser.email,
+          },
+          body: JSON.stringify(saved),
+        })
+        const json = await res.json()
+        if (json.ok) {
+          fetchPsychologists()
+          setView("list")
+          setEditTarget(null)
+        } else {
+          alert(json.error || "Gagal menyimpan data psikolog")
+        }
+      }
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTarget || !currentUser) return
+    try {
+      const res = await fetch(`/api/psychologists/${deleteTarget.id}`, {
+        method: "DELETE",
+        headers: {
+          "x-user-id": currentUser.id,
+          "x-user-role": currentUser.role,
+          "x-user-email": currentUser.email,
+        }
+      })
+      const json = await res.json()
+      if (json.ok) {
+        fetchPsychologists()
+        setDeleteTarget(null)
+      } else {
+        alert(json.error || "Gagal menghapus data psikolog")
+      }
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-[1400px] w-full mx-auto">
       <AnimatePresence mode="wait">
         {view === "list" ? (
           <motion.div key="list"
@@ -82,6 +167,7 @@ export function PsychologistDatabase({
             transition={{ duration: 0.18 }}>
             <PsychologistForm
               initialPsychologist={editTarget}
+              currentUser={currentUser}
               onBack={() => { setEditTarget(null); setView("list") }}
               onSave={handleSave}
             />

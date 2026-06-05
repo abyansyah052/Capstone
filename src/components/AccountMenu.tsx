@@ -53,7 +53,9 @@ type ModalView =
   | null
 
 interface AccountMenuProps {
-  collapsed?: boolean
+  collapsed?: boolean;
+  currentUser?: { id: string; name: string; email: string; role: string; signature: string | null } | null;
+  onLogout?: () => void;
 }
 
 const MOCK_USER = {
@@ -84,8 +86,8 @@ function Avatar({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
 
 const DropdownMenu = forwardRef<
   HTMLDivElement,
-  { onClose: () => void; onOpenModal: (v: ModalView) => void }
->(({ onClose, onOpenModal }, ref) => (
+  { onClose: () => void; onOpenModal: (v: ModalView) => void; currentUser: any; onLogout: () => void }
+>(({ onClose, onOpenModal, currentUser, onLogout }, ref) => (
   <div
     ref={ref}
     style={{
@@ -99,10 +101,10 @@ const DropdownMenu = forwardRef<
   >
     <div style={{ padding: "12px 14px 10px", borderBottom: `1px solid ${C.white10}` }}>
       <p style={{ fontSize: 13, fontWeight: 600, color: "#fff", lineHeight: "1.3", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {MOCK_USER.name}
+        {currentUser?.name || MOCK_USER.name}
       </p>
       <p style={{ fontSize: 11, color: C.white45, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {MOCK_USER.email}
+        {currentUser?.email || MOCK_USER.email}
       </p>
     </div>
 
@@ -119,7 +121,7 @@ const DropdownMenu = forwardRef<
         icon={<LogOut style={{ width: 14, height: 14, color: C.red }} />}
         label="Log Out"
         danger
-        onClick={() => { alert("Logout triggered"); onClose() }}
+        onClick={() => { onLogout(); onClose() }}
       />
     </div>
   </div>
@@ -535,7 +537,11 @@ function GhostBtn({ label, onClick }: { label: string; onClick: () => void }) {
   )
 }
 
-export function AccountMenu({ collapsed = false }: AccountMenuProps) {
+export function AccountMenu({
+  collapsed = false,
+  currentUser = null,
+  onLogout = () => {}
+}: AccountMenuProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [modal, setModal] = useState<ModalView>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -596,7 +602,7 @@ export function AccountMenu({ collapsed = false }: AccountMenuProps) {
               style={{
                 position: "fixed", bottom: 16, left: 10, zIndex: 60,
                 display: "flex", alignItems: "center", gap: 10,
-                padding: "7px 12px 7px 8px",
+                padding: "4px",
                 borderRadius: 40,
                 background: menuOpen ? C.navy700 : C.navy800,
                 border: `1px solid ${C.navy600}`,
@@ -607,8 +613,12 @@ export function AccountMenu({ collapsed = false }: AccountMenuProps) {
             >
               <Avatar size="sm" />
               <div style={{ textAlign: "left" }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: "#fff", lineHeight: "1.3", margin: 0 }}>{MOCK_USER.name}</p>
-                <p style={{ fontSize: 10, color: C.white45, lineHeight: "1.3", margin: 0 }}>{MOCK_USER.email}</p>
+                <p style={{ fontSize: 12, fontWeight: 600, color: "#fff", lineHeight: "1.3", margin: 0 }}>
+                  {currentUser?.name || MOCK_USER.name}
+                </p>
+                <p style={{ fontSize: 10, color: C.white45, lineHeight: "1.3", margin: 0 }}>
+                  {currentUser?.email || MOCK_USER.email}
+                </p>
               </div>
             </button>
 
@@ -617,7 +627,12 @@ export function AccountMenu({ collapsed = false }: AccountMenuProps) {
                 ref={menuRef}
                 style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 70 }}
               >
-                <DropdownMenu onClose={() => setMenuOpen(false)} onOpenModal={setModal} />
+                <DropdownMenu
+                  onClose={() => setMenuOpen(false)}
+                  onOpenModal={setModal}
+                  currentUser={currentUser}
+                  onLogout={onLogout}
+                />
               </div>
             )}
           </>,
@@ -650,10 +665,10 @@ export function AccountMenu({ collapsed = false }: AccountMenuProps) {
           <Avatar size="md" />
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontSize: 13, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0, lineHeight: "1.3" }}>
-              {MOCK_USER.name}
+              {currentUser?.name || MOCK_USER.name}
             </p>
             <p style={{ fontSize: 11, color: C.white45, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: "2px 0 0", lineHeight: "1.3" }}>
-              {MOCK_USER.email}
+              {currentUser?.email || MOCK_USER.email}
             </p>
           </div>
           <svg
@@ -673,7 +688,12 @@ export function AccountMenu({ collapsed = false }: AccountMenuProps) {
             ref={menuRef}
             style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 70 }}
           >
-            <DropdownMenu onClose={() => setMenuOpen(false)} onOpenModal={setModal} />
+            <DropdownMenu
+              onClose={() => setMenuOpen(false)}
+              onOpenModal={setModal}
+              currentUser={currentUser}
+              onLogout={onLogout}
+            />
           </div>
         )}
       </div>

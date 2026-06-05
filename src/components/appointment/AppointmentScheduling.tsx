@@ -17,6 +17,7 @@ interface Appointment {
   doctorId: string; type: string; status: AppointmentStatus
   notes: string; notify: NotifyChannel
   notifyPhone: string; notifyEmail: string
+  visibleToRegular?: boolean
 }
 
 interface NewApptForm {
@@ -24,6 +25,7 @@ interface NewApptForm {
   time: string; duration: string; doctorId: string
   type: string; notes: string; notify: NotifyChannel
   notifyPhone: string; notifyEmail: string
+  visibleToRegular: boolean
 }
 
 type FormErrors = Partial<Record<keyof NewApptForm, string>>
@@ -72,7 +74,7 @@ function getToday() {
   return new Date().toISOString().split("T")[0]!
 }
 
-const INIT_APPOINTMENTS: Appointment[] = [
+export const INIT_APPOINTMENTS: Appointment[] = [
   {
     id: "1", patientId: "PT-8842-A", patientName: "Eleanor James",
     date: getToday(), time: "09:00", duration: 30, doctorId: "psy-1",
@@ -763,6 +765,7 @@ function NewApptDrawer({
     patientId: "", patientName: "", date: defaultDate,
     time: defaultTime ?? "", duration: "30", doctorId: "", type: "", notes: "",
     notify: "none", notifyPhone: "", notifyEmail: "",
+    visibleToRegular: false,
   })
 
   const [form, setForm]       = useState<NewApptForm>(makeEmpty)
@@ -823,6 +826,7 @@ function NewApptDrawer({
       notify: form.notify,
       notifyPhone: form.notifyPhone.trim(),
       notifyEmail: form.notifyEmail.trim(),
+      visibleToRegular: form.visibleToRegular,
     })
     onClose()
   }
@@ -1120,6 +1124,20 @@ function NewApptDrawer({
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Visibility option */}
+            <div className="flex items-center gap-2 mt-4 px-1">
+              <input
+                id="f-visible"
+                type="checkbox"
+                checked={form.visibleToRegular}
+                onChange={e => setForm(p => ({ ...p, visibleToRegular: e.target.checked }))}
+                className="w-4 h-4 rounded border-slate-300 accent-[#01696f] cursor-pointer"
+              />
+              <label htmlFor="f-visible" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                Akun reguler boleh tahu (Tampilkan jadwal pertemuan ke akun reguler)
+              </label>
+            </div>
           </section>
         </div>
       </form>
@@ -1145,9 +1163,13 @@ function NewApptDrawer({
 
 interface AppointmentSchedulingProps {
   psychologists?: Psychologist[]
+  currentUser?: { id: string; role: string; email: string; name: string } | null
 }
 
-export function AppointmentScheduling({ psychologists = DEFAULT_PSYCHOLOGISTS }: AppointmentSchedulingProps) {
+export function AppointmentScheduling({
+  psychologists = DEFAULT_PSYCHOLOGISTS,
+  currentUser = null
+}: AppointmentSchedulingProps) {
   const [today, setToday] = useState(getToday)
   useEffect(() => {
     const tick = () => {
@@ -1158,11 +1180,35 @@ export function AppointmentScheduling({ psychologists = DEFAULT_PSYCHOLOGISTS }:
     return () => clearInterval(id)
   }, [])
 
-  const [appointments, setAppointments] = useState<Appointment[]>(INIT_APPOINTMENTS)
+  const [appointments, setAppointments] = useState<Appointment[]>([])
   const [selectedDate, setSelectedDate] = useState(today)
   const [showForm, setShowForm]         = useState(false)
   const [defaultTime, setDefaultTime]   = useState<string | undefined>()
   const [filterPsychologist, setFilterPsychologist] = useState("")
+
+  const fetchAppointments = async () => {
+    if (!currentUser) return
+    try {
+      const res = await fetch("/api/appointments", {
+        headers: {
+          "x-user-id": currentUser.id,
+          "x-user-role": currentUser.role,
+          "x-user-email": currentUser.email,
+          "x-user-name": currentUser.name,
+        }
+      })
+      const json = await res.json()
+      if (json.ok) {
+        setAppointments(json.data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch appointments", err)
+    }
+  }
+
+  useEffect(() => {
+    fetchAppointments()
+  }, [currentUser])
 
   const psychologistMap = useMemo(() => {
     const map = new Map<string, Psychologist>()
@@ -1170,12 +1216,71 @@ export function AppointmentScheduling({ psychologists = DEFAULT_PSYCHOLOGISTS }:
     return map
   }, [psychologists])
 
-  const handleStatusChange = (id: string, status: AppointmentStatus) =>
-    setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a))
-  const handleDelete = (id: string) =>
-    setAppointments(prev => prev.filter(a => a.id !== id))
-  const handleSave = (apt: Appointment) =>
-    setAppointments(prev => [...prev, apt])
+  const handleStatusChange = async (id: string, status: AppointmentStatus) => {
+    if (!currentUser) return
+    try {
+      const appt = appointments.find(a => a.id === id)
+      if (!appt) return
+      const res = await fetch(`/api/appointments/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": currentUser.id,
+          "x-user-role": currentUser.role,
+          "x-user-email": currentUser.email,
+        },
+        body: JSON.stringify({ ...appt, status }),
+      })
+      const json = await res.json()
+      if (json.ok) {
+        setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a))
+      }
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!currentUser) return
+    try {
+      const res = await fetch(`/api/appointments/${id}`, {
+        method: "DELETE",
+        headers: {
+          "x-user-id": currentUser.id,
+          "x-user-role": currentUser.role,
+          "x-user-email": currentUser.email,
+        },
+      })
+      const json = await res.json()
+      if (json.ok) {
+        setAppointments(prev => prev.filter(a => a.id !== id))
+      }
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const handleSave = async (apt: Appointment) => {
+    if (!currentUser) return
+    try {
+      const res = await fetch("/api/appointments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": currentUser.id,
+          "x-user-role": currentUser.role,
+          "x-user-email": currentUser.email,
+        },
+        body: JSON.stringify(apt),
+      })
+      const json = await res.json()
+      if (json.ok) {
+        fetchAppointments()
+      }
+    } catch (err) {
+      console.error(err)
+    }
+  }
 
   const handleNewAtTime = (time: string) => {
     setDefaultTime(time)

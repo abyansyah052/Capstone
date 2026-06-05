@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { AnimatePresence } from "motion/react"
 import {
   Sidebar,
   SidebarContent,
@@ -10,45 +11,122 @@ import {
   useSidebar,
 } from "./components/ui/sidebar"
 import { Dashboard } from "./components/dashboard/Dashboard"
-import { PatientRegistration, INIT_PATIENTS } from "./components/patient/PatientRegistration"
+import { PatientRegistration } from "./components/patient/PatientRegistration"
 import { AppointmentScheduling } from "./components/appointment/AppointmentScheduling"
 import { MedicalHistory } from "./components/history/MedicalHistory"
 import { LaporanPsikologis } from "./components/report/LaporanPsikologis"
-import { PsychologistDatabase, INIT_PSYCHOLOGISTS } from "./components/psychologist/PsychologistDatabase"
+import { PsychologistDatabase } from "./components/psychologist/PsychologistDatabase"
 import { AccountMenu } from "./components/AccountMenu"
+import { UserManagement } from "./components/apex/UserManagement"
+import { ActivityLogs } from "./components/apex/ActivityLogs"
+import { SignatureModal } from "./components/psychologist/SignatureModal"
 import { Patient, Psychologist } from "./types"
-import { Home, Users, Calendar, FileText, Activity, GraduationCap } from "lucide-react"
+import { Home, Users, Calendar, FileText, Activity, GraduationCap, Shield, History } from "lucide-react"
 import { LoginPage } from "./components/auth/LoginPage"
 
+export interface UserSession {
+  id: string;
+  name: string;
+  email: string;
+  role: string; // 'apex' | 'staff' | 'psikolog' | 'reguler'
+  signature: string | null;
+  status?: string;
+}
+
 // Inner component so we can use useSidebar hook (must be inside SidebarProvider)
-function AppInner() {
+function AppInner({
+  currentUser,
+  onLogout,
+  onUpdateUser,
+}: {
+  currentUser: UserSession;
+  onLogout: () => void;
+  onUpdateUser: React.Dispatch<React.SetStateAction<UserSession | null>>;
+}) {
   const [activeModule, setActiveModule] = useState("dashboard")
   const { state } = useSidebar()
   const isCollapsed = state === "collapsed"
 
-  const [patients, setPatients] = useState<Patient[]>(INIT_PATIENTS)
-  const [psychologists, setPsychologists] = useState<Psychologist[]>(INIT_PSYCHOLOGISTS)
+  const [patients, setPatients] = useState<Patient[]>([])
+  const [psychologists, setPsychologists] = useState<Psychologist[]>([])
 
+  // Dynamic navigation items based on user role
   const navigationItems = [
-    { id: "dashboard", label: "Dashboard", icon: Home },
-    { id: "patients", label: "Registrasi Pasien", icon: Users },
-    { id: "psychologists", label: "Database Psikolog", icon: GraduationCap },
-    { id: "history", label: "Riwayat Psikologis", icon: Activity },
-    { id: "appointments", label: "Janji Temu", icon: Calendar },
-    { id: "notes", label: "Laporan Psikologis", icon: FileText },
-  ]
+    { id: "dashboard", label: "Dashboard", icon: Home, roles: ["apex", "staff", "psikolog", "reguler"] },
+    { id: "user_management", label: "User Management", icon: Shield, roles: ["apex"] },
+    { id: "activity_logs", label: "Activity Logs", icon: History, roles: ["apex"] },
+    { id: "patients", label: "Registrasi Pasien", icon: Users, roles: ["staff", "psikolog"] },
+    { id: "psychologists", label: "Database Psikolog", icon: GraduationCap, roles: ["staff"] },
+    { id: "history", label: "Riwayat Psikologis", icon: Activity, roles: ["staff", "psikolog"] },
+    { id: "appointments", label: "Janji Temu", icon: Calendar, roles: ["staff", "psikolog", "reguler"] },
+    { id: "notes", label: "Laporan Psikologis", icon: FileText, roles: ["psikolog"] },
+  ].filter((item) => item.roles.includes(currentUser.role));
+
+  // Auto-redirect if module not allowed for current role
+  useEffect(() => {
+    const isAllowed = navigationItems.some(item => item.id === activeModule);
+    if (!isAllowed) {
+      setActiveModule("dashboard");
+    }
+  }, [currentUser, activeModule]);
+
+  // Fetch initial collections for staff
+  const fetchCollections = async () => {
+    try {
+      if (currentUser.role === "staff") {
+        // Patients
+        const resPat = await fetch("/api/patients", {
+          headers: {
+            "x-user-id": currentUser.id,
+            "x-user-role": currentUser.role,
+            "x-user-email": currentUser.email,
+          }
+        });
+        const jsonPat = await resPat.json();
+        if (jsonPat.ok) setPatients(jsonPat.data);
+
+        // Psychologists
+        const resPsy = await fetch("/api/psychologists", {
+          headers: {
+            "x-user-id": currentUser.id,
+            "x-user-role": currentUser.role,
+            "x-user-email": currentUser.email,
+          }
+        });
+        const jsonPsy = await resPsy.json();
+        if (jsonPsy.ok) setPsychologists(jsonPsy.data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchCollections();
+  }, [currentUser]);
 
   const renderActiveModule = () => {
     switch (activeModule) {
-      case "dashboard": return <Dashboard onNavigate={setActiveModule} />
-      case "patients": return <PatientRegistration patients={patients} onPatientsChange={setPatients} />
-      case "psychologists": return <PsychologistDatabase psychologists={psychologists} onPsychologistsChange={setPsychologists} />
-      case "history": return <MedicalHistory />
-      case "appointments": return <AppointmentScheduling psychologists={psychologists} />
-      case "notes": return <LaporanPsikologis patients={patients} psychologists={psychologists} />
-      default: return <Dashboard onNavigate={setActiveModule} />
+      case "dashboard":
+        return <Dashboard onNavigate={setActiveModule} currentUserRole={currentUser.role} />
+      case "user_management":
+        return <UserManagement currentUser={currentUser} />
+      case "activity_logs":
+        return <ActivityLogs currentUser={currentUser} />
+      case "patients":
+        return <PatientRegistration patients={patients} onPatientsChange={setPatients} currentUserRole={currentUser.role} />
+      case "psychologists":
+        return <PsychologistDatabase psychologists={psychologists} onPsychologistsChange={setPsychologists} currentUser={currentUser} />
+      case "history":
+        return <MedicalHistory />
+      case "appointments":
+        return <AppointmentScheduling psychologists={psychologists} currentUser={currentUser} />
+      case "notes":
+        return <LaporanPsikologis patients={[]} psychologists={psychologists} />
+      default:
+        return <Dashboard onNavigate={setActiveModule} currentUserRole={currentUser.role} />
     }
-  }
+  };
 
   const getCurrentModuleTitle = () => {
     return navigationItems.find(item => item.id === activeModule)?.label ?? "Dashboard"
@@ -77,7 +155,6 @@ function AppInner() {
       {/* Sidebar — Navy #1C243B */}
       <Sidebar style={{ backgroundColor: "#1C243B" }} className="border-r border-[#2d3a55]">
         <SidebarHeader className="px-4 pt-5 pb-4">
-          {/* Logo — hidden when collapsed */}
           {!isCollapsed && (
             <img
               src="/SI Capstone 1 Group 2.svg"
@@ -114,12 +191,11 @@ function AppInner() {
           </nav>
         </SidebarContent>
 
-        {/* ── Account profile at sidebar bottom ── */}
         <SidebarFooter
           className="px-3 py-3"
           style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
         >
-          <AccountMenu collapsed={isCollapsed} />
+          <AccountMenu collapsed={isCollapsed} currentUser={currentUser} onLogout={onLogout} />
         </SidebarFooter>
       </Sidebar>
 
@@ -137,7 +213,6 @@ function AppInner() {
             className="flex items-center rounded-xl border border-slate-200 overflow-hidden bg-white shadow-sm"
             style={{ height: "46px" }}
           >
-            {/* Tanggal */}
             <div className="flex flex-col items-center justify-center px-4">
               <span className="text-[10px] font-semibold text-[#475569] uppercase tracking-wider leading-none mb-0.5">
                 {dayName}
@@ -146,11 +221,7 @@ function AppInner() {
                 {date} {month} {year}
               </span>
             </div>
-
-            {/* Divider */}
             <div className="w-px h-6 bg-slate-300" />
-
-            {/* Jam */}
             <div className="flex items-center gap-1.5 px-4">
               <span className="text-sm font-bold text-[#1C243B]">
                 {hour12}:{minutes}
@@ -165,20 +236,36 @@ function AppInner() {
           {renderActiveModule()}
         </main>
       </SidebarInset>
+
+      {/* Signature Pad Popup Modal for Psychologists with missing signature */}
+      <AnimatePresence>
+        {currentUser.role === "psikolog" && currentUser.signature === null && (
+          <SignatureModal
+            currentUser={currentUser}
+            onSaveSuccess={(sigData) => {
+              onUpdateUser(prev => prev ? { ...prev, signature: sigData } : null);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
 
-  if (!isLoggedIn) {
-    return <LoginPage onLoginSuccess={() => setIsLoggedIn(true)} />;
+  if (!currentUser) {
+    return <LoginPage onLoginSuccess={(user) => setCurrentUser(user)} />;
   }
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+  };
 
   return (
     <SidebarProvider>
-      <AppInner />
+      <AppInner currentUser={currentUser} onLogout={handleLogout} onUpdateUser={setCurrentUser} />
     </SidebarProvider>
   );
 }

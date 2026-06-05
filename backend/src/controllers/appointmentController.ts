@@ -1,0 +1,179 @@
+import { Response } from "express";
+import { query, logActivity } from "../config/db";
+import { AuthenticatedRequest } from "../middlewares/authMiddleware";
+import { sendNotification } from "../services/notificationService";
+
+// GET /api/appointments - Retrieve appointments
+export const getAllAppointments = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const role = req.user?.role;
+  try {
+    let result;
+    if (role === "reguler") {
+      // Regular users can only see appointments marked visible to them
+      result = await query("SELECT * FROM appointments WHERE visible_to_regular = true ORDER BY date DESC, time_slot DESC");
+    } else {
+      result = await query("SELECT * FROM appointments ORDER BY date DESC, time_slot DESC");
+    }
+
+    // Map DB fields back to frontend structure
+    const mapped = result.rows.map((row) => ({
+      id: row.id,
+      patientId: row.patient_id,
+      patientName: row.patient_name,
+      date: row.date,
+      time: row.time_slot,
+      duration: Number(row.duration) || 60,
+      doctorId: row.psychologist_id,
+      type: row.type || "Konsultasi Umum",
+      status: row.status,
+      notes: row.notes || "",
+      notify: row.notify || "none",
+      notifyPhone: row.notify_phone || "",
+      notifyEmail: row.notify_email || "",
+      visibleToRegular: !!row.visible_to_regular,
+    }));
+
+    res.json({ ok: true, data: mapped });
+  } catch (error: any) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+};
+
+// POST /api/appointments - Schedule a new appointment
+export const createAppointment = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const data = req.body;
+
+  if (!data.patientName || !data.date || !data.time || !data.doctorId) {
+    res.status(400).json({ ok: false, error: "Missing required appointment scheduling parameters" });
+    return;
+  }
+
+  const id = data.id || `appt-${Date.now()}`;
+  const duration = Number(data.duration) || 60;
+  const visibleToRegular = data.visibleToRegular === true || data.visibleToRegular === "true";
+
+  try {
+    await query(
+      `INSERT INTO appointments (
+        id, patient_id, patient_name, psychologist_id, date, time_slot, duration,
+        type, status, notes, notify, notify_phone, notify_email, visible_to_regular
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      [
+        id,
+        data.patientId || null,
+        data.patientName,
+        data.doctorId,
+        data.date,
+        data.time,
+        duration,
+        data.type || "Konsultasi",
+        data.status || "scheduled",
+        data.notes || "",
+        data.notify || "none",
+        data.notifyPhone || "",
+        data.notifyEmail || "",
+        visibleToRegular,
+      ]
+    );
+
+    // Write Log
+    await logActivity(
+      req.user?.id || "system",
+      req.user?.email || "system@asisya.com",
+      "APPOINTMENT_SCHEDULE",
+      `Scheduled appointment for ${data.patientName} on ${data.date} at ${data.time}. Regular Visible: ${visibleToRegular}`
+    );
+
+    // Simulate Notification dispatch
+    if (data.notify && data.notify !== "none") {
+      await sendNotification({
+        patientName: data.patientName,
+        date: data.date,
+        time: data.time,
+        channel: data.notify,
+        phone: data.notifyPhone,
+        email: data.notifyEmail,
+      });
+    }
+
+    res.status(201).json({ ok: true, message: "Appointment scheduled successfully" });
+  } catch (error: any) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+};
+
+// PUT /api/appointments/:id - Update appointment status or info
+export const updateAppointment = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const data = req.body;
+
+  try {
+    const checkResult = await query("SELECT * FROM appointments WHERE id = $1", [id]);
+    if (checkResult.rows.length === 0) {
+      res.status(404).json({ ok: false, error: "Appointment not found" });
+      return;
+    }
+
+    const current = checkResult.rows[0];
+
+    await query(
+      `UPDATE appointments SET
+        patient_name = $1, date = $2, time_slot = $3, duration = $4,
+        psychologist_id = $5, type = $6, status = $7, notes = $8,
+        notify = $9, notify_phone = $10, notify_email = $11, visible_to_regular = $12
+      WHERE id = $13`,
+      [
+        data.patientName || current.patient_name,
+        data.date || current.date,
+        data.time || current.time_slot,
+        data.duration !== undefined ? Number(data.duration) : current.duration,
+        data.doctorId || current.psychologist_id,
+        data.type || current.type,
+        data.status || current.status,
+        data.notes !== undefined ? data.notes : current.notes,
+        data.notify || current.notify,
+        data.notifyPhone !== undefined ? data.notifyPhone : current.notify_phone,
+        data.notifyEmail !== undefined ? data.notifyEmail : current.notify_email,
+        data.visibleToRegular !== undefined ? (data.visibleToRegular === true || data.visibleToRegular === "true") : current.visible_to_regular,
+        id,
+      ]
+    );
+
+    await logActivity(
+      req.user?.id || "system",
+      req.user?.email || "system@asisya.com",
+      "APPOINTMENT_UPDATE",
+      `Updated appointment for ${data.patientName || current.patient_name} (ID: ${id})`
+    );
+
+    res.json({ ok: true, message: "Appointment updated successfully" });
+  } catch (error: any) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+};
+
+// DELETE /api/appointments/:id - Cancel/Delete appointment
+export const deleteAppointment = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const { id } = req.params;
+
+  try {
+    const checkResult = await query("SELECT * FROM appointments WHERE id = $1", [id]);
+    if (checkResult.rows.length === 0) {
+      res.status(404).json({ ok: false, error: "Appointment not found" });
+      return;
+    }
+
+    await query("DELETE FROM appointments WHERE id = $1", [id]);
+
+    await logActivity(
+      req.user?.id || "system",
+      req.user?.email || "system@asisya.com",
+      "APPOINTMENT_DELETE",
+      `Cancelled/Deleted appointment ID: ${id}`
+    );
+
+    res.json({ ok: true, message: "Appointment deleted successfully" });
+  } catch (error: any) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+};

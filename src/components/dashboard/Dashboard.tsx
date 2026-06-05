@@ -1,9 +1,10 @@
-import { Users, Calendar, ClipboardList, Activity, FileText } from "lucide-react"
+import { Users, Calendar, ClipboardList, Activity, FileText, GraduationCap, Shield } from "lucide-react"
 import { Card, CardContent } from "../ui/card"
 import bannerImg from "../../assets/Psikolog Asisya Web Design.png"
 
 interface DashboardProps {
   onNavigate: (module: string) => void
+  currentUserRole?: string
 }
 
 const scorecards = [
@@ -24,34 +25,60 @@ const scorecards = [
   },
 ]
 
-const modules = [
+const ALL_MODULES = [
+  {
+    id: "user_management",
+    label: "User Management",
+    description: "Mengelola akses akun, penugasan role, dan status pengguna",
+    icon: Shield,
+    roles: ["apex"],
+  },
+  {
+    id: "activity_logs",
+    label: "Activity Logs",
+    description: "Audit log aktivitas pengguna, login, dan promosi sistem",
+    icon: FileText,
+    roles: ["apex"],
+  },
   {
     id: "patients",
     label: "Registrasi Pasien",
     description: "Registrasi pasien baru dan atur detail personal",
     icon: Users,
+    roles: ["staff", "psikolog"],
+  },
+  {
+    id: "psychologists",
+    label: "Database Psikolog",
+    description: "Kelola database profil psikolog dan nomor lisensi SIPP",
+    icon: GraduationCap,
+    roles: ["staff"],
   },
   {
     id: "history",
     label: "Riwayat Psikologis",
     description: "Lihat riwayat psikologis pasien",
     icon: Activity,
+    roles: ["staff", "psikolog"],
   },
   {
     id: "appointments",
     label: "Janji Temu",
     description: "Jadwalkan atau atur janji temu dengan pasien",
     icon: Calendar,
+    roles: ["staff", "psikolog", "reguler"],
   },
   {
     id: "notes",
     label: "Laporan Psikologis",
     description: "Lihat dan perbarui laporan psikologis pasien",
     icon: FileText,
+    roles: ["psikolog"],
   },
 ]
 
-export function Dashboard({ onNavigate }: DashboardProps) {
+export function Dashboard({ onNavigate, currentUserRole = "staff" }: DashboardProps) {
+  const modules = ALL_MODULES.filter(m => m.roles.includes(currentUserRole))
   return (
     <div className="p-6 space-y-6">
 
