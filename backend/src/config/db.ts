@@ -115,6 +115,20 @@ export const initDb = async () => {
       );
     `);
 
+    // Create report_nodes table for file explorer database representation
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS report_nodes (
+        id VARCHAR(255) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        kind VARCHAR(50) NOT NULL, -- 'folder' or 'file'
+        parent_id VARCHAR(255) REFERENCES report_nodes(id) ON DELETE CASCADE,
+        mime_type VARCHAR(100),
+        size VARCHAR(50),
+        file_content TEXT, -- JSON string for ReportForm or Base64 string for direct PDF upload
+        created_at VARCHAR(50) NOT NULL
+      );
+    `);
+
     // Insert default batches if empty
     const batchCheck = await pool.query("SELECT COUNT(*) FROM batches");
     if (parseInt(batchCheck.rows[0].count) === 0) {
@@ -153,6 +167,73 @@ export const initDb = async () => {
       `);
 
       console.log("[db] Seeded initial database users and psychologists.");
+    }
+
+    // Seed default report nodes if empty
+    const reportNodesCheck = await pool.query("SELECT COUNT(*) FROM report_nodes");
+    if (parseInt(reportNodesCheck.rows[0].count) === 0) {
+      // Root folders
+      await pool.query("INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ('f1', 'PT PLN (Persero)', 'folder', NULL, NULL, NULL, NULL, '2026-01-10')");
+      await pool.query("INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ('f2', 'Kimia Farma', 'folder', NULL, NULL, NULL, NULL, '2026-02-01')");
+      await pool.query("INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ('f3', 'Bank Mandiri', 'folder', NULL, NULL, NULL, NULL, '2026-03-05')");
+      
+      // Nested folder
+      await pool.query("INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ('f1-1', 'Batch 2026', 'folder', 'f1', NULL, NULL, NULL, '2026-01-15')");
+      
+      // Seed files (PDF reports with mock JSON content representing ReportForm)
+      const mockForm1 = JSON.stringify({
+        namaLengkap: "Andi Firmansyah",
+        tempatLahir: "Jakarta",
+        tanggalLahir: "1995-05-12",
+        jenisKelamin: "Laki-laki",
+        usia: "30",
+        pendidikan: "S1 Teknik",
+        anakKeberapa: "1",
+        jumlahSaudara: "3",
+        alamat: "Jl. Sudirman No. 10, Jakarta",
+        permasalahan: "Mengalami stres kerja yang tinggi akibat beban proyek akhir tahun yang menumpuk.",
+        prosesKonseling: "Dilakukan konseling kognitif perilaku (CBT) selama 3 sesi untuk mengelola stres dan mengatur waktu secara lebih adaptif.",
+        diagnosisKlinis: "Z73.0 Burn-out (Kelelahan Kerja)",
+        saranPengembangan: "Disarankan untuk melakukan regulasi emosi, relaksasi otot progresif, dan berdiskusi dengan atasan mengenai pendelegasian tugas."
+      });
+      
+      const mockForm2 = JSON.stringify({
+        namaLengkap: "Siti Rahayu",
+        tempatLahir: "Bandung",
+        tanggalLahir: "1998-08-24",
+        jenisKelamin: "Perempuan",
+        usia: "27",
+        pendidikan: "S1 Psikologi",
+        anakKeberapa: "2",
+        jumlahSaudara: "2",
+        alamat: "Jl. Dipatiukur No. 45, Bandung",
+        permasalahan: "Kecemasan berlebih saat menghadapi presentasi di depan direksi perusahaan.",
+        prosesKonseling: "Dilakukan teknik restrukturisasi kognitif dan latihan pernapasan diafragma untuk mengontrol gejala fisik kecemasan.",
+        diagnosisKlinis: "F41.9 Gangguan Kecemasan YTT",
+        saranPengembangan: "Disarankan melakukan simulasi presentasi mandiri dan latihan mindfulness secara teratur sebelum sesi formal."
+      });
+
+      const mockForm3 = JSON.stringify({
+        namaLengkap: "Budi Santoso",
+        tempatLahir: "Surabaya",
+        tanggalLahir: "1992-11-03",
+        jenisKelamin: "Laki-laki",
+        usia: "33",
+        pendidikan: "D3 Administrasi",
+        anakKeberapa: "3",
+        jumlahSaudara: "4",
+        alamat: "Jl. Dharmahusada No. 12, Surabaya",
+        permasalahan: "Kesulitan beradaptasi dengan sistem pelaporan digital baru di kantor.",
+        prosesKonseling: "Dilakukan konseling suportif dan pelatihan asertif untuk membantu penyesuaian diri terhadap perubahan organisasional.",
+        diagnosisKlinis: "F43.2 Gangguan Penyesuaian",
+        saranPengembangan: "Disarankan mengikuti pendampingan teknis intensif dari rekan kerja senior (buddy system)."
+      });
+
+      await pool.query("INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)", ['p1', 'Laporan_Andi Firmansyah.pdf', 'file', 'f1-1', 'application/pdf', '245 KB', mockForm1, '2026-02-03']);
+      await pool.query("INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)", ['p2', 'Laporan_Siti Rahayu.pdf', 'file', 'f1-1', 'application/pdf', '198 KB', mockForm2, '2026-02-05']);
+      await pool.query("INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)", ['p3', 'Laporan_Budi Santoso.pdf', 'file', 'f2', 'application/pdf', '312 KB', mockForm3, '2026-02-20']);
+      
+      console.log("[db] Seeded initial report bank directory nodes.");
     }
 
     console.log("[db] Database initialization completed successfully.");

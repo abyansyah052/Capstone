@@ -122,7 +122,7 @@ function AppInner({
       case "appointments":
         return <AppointmentScheduling psychologists={psychologists} currentUser={currentUser} />
       case "notes":
-        return <LaporanPsikologis patients={[]} psychologists={psychologists} />
+        return <LaporanPsikologis patients={patients} psychologists={psychologists} currentUser={currentUser} />
       default:
         return <Dashboard onNavigate={setActiveModule} currentUserRole={currentUser.role} />
     }
@@ -195,7 +195,7 @@ function AppInner({
           className="px-3 py-3"
           style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
         >
-          <AccountMenu collapsed={isCollapsed} currentUser={currentUser} onLogout={onLogout} />
+          <AccountMenu collapsed={isCollapsed} currentUser={currentUser} onLogout={onLogout} onUpdateUser={onUpdateUser} />
         </SidebarFooter>
       </Sidebar>
 

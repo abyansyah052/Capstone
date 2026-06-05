@@ -3,36 +3,43 @@ import {
   Folder, FolderOpen, FileText, Trash2, Upload,
   ChevronRight, Home, MoreVertical, FilePlus, FolderPlus, X,
   Search, SlidersHorizontal, ArrowUp, ArrowDown, PenLine,
-  CheckSquare, Square, CheckCheck,
+  CheckSquare, Square, CheckCheck, Download, Eye,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
-import { Psychologist, PatientRecord, FsFile, FsFolder, FsNode } from "../../types"
+import { Psychologist, PatientRecord, FsFile, FsFolder, FsNode, ReportForm } from "../../types"
 import { uid } from "../../lib/helpers"
 import { ReportCreator } from "./ReportCreator"
 
 type SortKey = "date-desc" | "date-asc" | "name-asc" | "name-desc"
 type KindFilter = "all" | "folder" | "file"
 
-const INIT_TREE: FsNode[] = [
-  {
-    id: "f1", kind: "folder", name: "PT PLN (Persero)", createdAt: "2026-01-10",
-    children: [
-      {
-        id: "f1-1", kind: "folder", name: "Batch 2026", createdAt: "2026-01-15", children: [
-          { id: "p1", kind: "file", name: "Laporan_Andi Firmansyah.pdf", mimeType: "application/pdf", size: "245 KB", createdAt: "2026-02-03" },
-          { id: "p2", kind: "file", name: "Laporan_Siti Rahayu.pdf", mimeType: "application/pdf", size: "198 KB", createdAt: "2026-02-05" },
-        ]
-      },
-    ]
-  },
-  {
-    id: "f2", kind: "folder", name: "Kimia Farma", createdAt: "2026-02-01",
-    children: [
-      { id: "p3", kind: "file", name: "Laporan_Budi Santoso.pdf", mimeType: "application/pdf", size: "312 KB", createdAt: "2026-02-20" },
-    ]
-  },
-  { id: "f3", kind: "folder", name: "Bank Mandiri", createdAt: "2026-03-05", children: [] },
-]
+function buildTree(flatNodes: any[]): FsNode[] {
+  const map = new Map<string, any>();
+  const roots: FsNode[] = [];
+  
+  flatNodes.forEach(node => {
+    const cloned = { ...node, children: node.kind === "folder" ? [] : undefined };
+    map.set(node.id, cloned);
+  });
+  
+  flatNodes.forEach(node => {
+    const cloned = map.get(node.id);
+    if (node.parentId) {
+      const parent = map.get(node.parentId);
+      if (parent && parent.kind === "folder") {
+        parent.children.push(cloned);
+      } else {
+        roots.push(cloned);
+      }
+    } else {
+      roots.push(cloned);
+    }
+  });
+  
+  return roots;
+}
+
+
 
 function findFolder(nodes: FsNode[], path: string[]): FsFolder | null {
   if (path.length === 0) return null
@@ -42,33 +49,7 @@ function findFolder(nodes: FsNode[], path: string[]): FsFolder | null {
   return findFolder(node.children, path.slice(1))
 }
 
-function insertNode(nodes: FsNode[], path: string[], node: FsNode): FsNode[] {
-  if (path.length === 0) return [...nodes, node]
-  return nodes.map(n => {
-    if (n.id !== path[0] || n.kind !== "folder") return n
-    return { ...n, children: insertNode(n.children, path.slice(1), node) }
-  })
-}
 
-function deleteNodeFromTree(nodes: FsNode[], targetId: string): FsNode[] {
-  return nodes
-    .filter(n => n.id !== targetId)
-    .map(n => n.kind === "folder" ? { ...n, children: deleteNodeFromTree(n.children, targetId) } : n)
-}
-
-function deleteManyFromTree(nodes: FsNode[], ids: Set<string>): FsNode[] {
-  return nodes
-    .filter(n => !ids.has(n.id))
-    .map(n => n.kind === "folder" ? { ...n, children: deleteManyFromTree(n.children, ids) } : n)
-}
-
-function renameNodeInTree(nodes: FsNode[], targetId: string, nextName: string): FsNode[] {
-  return nodes.map(n => {
-    if (n.id === targetId) return { ...n, name: nextName }
-    if (n.kind === "folder") return { ...n, children: renameNodeInTree(n.children, targetId, nextName) }
-    return n
-  })
-}
 
 function getPathFolders(nodes: FsNode[], path: string[]): FsFolder[] {
   const result: FsFolder[] = []
@@ -347,14 +328,17 @@ interface CtxMenu {
   nodeKind: "folder" | "file"
 }
 
-function CtxMenuPanel({ pos, onClose, onDelete, onRename }: {
+function CtxMenuPanel({ pos, onClose, onDelete, onRename, nodeKind, nodeId }: {
   pos: { x: number; y: number }
   onClose: () => void; onDelete: () => void; onRename: () => void
+  nodeKind: "folder" | "file"
+  nodeId: string
 }) {
   useKeyClose(onClose)
 
+  const isFile = nodeKind === "file"
   const panelWidth = 176
-  const panelHeight = 90
+  const panelHeight = isFile ? 170 : 90
   const vw = typeof window !== "undefined" ? window.innerWidth : 1200
   const vh = typeof window !== "undefined" ? window.innerHeight : 800
   const left = pos.x + panelWidth > vw ? pos.x - panelWidth : pos.x
@@ -371,6 +355,31 @@ function CtxMenuPanel({ pos, onClose, onDelete, onRename }: {
         style={{ position: "fixed", top, left, zIndex: 50, width: panelWidth }}
         className="bg-white border border-slate-200 rounded-2xl shadow-[0_16px_40px_rgba(15,23,42,0.13)] py-1.5 overflow-hidden"
       >
+        {isFile && (
+          <>
+            <button
+              onClick={() => {
+                window.open(`/api/reports/${nodeId}/pdf`, "_blank");
+                onClose();
+              }}
+              className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-[14px] text-slate-700 hover:bg-[#01696f]/[0.05] hover:text-[#01696f] transition-colors"
+            >
+              <Eye size={15} className="flex-shrink-0" />
+              <span>Preview PDF</span>
+            </button>
+            <button
+              onClick={() => {
+                window.open(`/api/reports/${nodeId}/pdf?download=true`, "_blank");
+                onClose();
+              }}
+              className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-[14px] text-slate-700 hover:bg-[#01696f]/[0.05] hover:text-[#01696f] transition-colors"
+            >
+              <Download size={15} className="flex-shrink-0" />
+              <span>Download PDF</span>
+            </button>
+            <div className="mx-3 border-t border-slate-100" />
+          </>
+        )}
         <button
           onClick={() => { onRename(); onClose() }}
           className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-[14px] text-slate-700 hover:bg-[#01696f]/[0.05] hover:text-[#01696f] transition-colors"
@@ -417,7 +426,13 @@ function NodeRow({
     >
       {/* Main clickable area */}
       <button
-        onClick={selectMode ? onToggleSelect : onOpen}
+        onClick={selectMode ? onToggleSelect : () => {
+          if (!isFolder) {
+            window.open(`/api/reports/${node.id}/pdf`, "_blank");
+          } else {
+            onOpen();
+          }
+        }}
         className="flex min-w-0 flex-1 items-center gap-3.5 text-left"
         aria-label={isFolder ? `Buka folder ${node.name}` : `File ${node.name}`}
       >
@@ -480,10 +495,11 @@ function NodeRow({
 type LaporanPsikologisProps = {
   patients?: PatientRecord[]
   psychologists?: Psychologist[]
+  currentUser: { id: string; name: string; email: string; role: string; signature: string | null }
 }
 
-export function LaporanPsikologis({ patients = [], psychologists = [] }: LaporanPsikologisProps) {
-  const [tree, setTree]                   = useState<FsNode[]>(INIT_TREE)
+export function LaporanPsikologis({ patients = [], psychologists = [], currentUser }: LaporanPsikologisProps) {
+  const [tree, setTree]                   = useState<FsNode[]>([])
   const [path, setPath]                   = useState<string[]>([])
   const [newFolderOpen, setNewFolderOpen] = useState(false)
   const [renameTarget, setRenameTarget]   = useState<CtxMenu | null>(null)
@@ -499,6 +515,29 @@ export function LaporanPsikologis({ patients = [], psychologists = [] }: Laporan
   const [selected, setSelected]           = useState<Set<string>>(new Set())
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const authHeaders = {
+    "x-user-id": currentUser.id,
+    "x-user-role": currentUser.role,
+    "x-user-email": currentUser.email,
+    "x-user-name": currentUser.name || "User",
+  };
+
+  const fetchNodes = useCallback(async () => {
+    try {
+      const res = await fetch("/api/reports", { headers: authHeaders });
+      const json = await res.json();
+      if (json.ok) {
+        setTree(buildTree(json.data));
+      }
+    } catch (e) {
+      console.error("Failed to fetch reports:", e);
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    fetchNodes();
+  }, [fetchNodes]);
 
   const currentNodes: FsNode[] =
     path.length === 0 ? tree : findFolder(tree, path)?.children ?? []
@@ -535,31 +574,78 @@ export function LaporanPsikologis({ patients = [], psychologists = [] }: Laporan
   const activeFilterCount = (sort !== "date-desc" ? 1 : 0) + (kindFilter !== "all" ? 1 : 0)
   const allSelected = filteredNodes.length > 0 && filteredNodes.every(n => selected.has(n.id))
 
-  const createFolder = (name: string) => {
-    const node: FsFolder = {
-      id: uid(), kind: "folder", name,
+  const createFolder = async (name: string) => {
+    const nodeId = uid();
+    const payload = {
+      id: nodeId,
+      name,
+      kind: "folder",
+      parentId: path[path.length - 1] || null,
       createdAt: new Date().toLocaleDateString("id-ID"),
-      children: [],
+    };
+
+    try {
+      const res = await fetch("/api/reports", {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        fetchNodes();
+      }
+    } catch (e) {
+      console.error(e);
     }
-    setTree(prev => insertNode(prev, path, node))
-    setNewFolderOpen(false)
+    setNewFolderOpen(false);
   }
 
-  const removeNode = (id: string) => {
-    setTree(prev => deleteNodeFromTree(prev, id))
-    setDeleteTarget(null)
+  const removeNode = async (id: string) => {
+    try {
+      const res = await fetch(`/api/reports/${id}`, {
+        method: "DELETE",
+        headers: authHeaders,
+      });
+      if (res.ok) {
+        fetchNodes();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setDeleteTarget(null);
   }
 
-  const renameNode = (id: string, nextName: string) => {
-    setTree(prev => renameNodeInTree(prev, id, nextName))
-    setRenameTarget(null)
+  const renameNode = async (id: string, nextName: string) => {
+    try {
+      const res = await fetch(`/api/reports/${id}`, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: nextName }),
+      });
+      if (res.ok) {
+        fetchNodes();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setRenameTarget(null);
   }
 
-  const removeBulk = () => {
-    setTree(prev => deleteManyFromTree(prev, selected))
-    setSelected(new Set())
-    setSelectMode(false)
-    setBulkDeleteOpen(false)
+  const removeBulk = async () => {
+    try {
+      const res = await fetch("/api/reports/bulk-delete", {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selected) }),
+      });
+      if (res.ok) {
+        fetchNodes();
+        setSelected(new Set());
+        setSelectMode(false);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setBulkDeleteOpen(false);
   }
 
   const toggleSelect = (id: string) => {
@@ -575,26 +661,94 @@ export function LaporanPsikologis({ patients = [], psychologists = [] }: Laporan
   }
 
   const handleUploadPdf = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files) return
-    Array.from(files).forEach(file => {
-      if (file.type !== "application/pdf") return
-      const node: FsFile = {
-        id: uid(), kind: "file", name: file.name, mimeType: "application/pdf",
-        size: `${Math.round(file.size / 1024)} KB`,
-        createdAt: new Date().toLocaleDateString("id-ID"),
-      }
-      setTree(prev => insertNode(prev, path, node))
-    })
-    e.target.value = ""
+    const files = e.target.files;
+    if (!files) return;
+    Array.from(files).forEach((file) => {
+      if (file.type !== "application/pdf") return;
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64Content = reader.result as string;
+        const nodeId = uid();
+        const payload = {
+          id: nodeId,
+          name: file.name,
+          kind: "file",
+          parentId: path[path.length - 1] || null,
+          mimeType: "application/pdf",
+          size: `${Math.round(file.size / 1024)} KB`,
+          fileContent: base64Content,
+          createdAt: new Date().toLocaleDateString("id-ID"),
+        };
+        try {
+          const res = await fetch("/api/reports", {
+            method: "POST",
+            headers: { ...authHeaders, "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (res.ok) {
+            fetchNodes();
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = "";
   }
 
-  const handleSaveReport = (name: string) => {
-    const node: FsFile = {
-      id: uid(), kind: "file", name, mimeType: "application/pdf",
-      size: "—", createdAt: new Date().toLocaleDateString("id-ID"),
+  const handleSaveReport = async (name: string, form: ReportForm) => {
+    const nodeId = uid();
+    const payload = {
+      id: nodeId,
+      name: name.endsWith(".pdf") ? name : `${name}.pdf`,
+      kind: "file",
+      parentId: path[path.length - 1] || null,
+      mimeType: "application/pdf",
+      size: "—",
+      fileContent: JSON.stringify(form),
+      createdAt: new Date().toLocaleDateString("id-ID"),
+    };
+
+    try {
+      const res = await fetch("/api/reports", {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        fetchNodes();
+      }
+    } catch (e) {
+      console.error(e);
     }
-    setTree(prev => insertNode(prev, path, node))
+  }
+
+  const handleBatchDownload = async () => {
+    try {
+      const res = await fetch("/api/reports/batch-download", {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selected) }),
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "counseling_reports_batch.zip";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        exitSelectMode();
+      } else {
+        alert("Gagal melakukan batch download.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Koneksi gagal.");
+    }
   }
 
   const openCtxMenu = (menu: CtxMenu, e: React.MouseEvent) => {
@@ -774,13 +928,22 @@ export function LaporanPsikologis({ patients = [], psychologists = [] }: Laporan
             >
               <div className="mb-2.5 flex items-center justify-between px-4 py-3 rounded-2xl bg-red-50 border border-red-200">
                 <p className="text-[13px] font-semibold text-red-700">{selected.size} item dipilih</p>
-                <button
-                  onClick={() => setBulkDeleteOpen(true)}
-                  className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 active:scale-[0.97] transition-all"
-                >
-                  <Trash2 size={14} />
-                  Hapus {selected.size} item
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleBatchDownload}
+                    className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#01696f] text-white text-sm font-semibold hover:bg-[#0c4e54] active:scale-[0.97] transition-all"
+                  >
+                    <Download size={14} />
+                    Download ZIP
+                  </button>
+                  <button
+                    onClick={() => setBulkDeleteOpen(true)}
+                    className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 active:scale-[0.97] transition-all"
+                  >
+                    <Trash2 size={14} />
+                    Hapus {selected.size} item
+                  </button>
+                </div>
               </div>
             </motion.div>
           )}
@@ -890,6 +1053,8 @@ export function LaporanPsikologis({ patients = [], psychologists = [] }: Laporan
             onClose={() => setCtxMenu(null)}
             onRename={() => setRenameTarget(ctxMenu.menu)}
             onDelete={() => setDeleteTarget(ctxMenu.menu)}
+            nodeKind={ctxMenu.menu.nodeKind}
+            nodeId={ctxMenu.menu.nodeId}
           />
         )}
       </AnimatePresence>

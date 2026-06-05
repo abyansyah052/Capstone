@@ -1,13 +1,14 @@
 import { useRef, useState, useEffect } from "react";
-import { PenTool, Trash2, CheckCircle2 } from "lucide-react";
+import { PenTool, Trash2, CheckCircle2, X } from "lucide-react";
 import { motion } from "motion/react";
 
 interface SignatureModalProps {
   currentUser: { id: string; role: string; email: string };
   onSaveSuccess: (signatureBase64: string) => void;
+  onClose?: () => void;
 }
 
-export function SignatureModal({ currentUser, onSaveSuccess }: SignatureModalProps) {
+export function SignatureModal({ currentUser, onSaveSuccess, onClose }: SignatureModalProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [uploadFile, setUploadFile] = useState<string | null>(null);
@@ -144,6 +145,15 @@ export function SignatureModal({ currentUser, onSaveSuccess }: SignatureModalPro
             <PenTool className="text-[#01696f]" size={18} />
             <span className="text-sm font-bold text-slate-800">Lengkapi Tanda Tangan Digital</span>
           </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+              aria-label="Tutup"
+            >
+              <X size={15} />
+            </button>
+          )}
         </div>
 
         {/* Content */}
@@ -229,9 +239,17 @@ export function SignatureModal({ currentUser, onSaveSuccess }: SignatureModalPro
 
         {/* Footer actions */}
         <div className="flex items-center justify-end gap-2 px-5 py-3.5 bg-slate-50 border-t border-slate-100">
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="px-4 py-2.5 text-sm text-slate-500 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition-all font-semibold"
+            >
+              Batal
+            </button>
+          )}
           <button
             onClick={handleSave}
-            className="w-full py-2.5 rounded-xl bg-[#16254c] text-white text-sm font-semibold hover:bg-[#0f1a38] flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+            className={`py-2.5 rounded-xl bg-[#16254c] text-white text-sm font-semibold hover:bg-[#0f1a38] flex items-center justify-center gap-2 active:scale-[0.98] transition-all ${onClose ? "px-5" : "w-full"}`}
           >
             <CheckCircle2 size={15} /> Simpan Tanda Tangan
           </button>

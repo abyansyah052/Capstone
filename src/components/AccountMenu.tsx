@@ -13,6 +13,7 @@ import {
   Mail,
   Check,
 } from "lucide-react"
+import { SignatureModal } from "./psychologist/SignatureModal"
 
 // ─── Palette tokens (mirrored from App.tsx sidebar) ──────────────────────────
 const C = {
@@ -50,12 +51,14 @@ type ModalView =
   | "rename"
   | "change-password"
   | "password-email-sent"
+  | "update-signature"
   | null
 
 interface AccountMenuProps {
   collapsed?: boolean;
   currentUser?: { id: string; name: string; email: string; role: string; signature: string | null } | null;
   onLogout?: () => void;
+  onUpdateUser?: React.Dispatch<React.SetStateAction<any>>;
 }
 
 const MOCK_USER = {
@@ -214,7 +217,7 @@ function ModalHeader({ title, onClose }: { title: string; onClose: () => void })
   )
 }
 
-function AccountSettingsModal({ onClose, onNav }: { onClose: () => void; onNav: (v: ModalView) => void }) {
+function AccountSettingsModal({ currentUser, onClose, onNav }: { currentUser: any; onClose: () => void; onNav: (v: ModalView) => void }) {
   return (
     <Modal onClose={onClose}>
       <ModalHeader title="Account Settings" onClose={onClose} />
@@ -236,10 +239,10 @@ function AccountSettingsModal({ onClose, onNav }: { onClose: () => void; onNav: 
           </div>
           <div style={{ minWidth: 0 }}>
             <p style={{ fontSize: 14, fontWeight: 600, color: C.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0 }}>
-              {MOCK_USER.name}
+              {currentUser?.name || "User"}
             </p>
             <p style={{ fontSize: 12, color: C.textMuted, margin: "2px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {MOCK_USER.email}
+              {currentUser?.email || ""}
             </p>
           </div>
         </div>
@@ -257,6 +260,14 @@ function AccountSettingsModal({ onClose, onNav }: { onClose: () => void; onNav: 
             sub="Confirmation sent to your email"
             onClick={() => onNav("change-password")}
           />
+          {currentUser?.role === "psikolog" && (
+            <SettingsRow
+              icon={<Pen style={{ width: 14, height: 14, color: C.navy900 }} />}
+              label="Tanda Tangan Digital"
+              sub="Gambar atau unggah ttd Anda"
+              onClick={() => onNav("update-signature")}
+            />
+          )}
         </div>
       </div>
     </Modal>
@@ -303,8 +314,8 @@ function SettingsRow({
   )
 }
 
-function RenameModal({ onClose, onBack }: { onClose: () => void; onBack: () => void }) {
-  const [value, setValue] = useState(MOCK_USER.name)
+function RenameModal({ currentUser, onClose, onBack }: { currentUser: any; onClose: () => void; onBack: () => void }) {
+  const [value, setValue] = useState(currentUser?.name || "")
   return (
     <Modal onClose={onClose}>
       <ModalHeader title="Rename Account" onClose={onClose} />
@@ -346,8 +357,11 @@ function RenameModal({ onClose, onBack }: { onClose: () => void; onBack: () => v
 }
 
 function ChangePasswordModal({
-  onClose, onBack, onSent,
-}: { onClose: () => void; onBack: () => void; onSent: () => void }) {
+  currentUser,
+  onClose,
+  onBack,
+  onSent,
+}: { currentUser: any; onClose: () => void; onBack: () => void; onSent: () => void }) {
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -370,7 +384,7 @@ function ChangePasswordModal({
           <Mail style={{ width: 14, height: 14, color: C.blueText, marginTop: 1, flexShrink: 0 }} />
           <p style={{ fontSize: 12, color: C.blueText, lineHeight: 1.5, margin: 0 }}>
             After submitting, a confirmation link will be sent to{" "}
-            <span style={{ fontWeight: 600 }}>{MOCK_USER.email}</span>.
+            <span style={{ fontWeight: 600 }}>{currentUser?.email}</span>.
             You must confirm via email before the change takes effect.
           </p>
         </div>
@@ -540,7 +554,8 @@ function GhostBtn({ label, onClick }: { label: string; onClick: () => void }) {
 export function AccountMenu({
   collapsed = false,
   currentUser = null,
-  onLogout = () => {}
+  onLogout = () => {},
+  onUpdateUser,
 }: AccountMenuProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [modal, setModal] = useState<ModalView>(null)
@@ -583,10 +598,22 @@ export function AccountMenu({
 
   const Modals = (
     <>
-      {modal === "account-settings" && <AccountSettingsModal onClose={closeAll} onNav={setModal} />}
-      {modal === "rename" && <RenameModal onClose={closeAll} onBack={() => setModal("account-settings")} />}
-      {modal === "change-password" && <ChangePasswordModal onClose={closeAll} onBack={() => setModal("account-settings")} onSent={() => setModal("password-email-sent")} />}
+      {modal === "account-settings" && <AccountSettingsModal currentUser={currentUser} onClose={closeAll} onNav={setModal} />}
+      {modal === "rename" && <RenameModal currentUser={currentUser} onClose={closeAll} onBack={() => setModal("account-settings")} />}
+      {modal === "change-password" && <ChangePasswordModal currentUser={currentUser} onClose={closeAll} onBack={() => setModal("account-settings")} onSent={() => setModal("password-email-sent")} />}
       {modal === "password-email-sent" && <EmailSentModal onClose={closeAll} />}
+      {modal === "update-signature" && currentUser && (
+        <SignatureModal
+          currentUser={currentUser}
+          onSaveSuccess={(sigData) => {
+            if (onUpdateUser) {
+              onUpdateUser((prev: any) => prev ? { ...prev, signature: sigData } : null);
+            }
+            closeAll();
+          }}
+          onClose={closeAll}
+        />
+      )}
     </>
   )
 
