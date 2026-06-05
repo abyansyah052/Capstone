@@ -1,19 +1,24 @@
 import * as React from "react";
-
+import { Paper } from "@mantine/core";
 import { cn } from "./utils";
 
-function Card({ className, ...props }: React.ComponentProps<"div">) {
+const Card = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentProps<"div">
+>(({ className, ...props }, ref) => {
   return (
-    <div
+    <Paper
+      ref={ref as any}
       data-slot="card"
       className={cn(
         "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border",
         className,
       )}
-      {...props}
+      {...(props as any)}
     />
   );
-}
+});
+Card.displayName = "Card";
 
 function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (

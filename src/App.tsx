@@ -18,6 +18,7 @@ import { PsychologistDatabase, INIT_PSYCHOLOGISTS } from "./components/psycholog
 import { AccountMenu } from "./components/AccountMenu"
 import { Patient, Psychologist } from "./types"
 import { Home, Users, Calendar, FileText, Activity, GraduationCap } from "lucide-react"
+import { LoginPage } from "./components/auth/LoginPage"
 
 // Inner component so we can use useSidebar hook (must be inside SidebarProvider)
 function AppInner() {
@@ -169,9 +170,15 @@ function AppInner() {
 }
 
 export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  if (!isLoggedIn) {
+    return <LoginPage onLoginSuccess={() => setIsLoggedIn(true)} />;
+  }
+
   return (
     <SidebarProvider>
       <AppInner />
     </SidebarProvider>
-  )
+  );
 }
