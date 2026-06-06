@@ -86,7 +86,33 @@ function AppInner({
           }
         });
         const jsonPat = await resPat.json();
-        if (jsonPat.ok) setPatients(jsonPat.data);
+        if (jsonPat.ok) {
+          const mapped = (jsonPat.data || []).map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            email: p.email || "",
+            idNumber: p.id_number || p.idNumber || "",
+            age: Number(p.age) || 0,
+            gender: p.gender || "",
+            phone: p.phone || "",
+            registeredAt: p.registered_at || p.registeredAt || "",
+            hasPhoto: !!p.photo || !!p.hasPhoto,
+            initials: p.initials || "",
+            batchId: p.batch_id || p.batchId || "",
+            birthPlace: p.birth_place || p.birthPlace || "",
+            education: p.education || "",
+            siblingOrder: p.sibling_order || p.siblingOrder || "",
+            totalSiblings: p.total_siblings || p.totalSiblings || "",
+            dateOfBirth: p.date_of_birth || p.dateOfBirth || "",
+            occupation: p.occupation || "",
+            country: p.country || "",
+            province: p.province || "",
+            city: p.city || "",
+            fullAddress: p.full_address || p.fullAddress || "",
+            photo: p.photo || null,
+          }));
+          setPatients(mapped);
+        }
 
         // Psychologists
         const resPsy = await fetch("/api/psychologists", {

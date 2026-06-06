@@ -38,6 +38,7 @@ type ReportCreatorProps = {
   patients?: Patient[]
   psychologists?: Psychologist[]
   batches?: Batch[]
+  currentUser?: { id: string; name: string; email: string; role: string; signature: string | null } | null
 }
 
 export function ReportCreator({
@@ -46,6 +47,7 @@ export function ReportCreator({
   patients = [],
   psychologists = [],
   batches = [],
+  currentUser = null,
 }: ReportCreatorProps) {
   const [form, setForm] = useState<ReportForm>(EMPTY_FORM)
   const set = (k: keyof ReportForm, v: string) => setForm(p => ({ ...p, [k]: v }))
@@ -337,7 +339,7 @@ export function ReportCreator({
         {/* Preview panel */}
         <div className="flex-1 overflow-auto bg-slate-300/80 flex items-start justify-center py-10 px-4 sm:px-8">
           <div style={{ transform: "scale(1)", transformOrigin: "top center", marginBottom: "80px" }}>
-            <ReportPreview form={form} psychologists={psychologists} />
+            <ReportPreview form={form} psychologists={psychologists} currentUser={currentUser} />
           </div>
         </div>
       </div>

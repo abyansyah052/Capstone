@@ -1094,6 +1094,7 @@ export function LaporanPsikologis({ patients = [], psychologists = [], currentUs
               patients={patients}
               psychologists={psychologists}
               batches={batches}
+              currentUser={currentUser}
             />
           </motion.div>
         )}

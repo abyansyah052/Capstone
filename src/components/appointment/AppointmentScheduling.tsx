@@ -70,8 +70,15 @@ const APPOINTMENT_TYPES = [
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 const SLOT_HEIGHT = 64
 
+const toLocalISOString = (date: Date): string => {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, "0")
+  const d = String(date.getDate()).padStart(2, "0")
+  return `${y}-${m}-${d}`
+}
+
 function getToday() {
-  return new Date().toISOString().split("T")[0]!
+  return toLocalISOString(new Date())
 }
 
 export const INIT_APPOINTMENTS: Appointment[] = [
@@ -152,7 +159,7 @@ const fmtWeekday = (iso: string) => {
 const addDays = (iso: string, n: number) => {
   const d = new Date(iso + "T00:00:00")
   d.setDate(d.getDate() + n)
-  return d.toISOString().split("T")[0]!
+  return toLocalISOString(d)
 }
 
 const startOfWeek = (iso: string) => {
@@ -160,7 +167,7 @@ const startOfWeek = (iso: string) => {
   const day = d.getDay()
   const offset = day === 0 ? 6 : day - 1
   d.setDate(d.getDate() - offset)
-  return d.toISOString().split("T")[0]!
+  return toLocalISOString(d)
 }
 
 const timeToMinutes = (t: string) => {
@@ -215,10 +222,10 @@ function computeLayout(apts: Appointment[]): Map<string, LayoutCol> {
   return result
 }
 
-function validateAppt(form: NewApptForm, today: string): FormErrors {
+function validateAppt(form: NewApptForm, today: string, isInternal: boolean): FormErrors {
   const e: FormErrors = {}
-  if (!form.patientId.trim())   e.patientId   = "ID pasien wajib diisi."
-  if (!form.patientName.trim()) e.patientName = "Nama pasien wajib diisi."
+  if (!isInternal && !form.patientId.trim())   e.patientId   = "Nomor telepon wajib diisi."
+  if (!form.patientName.trim()) e.patientName = isInternal ? "Nama kegiatan wajib diisi." : "Nama pasien wajib diisi."
   if (!form.date)               e.date        = "Tanggal wajib dipilih."
   else if (form.date < today)   e.date        = "Tanggal tidak boleh di masa lalu."
   if (!form.time)               e.time        = "Waktu wajib dipilih."
@@ -768,6 +775,7 @@ function NewApptDrawer({
     visibleToRegular: false,
   })
 
+  const [activeTab, setActiveTab] = useState<"pasien" | "internal">("pasien")
   const [form, setForm]       = useState<NewApptForm>(makeEmpty)
   const [errors, setErrors]   = useState<FormErrors>({})
   const [touched, setTouched] = useState<Partial<Record<keyof NewApptForm, boolean>>>({})
@@ -775,6 +783,63 @@ function NewApptDrawer({
 
   const [showTimePicker, setShowTimePicker] = useState(false)
   const timePickerRef = useRef<HTMLDivElement>(null)
+  const hourScrollRef = useRef<HTMLDivElement>(null)
+  const minScrollRef = useRef<HTMLDivElement>(null)
+
+  const hoursList = useMemo(() => Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")), [])
+  const minutesList = useMemo(() => Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0")), [])
+
+  const [currentH, currentM] = useMemo(() => {
+    const parts = (form.time || "09:00").split(":")
+    const h = parts[0] ? parts[0].padStart(2, "0") : "09"
+    const m = parts[1] ? parts[1].padStart(2, "0") : "00"
+    return [h, m]
+  }, [form.time])
+
+  useEffect(() => {
+    if (showTimePicker) {
+      setTimeout(() => {
+        // Scroll Hour
+        const hourContainer = hourScrollRef.current
+        if (hourContainer) {
+          const selectedEl = hourContainer.querySelector(`[data-hour="${currentH}"]`) as HTMLElement
+          if (selectedEl) {
+            hourContainer.scrollTop = selectedEl.offsetTop - (hourContainer.clientHeight / 2) + (selectedEl.clientHeight / 2)
+          }
+        }
+        // Scroll Minute
+        const minContainer = minScrollRef.current
+        if (minContainer) {
+          const selectedEl = minContainer.querySelector(`[data-minute="${currentM}"]`) as HTMLElement
+          if (selectedEl) {
+            minContainer.scrollTop = selectedEl.offsetTop - (minContainer.clientHeight / 2) + (selectedEl.clientHeight / 2)
+          }
+        }
+      }, 60)
+    }
+  }, [showTimePicker])
+
+  const handleHourScroll = () => {
+    const container = hourScrollRef.current
+    if (!container) return
+    const itemHeight = container.firstElementChild?.clientHeight || 36
+    const index = Math.round(container.scrollTop / itemHeight)
+    const newH = hoursList[index]
+    if (newH && newH !== currentH) {
+      set("time", `${newH}:${currentM}`)
+    }
+  }
+
+  const handleMinScroll = () => {
+    const container = minScrollRef.current
+    if (!container) return
+    const itemHeight = container.firstElementChild?.clientHeight || 36
+    const index = Math.round(container.scrollTop / itemHeight)
+    const newM = minutesList[index]
+    if (newM && newM !== currentM) {
+      set("time", `${currentH}:${newM}`)
+    }
+  }
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -797,13 +862,13 @@ function NewApptDrawer({
   const set = (k: keyof NewApptForm, v: string) => {
     setForm(p => ({ ...p, [k]: v }))
     if (touched[k] || submitted) {
-      const e = validateAppt({ ...form, [k]: v }, today)
+      const e = validateAppt({ ...form, [k]: v }, today, activeTab === "internal")
       setErrors(p => ({ ...p, [k]: e[k] }))
     }
   }
   const blur = (k: keyof NewApptForm) => {
     setTouched(p => ({ ...p, [k]: true }))
-    setErrors(p => ({ ...p, [k]: validateAppt(form, today)[k] }))
+    setErrors(p => ({ ...p, [k]: validateAppt(form, today, activeTab === "internal")[k] }))
   }
   const err = (k: keyof NewApptForm) =>
     (touched[k] || submitted) ? errors[k] : undefined
@@ -811,12 +876,12 @@ function NewApptDrawer({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitted(true)
-    const errs = validateAppt(form, today)
+    const errs = validateAppt(form, today, activeTab === "internal")
     setErrors(errs)
     if (Object.values(errs).some(Boolean)) return
     onSave({
       id: String(Date.now()),
-      patientId:   form.patientId.trim(),
+      patientId:   activeTab === "internal" ? "INTERNAL" : form.patientId.trim(),
       patientName: form.patientName.trim(),
       date: form.date, time: form.time,
       duration: parseInt(form.duration) || 30,
@@ -866,24 +931,70 @@ function NewApptDrawer({
 
       <form id="appt-form" onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto">
         <div className="px-4 py-4 flex flex-col gap-4">
+          {/* Tab Selector */}
+          <div className="flex rounded-lg border border-slate-200 overflow-hidden bg-slate-50 p-0.5 gap-0.5 h-8 items-center flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("pasien");
+                setForm(p => ({ ...p, patientId: "", patientName: "" }));
+              }}
+              style={{ fontSize: "11px" }}
+              className={`flex-1 h-7 rounded-md transition-all flex items-center justify-center text-center font-semibold leading-none ${
+                activeTab === "pasien"
+                  ? "bg-white text-slate-800 shadow-sm border border-slate-200/50"
+                  : "text-slate-400 hover:text-slate-600 bg-transparent"
+              }`}
+            >
+              Pasien
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("internal");
+                setForm(p => ({ ...p, patientId: "INTERNAL", patientName: "Pertemuan Internal" }));
+              }}
+              style={{ fontSize: "11px" }}
+              className={`flex-1 h-7 rounded-md transition-all flex items-center justify-center text-center font-semibold leading-none ${
+                activeTab === "internal"
+                  ? "bg-white text-slate-800 shadow-sm border border-slate-200/50"
+                  : "text-slate-400 hover:text-slate-600 bg-transparent"
+              }`}
+            >
+              Internal
+            </button>
+          </div>
+
           <section className="flex flex-col gap-2">
-            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">Pasien</h3>
-            <div className="grid grid-cols-2 gap-2">
-              <Field label="ID Pasien" id="f-pid" required error={err("patientId")}>
-                <input id="f-pid" value={form.patientId}
-                  onChange={e => set("patientId", e.target.value)}
-                  onBlur={() => blur("patientId")}
-                  placeholder="PT-XXXX-X"
-                  className={`${err("patientId") ? inputErrCls : inputCls} font-mono`} />
-              </Field>
-              <Field label="Nama" id="f-pname" required error={err("patientName")}>
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">
+              {activeTab === "internal" ? "Detail Kegiatan" : "Biodata Pasien"}
+            </h3>
+            {activeTab === "pasien" ? (
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="No. Telepon Pasien" id="f-pid" required error={err("patientId")}>
+                  <input id="f-pid" value={form.patientId}
+                    onChange={e => set("patientId", e.target.value)}
+                    onBlur={() => blur("patientId")}
+                    placeholder="e.g. 081234567890"
+                    className={err("patientId") ? inputErrCls : inputCls} />
+                </Field>
+                <Field label="Nama Pasien" id="f-pname" required error={err("patientName")}>
+                  <input id="f-pname" value={form.patientName}
+                    onChange={e => set("patientName", e.target.value)}
+                    onBlur={() => blur("patientName")}
+                    placeholder="Nama lengkap"
+                    className={err("patientName") ? inputErrCls : inputCls} />
+                </Field>
+              </div>
+            ) : (
+              <Field label="Nama Kegiatan / Keperluan" id="f-pname" required error={err("patientName")}>
                 <input id="f-pname" value={form.patientName}
                   onChange={e => set("patientName", e.target.value)}
                   onBlur={() => blur("patientName")}
-                  placeholder="Nama lengkap"
+                  placeholder="e.g. Rapat Tim Internal"
                   className={err("patientName") ? inputErrCls : inputCls} />
               </Field>
-            </div>
+            )}
           </section>
 
           <div className="h-px bg-slate-100" />
@@ -915,91 +1026,110 @@ function NewApptDrawer({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 8 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute right-0 left-0 mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-xl p-3 flex flex-col gap-3.5 max-h-[280px] overflow-y-auto"
+                        className="absolute right-0 left-0 mt-1.5 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 flex flex-col items-center"
                       >
-                        {/* Pagi */}
-                        <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Pagi (08:00 - 11:30)</p>
-                          <div className="grid grid-cols-4 gap-1">
-                            {["08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30"].map(t => (
-                              <button
-                                key={t}
-                                type="button"
-                                onClick={() => { set("time", t); setShowTimePicker(false); }}
-                                className={`py-1 text-[11px] font-semibold rounded-md text-center transition-all ${
-                                  form.time === t
-                                    ? "bg-[#1C243B] text-white"
-                                    : "bg-slate-50 text-slate-700 hover:bg-slate-100"
-                                }`}
-                              >
-                                {t}
-                              </button>
-                            ))}
+                        <style>{`
+                          .scrollbar-none::-webkit-scrollbar {
+                            display: none;
+                          }
+                        `}</style>
+
+                        {/* Column Header Labels */}
+                        <div className="grid grid-cols-2 w-full text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                          <div>Jam</div>
+                          <div>Menit</div>
+                        </div>
+
+                        {/* Spinner Cylindrical Body */}
+                        <div className="relative flex w-full h-40 overflow-hidden border-t border-b border-slate-100 bg-slate-50/30 rounded-lg">
+                          {/* Selection horizontal highlight bar */}
+                          <div className="absolute top-[62px] left-2 right-2 h-9 bg-[#1C243B]/5 border-y border-[#1C243B]/10 pointer-events-none rounded-md" />
+
+                          {/* Gradient cylinder masks */}
+                          <div className="absolute top-0 left-0 right-0 h-10 bg-gradient-to-b from-white to-transparent pointer-events-none z-10" />
+                          <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-white to-transparent pointer-events-none z-10" />
+
+                          {/* Hours List (Left Column) */}
+                          <div
+                            ref={hourScrollRef}
+                            className="flex-1 overflow-y-auto scrollbar-none snap-y snap-mandatory py-[62px] text-center"
+                            onScroll={handleHourScroll}
+                            style={{ scrollbarWidth: "none" }}
+                          >
+                            {hoursList.map(h => {
+                              const isSelected = h === currentH
+                              return (
+                                <div
+                                  key={h}
+                                  data-hour={h}
+                                  onClick={() => {
+                                    set("time", `${h}:${currentM}`);
+                                    const container = hourScrollRef.current;
+                                    if (container) {
+                                      const el = container.querySelector(`[data-hour="${h}"]`) as HTMLElement;
+                                      if (el) {
+                                        container.scrollTo({
+                                          top: el.offsetTop - (container.clientHeight / 2) + (el.clientHeight / 2),
+                                          behavior: "smooth"
+                                        });
+                                      }
+                                    }
+                                  }}
+                                  className={`h-9 flex items-center justify-center snap-center cursor-pointer text-[13px] font-semibold select-none transition-all ${
+                                    isSelected ? "text-[#1C243B] text-[15px] font-bold scale-110" : "text-slate-400 hover:text-slate-600"
+                                  }`}
+                                >
+                                  {h}
+                                </div>
+                              )
+                            })}
+                          </div>
+
+                          {/* Minutes List (Right Column) */}
+                          <div
+                            ref={minScrollRef}
+                            className="flex-1 overflow-y-auto scrollbar-none snap-y snap-mandatory py-[62px] text-center"
+                            onScroll={handleMinScroll}
+                            style={{ scrollbarWidth: "none" }}
+                          >
+                            {minutesList.map(m => {
+                              const isSelected = m === currentM
+                              return (
+                                <div
+                                  key={m}
+                                  data-minute={m}
+                                  onClick={() => {
+                                    set("time", `${currentH}:${m}`);
+                                    const container = minScrollRef.current;
+                                    if (container) {
+                                      const el = container.querySelector(`[data-minute="${m}"]`) as HTMLElement;
+                                      if (el) {
+                                        container.scrollTo({
+                                          top: el.offsetTop - (container.clientHeight / 2) + (el.clientHeight / 2),
+                                          behavior: "smooth"
+                                        });
+                                      }
+                                    }
+                                  }}
+                                  className={`h-9 flex items-center justify-center snap-center cursor-pointer text-[13px] font-semibold select-none transition-all ${
+                                    isSelected ? "text-[#1C243B] text-[15px] font-bold scale-110" : "text-slate-400 hover:text-slate-600"
+                                  }`}
+                                >
+                                  {m}
+                                </div>
+                              )
+                            })}
                           </div>
                         </div>
 
-                        {/* Siang */}
-                        <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Siang (12:00 - 14:30)</p>
-                          <div className="grid grid-cols-4 gap-1">
-                            {["12:00", "12:30", "13:00", "13:30", "14:00", "14:30"].map(t => (
-                              <button
-                                key={t}
-                                type="button"
-                                onClick={() => { set("time", t); setShowTimePicker(false); }}
-                                className={`py-1 text-[11px] font-semibold rounded-md text-center transition-all ${
-                                  form.time === t
-                                    ? "bg-[#1C243B] text-white"
-                                    : "bg-slate-50 text-slate-700 hover:bg-slate-100"
-                                }`}
-                              >
-                                {t}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Sore */}
-                        <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Sore (15:00 - 17:30)</p>
-                          <div className="grid grid-cols-4 gap-1">
-                            {["15:00", "15:30", "16:00", "16:30", "17:00", "17:30"].map(t => (
-                              <button
-                                key={t}
-                                type="button"
-                                onClick={() => { set("time", t); setShowTimePicker(false); }}
-                                className={`py-1 text-[11px] font-semibold rounded-md text-center transition-all ${
-                                  form.time === t
-                                    ? "bg-[#1C243B] text-white"
-                                    : "bg-slate-50 text-slate-700 hover:bg-slate-100"
-                                }`}
-                              >
-                                {t}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Malam */}
-                        <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Malam (18:00 - 21:00)</p>
-                          <div className="grid grid-cols-4 gap-1">
-                            {["18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00"].map(t => (
-                              <button
-                                key={t}
-                                type="button"
-                                onClick={() => { set("time", t); setShowTimePicker(false); }}
-                                className={`py-1 text-[11px] font-semibold rounded-md text-center transition-all ${
-                                  form.time === t
-                                    ? "bg-[#1C243B] text-white"
-                                    : "bg-slate-50 text-slate-700 hover:bg-slate-100"
-                                }`}
-                              >
-                                {t}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
+                        {/* Done/Confirm button */}
+                        <button
+                          type="button"
+                          onClick={() => setShowTimePicker(false)}
+                          className="w-full mt-3 py-1.5 bg-[#1C243B] text-white rounded-lg text-[11px] font-semibold hover:bg-slate-800 transition-colors"
+                        >
+                          Selesai
+                        </button>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -1300,7 +1430,7 @@ export function AppointmentScheduling({
     : `${dayApts.length} janji`
 
   return (
-    <div className="flex h-full min-h-screen bg-slate-50 overflow-hidden">
+    <div className="flex h-[calc(100vh-64px)] w-full bg-slate-50 overflow-hidden">
       {/* ── LEFT SIDEBAR ── */}
       <div className="w-64 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
         <div className="px-4 pt-5 pb-4">
@@ -1440,7 +1570,7 @@ export function AppointmentScheduling({
             animate={{ width: 320, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            className="flex-shrink-0 overflow-hidden border-l border-slate-200"
+            className="h-full flex-shrink-0 overflow-hidden border-l border-slate-200"
             style={{ minWidth: 0 }}
           >
             <div className="w-80 h-full">

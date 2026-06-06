@@ -49,7 +49,7 @@ function PatientRow({
   q: string
   onSelect: () => void
 }) {
-  const initials = patient.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
+  const initials = (patient.name || "").split(" ").filter(Boolean).map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "??"
   return (
     <motion.button
       layout
@@ -112,8 +112,8 @@ function PatientList({
   const groups = useMemo(() => {
     const filtered = patients.filter(p => {
       const matchQ = !q.trim() ||
-        p.name.toLowerCase().includes(q.toLowerCase()) ||
-        p.patientId.toLowerCase().includes(q.toLowerCase())
+        (p.name && p.name.toLowerCase().includes(q.toLowerCase())) ||
+        (p.patientId && p.patientId.toLowerCase().includes(q.toLowerCase()))
       const matchBatch = activeBatch === "all" || p.batchId === activeBatch
       return matchQ && matchBatch
     })
@@ -309,7 +309,7 @@ function PatientDetail({ patient, batches }: { patient: any; batches: Batch[] })
         {patient.records.length === 0 ? (
           <div className="py-20 flex flex-col items-center gap-2 text-center">
             <FileText size={28} className="text-slate-200" />
-            <p className="text-[13px] font-medium text-slate-400">Belum ada riwayat konseling klinis</p>
+            <p className="text-[13px] font-medium text-slate-400">Tidak ada riwayat konseling yang dilakukan</p>
             <p className="text-[11px] text-slate-300 max-w-[32ch] leading-relaxed">
               Catatan akan otomatis muncul setelah Laporan Psikologis dengan checklist &ldquo;Pasien Konseling&rdquo; disimpan.
             </p>
@@ -364,14 +364,14 @@ export function MedicalHistory({ patients = [], currentUser, batches = [] }: Med
       const patientReports = reports.filter(r => {
         const isCounseling = r.form?.pasienKonseling === true
         const matchesId = r.form?.patientId === p.id
-        const matchesName = r.form?.namaLengkap?.toLowerCase() === p.name.toLowerCase()
+        const matchesName = r.form?.namaLengkap?.toLowerCase() === (p.name || "").toLowerCase()
         return isCounseling && (matchesId || (r.form?.patientId == null && matchesName))
       })
 
       const records = patientReports.map(r => ({
         id: r.id,
-        title: r.name.replace(".pdf", "").replace("Laporan_", ""),
-        date: r.createdAt,
+        title: r.name ? r.name.replace(".pdf", "").replace("Laporan_", "") : "—",
+        date: r.createdAt || "—",
         permasalahan: r.form?.permasalahan || "—",
         prosesKonseling: r.form?.prosesKonseling || "—",
         diagnosisKlinis: r.form?.diagnosisKlinis || "—",
@@ -380,10 +380,10 @@ export function MedicalHistory({ patients = [], currentUser, batches = [] }: Med
 
       return {
         id: p.id,
-        patientId: p.idNumber,
-        name: p.name,
+        patientId: p.idNumber || "",
+        name: p.name || "Tanpa Nama",
         dateOfBirth: p.dateOfBirth || "",
-        batchId: p.batchId,
+        batchId: p.batchId || "",
         records,
       }
     })

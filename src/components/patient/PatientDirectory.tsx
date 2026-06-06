@@ -309,7 +309,31 @@ export function PatientDirectory({
         const json = await res.json()
         if (json.ok) {
           successCount++
-          newPatientsList.push(json.data)
+          const pData = json.data
+          newPatientsList.push({
+            id: pData.id,
+            name: pData.name,
+            email: pData.email || "",
+            idNumber: pData.id_number || pData.idNumber || "",
+            age: Number(pData.age) || 0,
+            gender: pData.gender || "",
+            phone: pData.phone || "",
+            registeredAt: pData.registered_at || pData.registeredAt || "",
+            hasPhoto: !!pData.photo || !!pData.hasPhoto,
+            initials: pData.initials || "",
+            batchId: pData.batch_id || pData.batchId || "",
+            birthPlace: pData.birth_place || pData.birthPlace || "",
+            education: pData.education || "",
+            siblingOrder: pData.sibling_order || pData.siblingOrder || "",
+            totalSiblings: pData.total_siblings || pData.totalSiblings || "",
+            dateOfBirth: pData.date_of_birth || pData.dateOfBirth || "",
+            occupation: pData.occupation || "",
+            country: pData.country || "",
+            province: pData.province || "",
+            city: pData.city || "",
+            fullAddress: pData.full_address || pData.fullAddress || "",
+            photo: pData.photo || null,
+          })
         } else {
           failCount++
         }

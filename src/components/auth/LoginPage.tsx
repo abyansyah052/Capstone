@@ -15,7 +15,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
-  
+
   const [nameError, setNameError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -25,62 +25,85 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
   // Initialize Google OAuth2 Client
   useEffect(() => {
+    console.log("Initializing Google OAuth SDK...");
     const initGoogleOAuth = () => {
       const g = (window as any).google;
       if (g?.accounts?.oauth2) {
-        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
-        const client = g.accounts.oauth2.initTokenClient({
-          client_id: clientId,
-          scope: "https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email",
-          callback: async (tokenResponse: any) => {
-            if (tokenResponse && tokenResponse.access_token) {
-              setIsLoading(true);
-              try {
-                const userInfoRes = await fetch(
-                  `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${tokenResponse.access_token}`
-                );
-                const userInfo = await userInfoRes.json();
-
-                if (!userInfo.email) {
-                  alert("Gagal mengambil email dari Google");
-                  setIsLoading(false);
-                  return;
-                }
-
-                // Call backend API with real Google details
-                const res = await fetch("/api/auth/google", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ email: userInfo.email, name: userInfo.name || userInfo.email }),
-                });
-                const json = await res.json();
+        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+        console.log("Google OAuth client ID in use:", clientId);
+        try {
+          const client = g.accounts.oauth2.initTokenClient({
+            client_id: clientId,
+            scope: "https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email",
+            callback: async (tokenResponse: any) => {
+              console.log("Google OAuth token client response received:", tokenResponse);
+              if (tokenResponse?.error) {
+                console.error("Google OAuth authentication error:", tokenResponse.error, tokenResponse.error_description);
+                alert(`Google OAuth Error: ${tokenResponse.error_description || tokenResponse.error}`);
                 setIsLoading(false);
-                if (json.ok) {
-                  onLoginSuccess(json.data);
-                } else {
-                  alert(json.error || "Gagal login Google");
-                }
-              } catch (err) {
-                setIsLoading(false);
-                alert("Koneksi ke server backend atau Google gagal.");
+                return;
               }
-            }
-          },
-        });
-        setTokenClient(client);
+              if (tokenResponse && tokenResponse.access_token) {
+                setIsLoading(true);
+                try {
+                  console.log("Sending Google access token to backend for secure verification...");
+                  // Call backend API with Google access token
+                  const res = await fetch("/api/auth/google", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ accessToken: tokenResponse.access_token }),
+                  });
+                  const json = await res.json();
+                  setIsLoading(false);
+                  console.log("Backend response for Google auth:", json);
+                  if (json.ok) {
+                    onLoginSuccess(json.data);
+                  } else {
+                    console.error("Backend rejected Google token:", json.error);
+                    alert(json.error || "Gagal login Google");
+                  }
+                } catch (err) {
+                  console.error("Failed verifying with backend:", err);
+                  setIsLoading(false);
+                  alert("Server Timeout / Google Timeout");
+                }
+              }
+            },
+          });
+          setTokenClient(client);
+          console.log("Google OAuth client initialized successfully.");
+        } catch (initErr) {
+          console.error("Failed to initialize Google OAuth token client:", initErr);
+        }
+      } else {
+        console.warn("window.google.accounts.oauth2 is not available yet.");
       }
     };
 
-    if ((window as any).google?.accounts?.oauth2) {
+    const g = (window as any).google;
+    if (g?.accounts?.oauth2) {
       initGoogleOAuth();
     } else {
+      console.log("Google client script not loaded yet; setting up listeners...");
+      
+      // Hook into Google Identity Services global load callback
+      (window as any).onGoogleLibraryLoad = () => {
+        console.log("onGoogleLibraryLoad callback triggered.");
+        initGoogleOAuth();
+      };
+
       const interval = setInterval(() => {
         if ((window as any).google?.accounts?.oauth2) {
+          console.log("Google client script detected via interval polling.");
           initGoogleOAuth();
           clearInterval(interval);
         }
       }, 500);
-      return () => clearInterval(interval);
+
+      return () => {
+        clearInterval(interval);
+        delete (window as any).onGoogleLibraryLoad;
+      };
     }
   }, []);
 
@@ -175,7 +198,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         }
       } catch (err: any) {
         setIsLoading(false);
-        setConfirmPasswordError("Koneksi ke server backend gagal.");
+        setConfirmPasswordError("Server Timeout.");
       }
     } else {
       try {
@@ -193,7 +216,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         }
       } catch (err: any) {
         setIsLoading(false);
-        setPasswordError("Koneksi ke server backend gagal.");
+        setPasswordError("Server Timeout.");
       }
     }
   };
@@ -211,8 +234,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       {/* Left decorative panel (Hidden on mobile/tablet, shown on desktop) */}
       <div className="hidden lg:flex lg:w-[48%] relative rounded-tl-[120px] rounded-br-[120px] rounded-tr-[28px] rounded-bl-[28px] overflow-hidden bg-black flex-col justify-between p-12">
         {/* Background Image overlayed with gradient */}
-        <div 
-          className="absolute inset-0 bg-cover bg-bottom transition-transform duration-700 hover:scale-105" 
+        <div
+          className="absolute inset-0 bg-cover bg-bottom transition-transform duration-700 hover:scale-105"
           style={{ backgroundImage: "url('/src/assets/Psikolog Asisya Web Design.png')", backgroundPosition: "bottom" }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent mix-blend-multiply opacity-90" />
@@ -220,16 +243,16 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
         {/* Large SVG Branding Logo in bottom left */}
         <div className="relative z-10 mt-auto flex items-end justify-start">
-          <img 
-            src="/SI Capstone 1 Group 2.svg" 
-            alt="SI Capstone 1 Group 2 Logo" 
-            className="w-full max-w-[340px] h-auto object-contain" 
+          <img
+            src="/SI Capstone 1 Group 2.svg"
+            alt="SI Capstone 1 Group 2 Logo"
+            className="w-full max-w-[340px] h-auto object-contain"
           />
         </div>
       </div>
 
       {/* Right form panel */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
@@ -248,8 +271,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 {isSignUp ? "Daftar Akun Baru" : "Welcome Back"}
               </h1>
               <p className="text-[13px] text-[#6B7280] font-normal leading-relaxed">
-                {isSignUp 
-                  ? "Lengkapi formulir di bawah ini untuk membuat akun baru" 
+                {isSignUp
+                  ? "Lengkapi formulir di bawah ini untuk membuat akun baru"
                   : "Enter your email and password to access your account"
                 }
               </p>
@@ -464,10 +487,10 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   loading={isLoading}
                   leftSection={
                     <svg className="h-[18px] w-[18px]" viewBox="0 0 48 48" style={{ display: "block" }}>
-                      <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
-                      <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
-                      <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
-                      <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
+                      <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
+                      <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" />
+                      <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" />
+                      <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" />
                     </svg>
                   }
                   styles={{

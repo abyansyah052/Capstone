@@ -97,16 +97,32 @@ router.post("/login", async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
-// Endpoint: Mock Google Auth Login / Register
+// Endpoint: Secure Google Auth Login / Register
 router.post("/google", async (req: AuthenticatedRequest, res: Response) => {
-  const { email, name } = req.body;
+  const { accessToken } = req.body;
 
-  if (!email || !name) {
-    res.status(400).json({ ok: false, error: "Google authentication payload invalid" });
+  if (!accessToken) {
+    res.status(400).json({ ok: false, error: "Google access token is required" });
     return;
   }
 
   try {
+    // Call Google's Userinfo API directly to verify the token and get user profile
+    const googleRes = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`);
+    if (!googleRes.ok) {
+      res.status(401).json({ ok: false, error: "Google authentication failed: Invalid access token" });
+      return;
+    }
+
+    const userInfo: any = await googleRes.json();
+    const email = userInfo.email;
+    const name = userInfo.name || email;
+
+    if (!email) {
+      res.status(400).json({ ok: false, error: "Could not retrieve email address from Google profile" });
+      return;
+    }
+
     const userResult = await query("SELECT * FROM users WHERE email = $1", [email.toLowerCase()]);
     let user;
 
@@ -117,14 +133,14 @@ router.post("/google", async (req: AuthenticatedRequest, res: Response) => {
         [userId, name, email.toLowerCase(), "reguler", "active"]
       );
       user = insertResult.rows[0];
-      await logActivity(userId, email.toLowerCase(), "USER_GOOGLE_REGISTER", `Registered via Mock Google Sign-In`);
+      await logActivity(userId, email.toLowerCase(), "USER_GOOGLE_REGISTER", `Registered via Secure Google Sign-In`);
     } else {
       user = userResult.rows[0];
       if (user.status === "banned") {
         res.status(403).json({ ok: false, error: "This account has been banned." });
         return;
       }
-      await logActivity(user.id, email.toLowerCase(), "USER_GOOGLE_LOGIN", `Logged in via Mock Google Sign-In`);
+      await logActivity(user.id, email.toLowerCase(), "USER_GOOGLE_LOGIN", `Logged in via Secure Google Sign-In`);
     }
 
     let signature = null;

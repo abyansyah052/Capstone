@@ -5,7 +5,7 @@ import { requireAuth, AuthenticatedRequest } from "../middlewares/authMiddleware
 const router = Router();
 
 // GET /api/dashboard/stats
-router.get("/stats", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/stats", requireAuth, async (_req: AuthenticatedRequest, res: Response) => {
   try {
     // Get today's date in local server YYYY-MM-DD
     const today = new Date().toISOString().split("T")[0];

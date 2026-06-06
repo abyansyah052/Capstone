@@ -3,6 +3,22 @@ import { query, logActivity } from "../config/db";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 import { sendNotification } from "../services/notificationService";
 
+const formatDate = (val: any): string => {
+  if (!val) return "";
+  if (val instanceof Date) {
+    const offset = val.getTimezoneOffset();
+    const localDate = new Date(val.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split("T")[0] || "";
+  }
+  if (typeof val === "string") {
+    if (val.includes("T")) {
+      return val.split("T")[0] || "";
+    }
+    return val;
+  }
+  return String(val);
+};
+
 // GET /api/appointments - Retrieve appointments
 export const getAllAppointments = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const role = req.user?.role;
@@ -20,7 +36,7 @@ export const getAllAppointments = async (req: AuthenticatedRequest, res: Respons
       id: row.id,
       patientId: row.patient_id,
       patientName: row.patient_name,
-      date: row.date,
+      date: formatDate(row.date),
       time: row.time_slot,
       duration: Number(row.duration) || 60,
       doctorId: row.psychologist_id,
@@ -53,6 +69,17 @@ export const createAppointment = async (req: AuthenticatedRequest, res: Response
   const visibleToRegular = data.visibleToRegular === true || data.visibleToRegular === "true";
 
   try {
+    let resolvedPatientId = null;
+    if (data.patientId && data.patientId !== "INTERNAL") {
+      const patientResult = await query(
+        "SELECT id FROM patients WHERE phone = $1 OR id = $2 LIMIT 1",
+        [data.patientId.trim(), data.patientId.trim()]
+      );
+      if (patientResult.rows.length > 0) {
+        resolvedPatientId = patientResult.rows[0].id;
+      }
+    }
+
     await query(
       `INSERT INTO appointments (
         id, patient_id, patient_name, psychologist_id, date, time_slot, duration,
@@ -60,7 +87,7 @@ export const createAppointment = async (req: AuthenticatedRequest, res: Response
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
       [
         id,
-        data.patientId || null,
+        resolvedPatientId,
         data.patientName,
         data.doctorId,
         data.date,
