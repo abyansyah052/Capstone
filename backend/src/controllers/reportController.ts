@@ -5,12 +5,32 @@ import { query, logActivity } from "../config/db";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 
 // Helper to generate dynamic PDF buffer using pdfkit
-const generatePdfBuffer = (
+const generatePdfBuffer = async (
   form: any,
   signatureBase64: string | null,
   psyName: string,
   sipp: string
 ): Promise<Buffer> => {
+  // Query batch logo first if patientId is present
+  let batchLogo: string | null = null;
+  let useLogoInReport = false;
+  let logoScale = 1.0;
+  if (form.patientId) {
+    try {
+      const patientRes = await query("SELECT batch_id FROM patients WHERE id = $1", [form.patientId]);
+      if (patientRes.rows.length > 0 && patientRes.rows[0].batch_id) {
+        const batchRes = await query("SELECT logo, use_logo_in_report, logo_scale FROM batches WHERE id = $1", [patientRes.rows[0].batch_id]);
+        if (batchRes.rows.length > 0) {
+          batchLogo = batchRes.rows[0].logo;
+          useLogoInReport = !!batchRes.rows[0].use_logo_in_report;
+          logoScale = parseFloat(batchRes.rows[0].logo_scale || "1.0");
+        }
+      }
+    } catch (e) {
+      console.error("Error looking up batch logo for PDF report:", e);
+    }
+  }
+
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "A4", margin: 50 });
     const chunks: Buffer[] = [];
@@ -19,10 +39,24 @@ const generatePdfBuffer = (
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", (err) => reject(err));
 
+    // Draw Right Logo if enabled
+    if (useLogoInReport && batchLogo && batchLogo.startsWith("data:image")) {
+      try {
+        const base64Data = batchLogo.replace(/^data:image\/\w+;base64,/, "");
+        const logoBuffer = Buffer.from(base64Data, "base64");
+        // Place it on top right corner, sizing and positioning based on logoScale
+        const size = 50 * logoScale;
+        const logoX = 545 - size;
+        doc.image(logoBuffer, logoX, 45, { width: size, height: size, fit: [size, size] });
+      } catch (errImg) {
+        console.error("Error drawing batch logo in PDF:", errImg);
+      }
+    }
+
     // Header Title
     doc.fontSize(14).font("Helvetica-Bold").text("ASISYA PSYCHOLOGICAL CENTER", { align: "center" });
     doc.fontSize(8).font("Helvetica").text("Ruko Grand City Regency A7 - A8 Jl. Rungkut Madya", { align: "center" });
-    doc.text("Tlp: 0813-3501-005 | Surabaya - Jawa Timur", { align: "center" });
+    doc.text("Surabaya - Jawa Timur", { align: "center" });
     doc.moveDown(0.5);
 
     // Divider Line

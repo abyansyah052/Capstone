@@ -59,7 +59,8 @@ export const getAllAppointments = async (req: AuthenticatedRequest, res: Respons
 export const createAppointment = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const data = req.body;
 
-  if (!data.patientName || !data.date || !data.time || !data.doctorId) {
+  const isInternal = data.patientId === "INTERNAL";
+  if (!data.patientName || !data.date || !data.time || (!isInternal && !data.doctorId)) {
     res.status(400).json({ ok: false, error: "Missing required appointment scheduling parameters" });
     return;
   }
@@ -89,7 +90,7 @@ export const createAppointment = async (req: AuthenticatedRequest, res: Response
         id,
         resolvedPatientId,
         data.patientName,
-        data.doctorId,
+        isInternal ? null : (data.doctorId || null),
         data.date,
         data.time,
         duration,

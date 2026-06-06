@@ -339,7 +339,7 @@ export function ReportCreator({
         {/* Preview panel */}
         <div className="flex-1 overflow-auto bg-slate-300/80 flex items-start justify-center py-10 px-4 sm:px-8">
           <div style={{ transform: "scale(1)", transformOrigin: "top center", marginBottom: "80px" }}>
-            <ReportPreview form={form} psychologists={psychologists} currentUser={currentUser} />
+            <ReportPreview form={form} psychologists={psychologists} currentUser={currentUser} patients={patients} batches={batches} />
           </div>
         </div>
       </div>

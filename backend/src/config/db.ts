@@ -45,6 +45,9 @@ export const initDb = async () => {
       );
     `);
     await pool.query("ALTER TABLE batches ADD COLUMN IF NOT EXISTS deleted BOOLEAN DEFAULT FALSE;");
+    await pool.query("ALTER TABLE batches ADD COLUMN IF NOT EXISTS logo TEXT;");
+    await pool.query("ALTER TABLE batches ADD COLUMN IF NOT EXISTS use_logo_in_report BOOLEAN DEFAULT FALSE;");
+    await pool.query("ALTER TABLE batches ADD COLUMN IF NOT EXISTS logo_scale REAL DEFAULT 1.0;");
 
     // Create psychologists table
     await pool.query(`

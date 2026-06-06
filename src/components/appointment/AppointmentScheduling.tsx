@@ -65,6 +65,7 @@ const getPsyColor = (id: string) => PSY_COLORS[id] ?? "#475569"
 const APPOINTMENT_TYPES = [
   "Pemeriksaan Umum", "Kontrol & Tindak Lanjut",
   "Konsultasi", "Pemeriksaan Lab", "Vaksinasi", "Gawat Darurat",
+  "Lainnya",
 ]
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
@@ -229,7 +230,7 @@ function validateAppt(form: NewApptForm, today: string, isInternal: boolean): Fo
   if (!form.date)               e.date        = "Tanggal wajib dipilih."
   else if (form.date < today)   e.date        = "Tanggal tidak boleh di masa lalu."
   if (!form.time)               e.time        = "Waktu wajib dipilih."
-  if (!form.doctorId)           e.doctorId    = "Psikolog wajib dipilih."
+  if (!isInternal && !form.doctorId)           e.doctorId    = "Psikolog wajib dipilih."
   if (!form.type)               e.type        = "Jenis janji wajib dipilih."
   if (form.notify === "whatsapp" || form.notify === "both") {
     if (!form.notifyPhone.trim())
@@ -1136,34 +1137,49 @@ function NewApptDrawer({
                 </div>
               </Field>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            {activeTab === "pasien" ? (
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Durasi" id="f-dur">
+                  <div className="relative">
+                    <select id="f-dur" value={form.duration}
+                      onChange={e => set("duration", e.target.value)}
+                      className={`${inputCls} appearance-none pr-7`}>
+                      {[15, 30, 45, 60, 90, 120].map(n =>
+                        <option key={n} value={n}>{n} menit</option>
+                      )}
+                    </select>
+                    <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                </Field>
+                <Field label="Psikolog" id="f-doc" required error={err("doctorId")}>
+                  <div className="relative">
+                    <select id="f-doc" value={form.doctorId}
+                      onChange={e => set("doctorId", e.target.value)}
+                      onBlur={() => blur("doctorId")}
+                      className={`${err("doctorId") ? inputErrCls : inputCls} appearance-none pr-7`}>
+                      <option value="" disabled>Pilih</option>
+                      {psychologists.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                </Field>
+              </div>
+            ) : (
               <Field label="Durasi" id="f-dur">
                 <div className="relative">
                   <select id="f-dur" value={form.duration}
                     onChange={e => set("duration", e.target.value)}
                     className={`${inputCls} appearance-none pr-7`}>
-                    {[15,30,45,60,90,120].map(n =>
+                    {[15, 30, 45, 60, 90, 120].map(n =>
                       <option key={n} value={n}>{n} menit</option>
                     )}
                   </select>
                   <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
               </Field>
-              <Field label="Psikolog" id="f-doc" required error={err("doctorId")}>
-                <div className="relative">
-                  <select id="f-doc" value={form.doctorId}
-                    onChange={e => set("doctorId", e.target.value)}
-                    onBlur={() => blur("doctorId")}
-                    className={`${err("doctorId") ? inputErrCls : inputCls} appearance-none pr-7`}>
-                    <option value="" disabled>Pilih</option>
-                    {psychologists.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                  <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                </div>
-              </Field>
-            </div>
+            )}
             <Field label="Jenis Janji" id="f-type" required error={err("type")}>
               <div className="relative">
                 <select id="f-type" value={form.type}

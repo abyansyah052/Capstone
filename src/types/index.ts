@@ -6,6 +6,9 @@ export type Batch = {
   company: string;
   color: string;
   deleted?: boolean;
+  logo?: string | null;
+  useLogoInReport?: boolean;
+  logoScale?: number;
 };
 
 export type Patient = {

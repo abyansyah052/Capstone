@@ -5,7 +5,11 @@ import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 // GET /api/batches - Get all batches (including soft deleted for historical rendering)
 export const getAllBatches = async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const result = await query("SELECT id, name, company, color, deleted FROM batches ORDER BY id ASC");
+    const result = await query(
+      `SELECT id, name, company, color, deleted, logo, use_logo_in_report as "useLogoInReport", logo_scale as "logoScale" 
+       FROM batches 
+       ORDER BY id ASC`
+    );
     res.json({ ok: true, data: result.rows });
   } catch (error: any) {
     res.status(500).json({ ok: false, error: error.message });
@@ -14,7 +18,7 @@ export const getAllBatches = async (_req: AuthenticatedRequest, res: Response): 
 
 // POST /api/batches - Create batch (staff only)
 export const createBatch = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  const { id, name, company, color } = req.body;
+  const { id, name, company, color, logo, useLogoInReport, logoScale } = req.body;
 
   if (!id || !name || !company || !color) {
     res.status(400).json({ ok: false, error: "Missing required fields: id, name, company, color" });
@@ -29,8 +33,10 @@ export const createBatch = async (req: AuthenticatedRequest, res: Response): Pro
       if (existing.deleted) {
         // Reactivate soft-deleted batch with new fields
         await query(
-          "UPDATE batches SET name = $1, company = $2, color = $3, deleted = false WHERE id = $4",
-          [name, company, color, id]
+          `UPDATE batches 
+           SET name = $1, company = $2, color = $3, logo = $4, use_logo_in_report = $5, logo_scale = $6, deleted = false 
+           WHERE id = $7`,
+          [name, company, color, logo || null, !!useLogoInReport, logoScale !== undefined ? logoScale : 1.0, id]
         );
         await logActivity(
           req.user?.id || "system",
@@ -38,7 +44,19 @@ export const createBatch = async (req: AuthenticatedRequest, res: Response): Pro
           "BATCH_REACTIVATE",
           `Reactivated batch ${id} (${name})`
         );
-        res.status(200).json({ ok: true, data: { id, name, company, color } });
+        res.status(200).json({
+          ok: true,
+          data: {
+            id,
+            name,
+            company,
+            color,
+            deleted: false,
+            logo: logo || null,
+            useLogoInReport: !!useLogoInReport,
+            logoScale: logoScale !== undefined ? logoScale : 1.0,
+          },
+        });
         return;
       } else {
         res.status(400).json({ ok: false, error: `Batch dengan ID '${id}' sudah terdaftar.` });
@@ -47,8 +65,9 @@ export const createBatch = async (req: AuthenticatedRequest, res: Response): Pro
     }
 
     await query(
-      "INSERT INTO batches (id, name, company, color, deleted) VALUES ($1, $2, $3, $4, false)",
-      [id, name, company, color]
+      `INSERT INTO batches (id, name, company, color, logo, use_logo_in_report, logo_scale, deleted) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, false)`,
+      [id, name, company, color, logo || null, !!useLogoInReport, logoScale !== undefined ? logoScale : 1.0]
     );
 
     await logActivity(
@@ -58,7 +77,68 @@ export const createBatch = async (req: AuthenticatedRequest, res: Response): Pro
       `Created batch ${id} (${name})`
     );
 
-    res.status(201).json({ ok: true, data: { id, name, company, color } });
+    res.status(201).json({
+      ok: true,
+      data: {
+        id,
+        name,
+        company,
+        color,
+        deleted: false,
+        logo: logo || null,
+        useLogoInReport: !!useLogoInReport,
+        logoScale: logoScale !== undefined ? logoScale : 1.0,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+};
+
+// PUT /api/batches/:id - Update batch (staff only)
+export const updateBatch = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const { name, company, color, logo, useLogoInReport, logoScale } = req.body;
+
+  if (!name || !company || !color) {
+    res.status(400).json({ ok: false, error: "Missing required fields: name, company, color" });
+    return;
+  }
+
+  try {
+    const check = await query("SELECT * FROM batches WHERE id = $1 AND deleted = false", [id]);
+    if (check.rows.length === 0) {
+      res.status(404).json({ ok: false, error: "Batch tidak ditemukan atau sudah dihapus." });
+      return;
+    }
+
+    await query(
+      `UPDATE batches 
+       SET name = $1, company = $2, color = $3, logo = $4, use_logo_in_report = $5, logo_scale = $6 
+       WHERE id = $7`,
+      [name, company, color, logo !== undefined ? logo : null, !!useLogoInReport, logoScale !== undefined ? logoScale : 1.0, id]
+    );
+
+    await logActivity(
+      req.user?.id || "system",
+      req.user?.email || "system@asisya.com",
+      "BATCH_UPDATE",
+      `Updated batch ${id} (${name})`
+    );
+
+    res.json({
+      ok: true,
+      data: {
+        id,
+        name,
+        company,
+        color,
+        deleted: false,
+        logo: logo !== undefined ? logo : null,
+        useLogoInReport: !!useLogoInReport,
+        logoScale: logoScale !== undefined ? logoScale : 1.0,
+      },
+    });
   } catch (error: any) {
     res.status(500).json({ ok: false, error: error.message });
   }

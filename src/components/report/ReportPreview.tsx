@@ -1,12 +1,20 @@
-import { Psychologist, ReportForm } from "../../types"
+import { Psychologist, ReportForm, Patient, Batch } from "../../types"
 
 type ReportPreviewProps = {
   form: ReportForm
   psychologists?: Psychologist[]
   currentUser?: { id: string; name: string; email: string; role: string; signature: string | null } | null
+  patients?: Patient[]
+  batches?: Batch[]
 }
 
-export function ReportPreview({ form, psychologists = [], currentUser = null }: ReportPreviewProps) {
+export function ReportPreview({
+  form,
+  psychologists = [],
+  currentUser = null,
+  patients = [],
+  batches = []
+}: ReportPreviewProps) {
   const today = new Date().toLocaleDateString("id-ID", {
     weekday: "long",
     year: "numeric",
@@ -20,6 +28,15 @@ export function ReportPreview({ form, psychologists = [], currentUser = null }: 
   const psyName = activePsychologist?.name || currentUser?.name || "Psikolog / Konselor"
   const psySipp = activePsychologist?.sipp || ""
   const psySignature = activePsychologist?.signature || currentUser?.signature || null
+
+  // Resolve the patient's batch to check logo printing preferences
+  const patient = patients.find(p => p.id === form.patientId)
+  const batch = patient ? batches.find(b => b.id === patient.batchId) : null
+  const useLogoInReport = batch?.useLogoInReport ?? false
+  const batchLogo = batch?.logo ?? null
+  const logoScale = batch?.logoScale ?? 1.0
+  const logoWidth = 64 * logoScale
+  const logoHeight = 64 * logoScale
 
   const row = (label: string, value: string) => (
     <tr style={{ borderBottom: "1px solid #d1d5db" }}>
@@ -55,9 +72,15 @@ export function ReportPreview({ form, psychologists = [], currentUser = null }: 
             ASISYA PSYCHOLOGICAL CENTER
           </p>
           <p style={{ fontSize: "10px", color: "#374151", margin: "0 0 1px" }}>Ruko Grand City Regency A7 - A8 Jl. Rungkut Madya</p>
-          <p style={{ fontSize: "10px", color: "#374151", margin: "0 0 1px" }}>Tlp: 0813-3501-005</p>
           <p style={{ fontSize: "10px", color: "#374151", margin: 0 }}>Surabaya - Jawa Timur</p>
         </div>
+        {useLogoInReport && batchLogo ? (
+          <img src={batchLogo} alt="Batch Logo"
+            width={logoWidth} height={logoHeight}
+            style={{ width: `${logoWidth}px`, height: `${logoHeight}px`, objectFit: "contain", flexShrink: 0 }} />
+        ) : (
+          <div style={{ width: "64px", height: "64px", flexShrink: 0 }} />
+        )}
       </div>
       <hr style={{ borderColor: "#111827", borderWidth: "1.5px", marginBottom: "10px" }} />
       <p style={{ textAlign: "center", fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em", color: "#111827", marginBottom: "18px" }}>
