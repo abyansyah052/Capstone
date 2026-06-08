@@ -11,8 +11,8 @@ router.get("/stats", requireAuth, async (_req: AuthenticatedRequest, res: Respon
     const today = new Date().toISOString().split("T")[0];
 
     const patientsCountResult = await query("SELECT COUNT(*) FROM patients");
-    const todayAppointmentsResult = await query("SELECT COUNT(*) FROM appointments WHERE date = $1", [today]);
-    const internalAppointmentsResult = await query("SELECT COUNT(*) FROM appointments WHERE visible_to_regular = false");
+    const todayAppointmentsResult = await query("SELECT COUNT(*) FROM appointments WHERE date = $1 AND status != 'cancelled'", [today]);
+    const internalAppointmentsResult = await query("SELECT COUNT(*) FROM appointments WHERE visible_to_regular = false AND status != 'cancelled'");
 
     res.json({
       ok: true,

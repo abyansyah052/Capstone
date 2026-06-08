@@ -78,7 +78,7 @@ export function ReportCreator({
       anakKeberapa: p.siblingOrder ?? "",
       jumlahSaudara: p.totalSiblings ?? "",
       alamat: p.fullAddress ?? p.city ?? "",
-      pasienKonseling: prev.pasienKonseling,
+      pasienKonseling: true,
       patientId: p.id,
     }))
     setImportSearch("")
