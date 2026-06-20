@@ -33,6 +33,11 @@ app.get("/api/health", (_req: Request, res: Response) => {
 let dbInitialized = false;
 app.use(async (_req: Request, _res: Response, next: NextFunction) => {
   if (!dbInitialized) {
+    if (!process.env.DATABASE_URL) {
+      console.warn("[serverless] WARNING: DATABASE_URL environment variable is not set!");
+      dbInitialized = true; // Set to true to avoid spamming the log on every request
+      return next();
+    }
     try {
       console.log("[serverless] Verifying database connection...");
       await pool.query("SELECT 1");

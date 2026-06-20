@@ -12,6 +12,9 @@ const useSsl = isProduction || connectionString.includes("neon.tech");
 export const pool = new Pool({
   connectionString,
   ssl: useSsl ? { rejectUnauthorized: false } : false,
+  connectionTimeoutMillis: 5000, // Fail fast (5s) instead of hanging the serverless function
+  idleTimeoutMillis: 10000,      // Close idle clients fast in serverless environment
+  max: 10,                       // Limit connections
 });
 
 // Prevent process crash on unexpected database client errors
