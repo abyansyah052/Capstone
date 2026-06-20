@@ -6,9 +6,12 @@ dotenv.config();
 // PostgreSQL connection configuration
 const connectionString = process.env.DATABASE_URL || `postgresql://${process.env.PGUSER || 'postgres'}:${process.env.PGPASSWORD || 'postgres'}@${process.env.PGHOST || 'localhost'}:${process.env.PGPORT || 5432}/${process.env.PGDATABASE || 'asisya_db'}`;
 
+const isProduction = process.env.NODE_ENV === "production";
+const useSsl = isProduction || connectionString.includes("neon.tech");
+
 export const pool = new Pool({
   connectionString,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+  ssl: useSsl ? { rejectUnauthorized: false } : false,
 });
 
 // Helper to query database
@@ -99,7 +102,7 @@ export const initDb = async () => {
         id VARCHAR(255) PRIMARY KEY,
         patient_id VARCHAR(255) REFERENCES patients(id) ON DELETE CASCADE,
         patient_name VARCHAR(255),
-        psychologist_id VARCHAR(255) REFERENCES psychologists(id) ON DELETE SET NULL,
+        psychologist_id VARCHAR(255),
         date VARCHAR(50) NOT NULL,
         time_slot VARCHAR(50) NOT NULL,
         duration INTEGER DEFAULT 60,
@@ -113,6 +116,7 @@ export const initDb = async () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    await pool.query("ALTER TABLE appointments DROP CONSTRAINT IF EXISTS appointments_psychologist_id_fkey;");
     await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_name VARCHAR(255);");
     await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS duration INTEGER DEFAULT 60;");
     await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS type VARCHAR(255);");

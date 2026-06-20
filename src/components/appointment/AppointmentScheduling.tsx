@@ -231,6 +231,7 @@ function validateAppt(form: NewApptForm, today: string, isInternal: boolean): Fo
   else if (form.date < today)   e.date        = "Tanggal tidak boleh di masa lalu."
   if (!form.time)               e.time        = "Waktu wajib dipilih."
   if (!isInternal && !form.doctorId)           e.doctorId    = "Psikolog wajib dipilih."
+  if (isInternal && form.notify !== "none" && !form.doctorId) e.doctorId = "Pilih setidaknya satu psikolog untuk diberitahu."
   if (!form.type)               e.type        = "Jenis janji wajib dipilih."
   if (form.notify === "whatsapp" || form.notify === "both") {
     if (!form.notifyPhone.trim())
@@ -547,7 +548,8 @@ function TimeGrid({
           const startMin = timeToMinutes(apt.time)
           const top    = (startMin / 60) * SLOT_HEIGHT
           const height = Math.max((apt.duration / 60) * SLOT_HEIGHT, 24)
-          const psy    = psychologistMap.get(apt.doctorId)
+          const docIds = apt.doctorId ? apt.doctorId.split(",").filter(Boolean) : []
+          const psys   = docIds.map(id => psychologistMap.get(id)).filter((x): x is Psychologist => !!x)
           const m      = STATUS_META[apt.status]
           const isCancelled = apt.status === "cancelled"
           const layout = layoutMap.get(apt.id) ?? { colIndex: 0, colCount: 1 }
@@ -560,7 +562,7 @@ function TimeGrid({
               height={height}
               totalGridHeight={totalGridHeight}
               layout={layout}
-              psy={psy}
+              psys={psys}
               m={m}
               isCancelled={isCancelled}
               onStatusChange={onStatusChange}
@@ -574,13 +576,13 @@ function TimeGrid({
 }
 
 function GridBlock({
-  apt, top, height, totalGridHeight, layout, psy, m, isCancelled, onStatusChange, onDelete,
+  apt, top, height, totalGridHeight, layout, psys, m, isCancelled, onStatusChange, onDelete,
 }: {
   apt: Appointment
   top: number; height: number
   totalGridHeight: number
   layout: { colIndex: number; colCount: number }
-  psy: Psychologist | undefined
+  psys: Psychologist[]
   m: typeof STATUS_META[AppointmentStatus]
   isCancelled: boolean
   onStatusChange: (id: string, s: AppointmentStatus) => void
@@ -620,7 +622,7 @@ function GridBlock({
           backgroundColor: m.gridBg,
           borderColor: m.border,
           borderLeftWidth: 3,
-          borderLeftColor: getPsyColor(psy?.id ?? "") || m.dot,
+          borderLeftColor: getPsyColor(psys[0]?.id ?? "") || m.dot,
           zIndex: detail ? 15 : 5,
         }}
         onClick={() => setDetail(true)}
@@ -685,15 +687,26 @@ function GridBlock({
                     <Clock size={11} className="text-slate-400 flex-shrink-0" />
                     <span>{apt.time} · {apt.duration} menit</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: getPsyColor(psy?.id ?? "") }} />
-                    <span>
-                      {psy?.name}{" "}
-                      {psy?.sipp && (
-                        <span className="text-slate-400 font-mono text-[11px]">— {psy.sipp}</span>
-                      )}
-                    </span>
+                  <div className="flex flex-col gap-1 pl-0.5">
+                    {psys.length === 0 ? (
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-slate-300" />
+                        <span className="text-slate-400">Tidak ada psikolog</span>
+                      </div>
+                    ) : (
+                      psys.map(psy => (
+                        <div key={psy.id} className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: getPsyColor(psy.id) }} />
+                          <span>
+                            {psy.name}{" "}
+                            {psy.sipp && (
+                              <span className="text-slate-400 font-mono text-[11px]">— {psy.sipp}</span>
+                            )}
+                          </span>
+                        </div>
+                      ))
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <FileText size={11} className="text-slate-400 flex-shrink-0" />
@@ -787,6 +800,25 @@ function NewApptDrawer({
   const hourScrollRef = useRef<HTMLDivElement>(null)
   const minScrollRef = useRef<HTMLDivElement>(null)
 
+  const [showPsyDropdown, setShowPsyDropdown] = useState(false)
+  const psyDropdownRef = useRef<HTMLDivElement>(null)
+  const doctorIds = form.doctorId ? form.doctorId.split(",").filter(Boolean) : []
+
+  const togglePsychologist = (id: string) => {
+    let newIds
+    if (doctorIds.includes(id)) {
+      newIds = doctorIds.filter(x => x !== id)
+    } else {
+      newIds = [...doctorIds, id]
+    }
+    const val = newIds.join(",")
+    setForm(p => ({ ...p, doctorId: val }))
+    if (touched.doctorId || submitted) {
+      const e = validateAppt({ ...form, doctorId: val }, today, activeTab === "internal")
+      setErrors(p => ({ ...p, doctorId: e.doctorId }))
+    }
+  }
+
   const hoursList = useMemo(() => Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")), [])
   const minutesList = useMemo(() => Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0")), [])
 
@@ -846,6 +878,9 @@ function NewApptDrawer({
     const handleOutsideClick = (e: MouseEvent) => {
       if (timePickerRef.current && !timePickerRef.current.contains(e.target as Node)) {
         setShowTimePicker(false)
+      }
+      if (psyDropdownRef.current && !psyDropdownRef.current.contains(e.target as Node)) {
+        setShowPsyDropdown(false)
       }
     }
     document.addEventListener("mousedown", handleOutsideClick)
@@ -1152,33 +1187,131 @@ function NewApptDrawer({
                   </div>
                 </Field>
                 <Field label="Psikolog" id="f-doc" required error={err("doctorId")}>
-                  <div className="relative">
-                    <select id="f-doc" value={form.doctorId}
-                      onChange={e => set("doctorId", e.target.value)}
+                  <div className="relative" ref={psyDropdownRef}>
+                    <div
+                      onClick={() => setShowPsyDropdown(!showPsyDropdown)}
                       onBlur={() => blur("doctorId")}
-                      className={`${err("doctorId") ? inputErrCls : inputCls} appearance-none pr-7`}>
-                      <option value="" disabled>Pilih</option>
-                      {psychologists.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
-                    <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                      className={`${err("doctorId") ? inputErrCls : inputCls} min-h-9 h-auto py-1 px-2 pr-7 flex flex-wrap gap-1 items-center cursor-pointer select-none`}
+                    >
+                      {doctorIds.length === 0 ? (
+                        <span className="text-slate-400">Pilih</span>
+                      ) : (
+                        doctorIds.map(id => {
+                          const p = psychologists.find(x => x.id === id);
+                          if (!p) return null;
+                          return (
+                            <span
+                              key={id}
+                              style={{ backgroundColor: getPsyColor(id) }}
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-white"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                togglePsychologist(id);
+                              }}
+                            >
+                              {p.name.split(",")[0]}
+                              <X size={8} className="hover:text-red-200" />
+                            </span>
+                          );
+                        })
+                      )}
+                      <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                    {showPsyDropdown && (
+                      <div className="absolute left-0 right-0 mt-1 z-50 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto p-1 flex flex-col gap-0.5">
+                        {psychologists.map(p => {
+                          const isSelected = doctorIds.includes(p.id);
+                          return (
+                            <label
+                              key={p.id}
+                              className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 cursor-pointer text-[12px] font-medium text-slate-700 select-none"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => togglePsychologist(p.id)}
+                                className="w-3.5 h-3.5 rounded border-slate-300 accent-teal-600"
+                              />
+                              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getPsyColor(p.id) }} />
+                              {p.name}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </Field>
               </div>
             ) : (
-              <Field label="Durasi" id="f-dur">
-                <div className="relative">
-                  <select id="f-dur" value={form.duration}
-                    onChange={e => set("duration", e.target.value)}
-                    className={`${inputCls} appearance-none pr-7`}>
-                    {[15, 30, 45, 60, 90, 120].map(n =>
-                      <option key={n} value={n}>{n} menit</option>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Durasi" id="f-dur">
+                  <div className="relative">
+                    <select id="f-dur" value={form.duration}
+                      onChange={e => set("duration", e.target.value)}
+                      className={`${inputCls} appearance-none pr-7`}>
+                      {[15, 30, 45, 60, 90, 120].map(n =>
+                        <option key={n} value={n}>{n} menit</option>
+                      )}
+                    </select>
+                    <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                </Field>
+                <Field label="Psikolog Terlibat" id="f-doc" error={err("doctorId")}>
+                  <div className="relative" ref={psyDropdownRef}>
+                    <div
+                      onClick={() => setShowPsyDropdown(!showPsyDropdown)}
+                      onBlur={() => blur("doctorId")}
+                      className={`${err("doctorId") ? inputErrCls : inputCls} min-h-9 h-auto py-1 px-2 pr-7 flex flex-wrap gap-1 items-center cursor-pointer select-none`}
+                    >
+                      {doctorIds.length === 0 ? (
+                        <span className="text-slate-400">Pilih</span>
+                      ) : (
+                        doctorIds.map(id => {
+                          const p = psychologists.find(x => x.id === id);
+                          if (!p) return null;
+                          return (
+                            <span
+                              key={id}
+                              style={{ backgroundColor: getPsyColor(id) }}
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-white"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                togglePsychologist(id);
+                              }}
+                            >
+                              {p.name.split(",")[0]}
+                              <X size={8} className="hover:text-red-200" />
+                            </span>
+                          );
+                        })
+                      )}
+                      <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                    {showPsyDropdown && (
+                      <div className="absolute left-0 right-0 mt-1 z-50 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto p-1 flex flex-col gap-0.5">
+                        {psychologists.map(p => {
+                          const isSelected = doctorIds.includes(p.id);
+                          return (
+                            <label
+                              key={p.id}
+                              className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-50 cursor-pointer text-[12px] font-medium text-slate-700 select-none"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => togglePsychologist(p.id)}
+                                className="w-3.5 h-3.5 rounded border-slate-300 accent-teal-600"
+                              />
+                              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getPsyColor(p.id) }} />
+                              {p.name}
+                            </label>
+                          );
+                        })}
+                      </div>
                     )}
-                  </select>
-                  <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                </div>
-              </Field>
+                  </div>
+                </Field>
+              </div>
             )}
             <Field label="Jenis Janji" id="f-type" required error={err("type")}>
               <div className="relative">
@@ -1203,73 +1336,124 @@ function NewApptDrawer({
 
           <div className="h-px bg-slate-100" />
 
-          <section className="flex flex-col gap-2">
-            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">Notifikasi</h3>
-            <div className="flex rounded-lg border border-slate-200 overflow-hidden bg-slate-50 p-0.5 gap-0.5 h-8 items-center">
-              {NOTIFY_OPTS.map(opt => (
-                <button
-                  key={opt.val}
-                  type="button"
-                  onClick={() => set("notify", opt.val)}
-                  style={{ fontSize: "10px" }}
-                  className={[
-                    "flex-1 h-7 rounded-md transition-all flex items-center justify-center text-center font-semibold leading-none",
-                    form.notify === opt.val
-                      ? "bg-white text-slate-800 shadow-sm border border-slate-200/50"
-                      : "text-slate-400 hover:text-slate-600 bg-transparent",
-                  ].join(" ")}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+          {activeTab === "pasien" ? (
+            <section className="flex flex-col gap-2">
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">Notifikasi</h3>
+              <div className="flex rounded-lg border border-slate-200 overflow-hidden bg-slate-50 p-0.5 gap-0.5 h-8 items-center">
+                {NOTIFY_OPTS.map(opt => (
+                  <button
+                    key={opt.val}
+                    type="button"
+                    onClick={() => set("notify", opt.val)}
+                    style={{ fontSize: "10px" }}
+                    className={[
+                      "flex-1 h-7 rounded-md transition-all flex items-center justify-center text-center font-semibold leading-none",
+                      form.notify === opt.val
+                        ? "bg-white text-slate-800 shadow-sm border border-slate-200/50"
+                        : "text-slate-400 hover:text-slate-600 bg-transparent",
+                    ].join(" ")}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
 
-            <AnimatePresence>
-              {showWA && (
-                <motion.div key="wa"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.14 }}
-                  className="overflow-hidden"
-                >
-                  <Field label="Nomor WhatsApp" id="f-wa" required error={err("notifyPhone")}>
-                    <div className="relative">
-                      <MessageCircle size={11}
-                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-green-500 pointer-events-none" />
-                      <input id="f-wa" type="tel" inputMode="tel"
-                        value={form.notifyPhone}
-                        onChange={e => set("notifyPhone", e.target.value)}
-                        onBlur={() => blur("notifyPhone")}
-                        placeholder="+62 812 0000 0000"
-                        className={`${err("notifyPhone") ? inputErrCls : inputCls} pl-8`} />
+              <AnimatePresence>
+                {showWA && (
+                  <motion.div key="wa"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.14 }}
+                    className="overflow-hidden"
+                  >
+                    <Field label="Nomor WhatsApp" id="f-wa" required error={err("notifyPhone")}>
+                      <div className="relative">
+                        <MessageCircle size={11}
+                          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-green-500 pointer-events-none" />
+                        <input id="f-wa" type="tel" inputMode="tel"
+                          value={form.notifyPhone}
+                          onChange={e => set("notifyPhone", e.target.value)}
+                          onBlur={() => blur("notifyPhone")}
+                          placeholder="+62 812 0000 0000"
+                          className={`${err("notifyPhone") ? inputErrCls : inputCls} pl-8`} />
+                      </div>
+                    </Field>
+                  </motion.div>
+                )}
+                {showEmail && (
+                  <motion.div key="em"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.14 }}
+                    className="overflow-hidden"
+                  >
+                    <Field label="Alamat Email" id="f-email" required error={err("notifyEmail")}>
+                      <div className="relative">
+                        <Mail size={11}
+                          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" />
+                        <input id="f-email" type="email" inputMode="email"
+                          value={form.notifyEmail}
+                          onChange={e => set("notifyEmail", e.target.value)}
+                          onBlur={() => blur("notifyEmail")}
+                          placeholder="pasien@example.com"
+                          className={`${err("notifyEmail") ? inputErrCls : inputCls} pl-8`} />
+                      </div>
+                    </Field>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </section>
+          ) : (
+            <section className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 px-1">
+                <input
+                  id="f-notify-psy"
+                  type="checkbox"
+                  checked={form.notify !== "none"}
+                  onChange={e => set("notify", e.target.checked ? "both" : "none")}
+                  className="w-4 h-4 rounded border-slate-300 accent-[#01696f] cursor-pointer"
+                />
+                <label htmlFor="f-notify-psy" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                  Beritahu psikolog (Kirim notifikasi jadwal internal)
+                </label>
+              </div>
+
+              <AnimatePresence>
+                {form.notify !== "none" && (
+                  <motion.div
+                    key="notify-psy-channel"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.14 }}
+                    className="overflow-hidden flex flex-col gap-2 mt-1"
+                  >
+                    <p className="text-[11px] font-semibold text-slate-500">Saluran Notifikasi</p>
+                    <div className="flex rounded-lg border border-slate-200 overflow-hidden bg-slate-50 p-0.5 gap-0.5 h-8 items-center">
+                      {NOTIFY_OPTS.filter(o => o.val !== "none").map(opt => (
+                        <button
+                          key={opt.val}
+                          type="button"
+                          onClick={() => set("notify", opt.val)}
+                          style={{ fontSize: "10px" }}
+                          className={[
+                            "flex-1 h-7 rounded-md transition-all flex items-center justify-center text-center font-semibold leading-none",
+                            form.notify === opt.val
+                              ? "bg-white text-slate-800 shadow-sm border border-slate-200/50"
+                              : "text-slate-400 hover:text-slate-600 bg-transparent",
+                          ].join(" ")}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
                     </div>
-                  </Field>
-                </motion.div>
-              )}
-              {showEmail && (
-                <motion.div key="em"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.14 }}
-                  className="overflow-hidden"
-                >
-                  <Field label="Alamat Email" id="f-email" required error={err("notifyEmail")}>
-                    <div className="relative">
-                      <Mail size={11}
-                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" />
-                      <input id="f-email" type="email" inputMode="email"
-                        value={form.notifyEmail}
-                        onChange={e => set("notifyEmail", e.target.value)}
-                        onBlur={() => blur("notifyEmail")}
-                        placeholder="pasien@example.com"
-                        className={`${err("notifyEmail") ? inputErrCls : inputCls} pl-8`} />
-                    </div>
-                  </Field>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </section>
+          )}
 
             {/* Visibility option */}
             <div className="flex items-center gap-2 mt-4 px-1">
@@ -1284,7 +1468,6 @@ function NewApptDrawer({
                 Akun reguler boleh tahu (Tampilkan jadwal pertemuan ke akun reguler)
               </label>
             </div>
-          </section>
         </div>
       </form>
 
@@ -1438,7 +1621,7 @@ export function AppointmentScheduling({
 
   const dayApts      = appointments.filter(a => a.date === selectedDate)
   const filteredApts = filterPsychologist
-    ? dayApts.filter(a => a.doctorId === filterPsychologist)
+    ? dayApts.filter(a => a.doctorId && a.doctorId.split(",").includes(filterPsychologist))
     : dayApts
 
   const counterLabel = filterPsychologist
@@ -1481,36 +1664,39 @@ export function AppointmentScheduling({
             today={today}
           />
         </div>
+        {(currentUser?.role === "staff" || currentUser?.role === "apex") && (
+          <>
+            <div className="h-px bg-slate-100 mx-4" />
 
-        <div className="h-px bg-slate-100 mx-4" />
-
-        <div className="px-4 py-4 flex flex-col gap-2">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Psikolog</p>
-          <button
-            onClick={() => setFilterPsychologist("")}
-            className={[
-              "text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors",
-              !filterPsychologist ? "bg-slate-100 text-slate-800" : "text-slate-500 hover:bg-slate-50",
-            ].join(" ")}
-          >
-            <span className="w-2.5 h-2.5 rounded-full bg-slate-400 flex-shrink-0" />
-            Semua Psikolog
-          </button>
-          {psychologists.map(p => (
-            <button
-              key={p.id}
-              onClick={() => setFilterPsychologist(filterPsychologist === p.id ? "" : p.id)}
-              className={[
-                "text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] transition-colors",
-                filterPsychologist === p.id ? "bg-slate-100 font-medium text-slate-800" : "text-slate-500 hover:bg-slate-50",
-              ].join(" ")}
-            >
-              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                style={{ backgroundColor: getPsyColor(p.id) }} />
-              <span className="truncate">{p.name}</span>
-            </button>
-          ))}
-        </div>
+            <div className="px-4 py-4 flex flex-col gap-2">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Psikolog</p>
+              <button
+                onClick={() => setFilterPsychologist("")}
+                className={[
+                  "text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors",
+                  !filterPsychologist ? "bg-slate-100 text-slate-800" : "text-slate-500 hover:bg-slate-50",
+                ].join(" ")}
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-400 flex-shrink-0" />
+                Semua Psikolog
+              </button>
+              {psychologists.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => setFilterPsychologist(filterPsychologist === p.id ? "" : p.id)}
+                  className={[
+                    "text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] transition-colors",
+                    filterPsychologist === p.id ? "bg-slate-100 font-medium text-slate-800" : "text-slate-500 hover:bg-slate-50",
+                  ].join(" ")}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: getPsyColor(p.id) }} />
+                  <span className="truncate">{p.name}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── CENTER: Calendar view ── */}

@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS appointments (
   id VARCHAR(255) PRIMARY KEY,
   patient_id VARCHAR(255) REFERENCES patients(id) ON DELETE CASCADE,
   patient_name VARCHAR(255),
-  psychologist_id VARCHAR(255) REFERENCES psychologists(id) ON DELETE SET NULL,
+  psychologist_id VARCHAR(255),
   date VARCHAR(50) NOT NULL,
   time_slot VARCHAR(50) NOT NULL,
   duration INTEGER DEFAULT 60,

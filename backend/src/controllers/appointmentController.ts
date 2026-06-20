@@ -27,7 +27,29 @@ export const getAllAppointments = async (req: AuthenticatedRequest, res: Respons
     if (role === "reguler") {
       // Regular users can only see appointments marked visible to them
       result = await query("SELECT * FROM appointments WHERE visible_to_regular = true ORDER BY date DESC, time_slot DESC");
+    } else if (role === "psikolog") {
+      // Psychologists can only see their own appointments + internal/general meetings
+      const psyResult = await query("SELECT id FROM psychologists WHERE user_id = $1", [req.user?.id]);
+      let psyId = "";
+      if (psyResult.rows.length > 0) {
+        psyId = psyResult.rows[0].id;
+      } else {
+        const psyEmailResult = await query("SELECT id FROM psychologists WHERE email = $1", [req.user?.email]);
+        if (psyEmailResult.rows.length > 0) {
+          psyId = psyEmailResult.rows[0].id;
+        }
+      }
+
+      if (psyId) {
+        result = await query(
+          "SELECT * FROM appointments WHERE ($1 = ANY(string_to_array(psychologist_id, ',')) OR patient_id = 'INTERNAL') ORDER BY date DESC, time_slot DESC",
+          [psyId]
+        );
+      } else {
+        result = { rows: [] };
+      }
     } else {
+      // apex or staff can see all appointments
       result = await query("SELECT * FROM appointments ORDER BY date DESC, time_slot DESC");
     }
 
@@ -90,7 +112,7 @@ export const createAppointment = async (req: AuthenticatedRequest, res: Response
         id,
         resolvedPatientId,
         data.patientName,
-        isInternal ? null : (data.doctorId || null),
+        data.doctorId || null,
         data.date,
         data.time,
         duration,
@@ -114,14 +136,34 @@ export const createAppointment = async (req: AuthenticatedRequest, res: Response
 
     // Simulate Notification dispatch
     if (data.notify && data.notify !== "none") {
-      await sendNotification({
-        patientName: data.patientName,
-        date: data.date,
-        time: data.time,
-        channel: data.notify,
-        phone: data.notifyPhone,
-        email: data.notifyEmail,
-      });
+      if (isInternal && data.doctorId) {
+        // Notify each psychologist assigned to the internal schedule
+        const psyIds = data.doctorId.split(",").map((s: string) => s.trim()).filter(Boolean);
+        for (const psyId of psyIds) {
+          const psyRes = await query("SELECT name, email, phone FROM psychologists WHERE id = $1", [psyId]);
+          if (psyRes.rows.length > 0) {
+            const psy = psyRes.rows[0];
+            await sendNotification({
+              patientName: `${data.patientName} (Jadwal Internal - ${psy.name})`,
+              date: data.date,
+              time: data.time,
+              channel: data.notify,
+              phone: psy.phone || "",
+              email: psy.email || "",
+            });
+          }
+        }
+      } else {
+        // Standard patient notification
+        await sendNotification({
+          patientName: data.patientName,
+          date: data.date,
+          time: data.time,
+          channel: data.notify,
+          phone: data.notifyPhone,
+          email: data.notifyEmail,
+        });
+      }
     }
 
     res.status(201).json({ ok: true, message: "Appointment scheduled successfully" });
