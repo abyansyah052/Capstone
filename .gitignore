@@ -31,3 +31,6 @@ pnpm-debug.log*
 CREDENTIALS_AND_API.md
 imp.md
 std.md
+
+# Generated serverless function build
+/api/index.js
