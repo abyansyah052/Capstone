@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { initDb, pool } from "../backend/src/config/db";
+import { pool } from "../backend/src/config/db";
 import authRoutes from "../backend/src/routes/authRoutes";
 import patientRoutes from "../backend/src/routes/patientRoutes";
 import psychologistRoutes from "../backend/src/routes/psychologistRoutes";
