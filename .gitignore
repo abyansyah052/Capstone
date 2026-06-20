@@ -33,4 +33,4 @@ imp.md
 std.md
 
 # Generated serverless function build
-/api/index.js
+# We need to track index.js in git so Vercel registers it as an entry point
