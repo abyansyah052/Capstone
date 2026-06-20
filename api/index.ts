@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { initDb } from "../backend/src/config/db";
+import { initDb, pool } from "../backend/src/config/db";
 import authRoutes from "../backend/src/routes/authRoutes";
 import patientRoutes from "../backend/src/routes/patientRoutes";
 import psychologistRoutes from "../backend/src/routes/psychologistRoutes";
@@ -20,16 +20,17 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" })); // Allow large payloads for base64 photo/signature uploads
 
-// Lazy initialize Database on first request
+// Lazy initialize Database connection on first request
 let dbInitialized = false;
 app.use(async (_req: Request, _res: Response, next: NextFunction) => {
   if (!dbInitialized) {
     try {
-      console.log("[serverless] Connecting and initializing database...");
-      await initDb();
+      console.log("[serverless] Verifying database connection...");
+      await pool.query("SELECT 1");
       dbInitialized = true;
+      console.log("[serverless] Database connection verified successfully.");
     } catch (err) {
-      console.error("[serverless] Database initialization failed:", err);
+      console.error("[serverless] Database connection verification failed:", err);
     }
   }
   next();
