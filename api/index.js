@@ -40,7 +40,7 @@ var logActivity = async (userId, email, action, details) => {
 
 // backend/src/routes/authRoutes.ts
 import { Router } from "express";
-import bcrypt from "bcryptjs";
+import * as bcryptModule from "bcryptjs";
 
 // backend/src/middlewares/authMiddleware.ts
 var requireAuth = (req, res, next) => {
@@ -81,6 +81,7 @@ var requireRole = (allowedRoles) => {
 };
 
 // backend/src/routes/authRoutes.ts
+var bcrypt = bcryptModule.default || bcryptModule;
 var router = Router();
 router.post("/register", async (req, res) => {
   const { name, email, password } = req.body;
@@ -938,8 +939,10 @@ var appointmentRoutes_default = router4;
 import { Router as Router5 } from "express";
 
 // backend/src/controllers/reportController.ts
-import PDFDocument from "pdfkit";
-import archiver from "archiver";
+import * as PDFDocumentModule from "pdfkit";
+import * as archiverModule from "archiver";
+var PDFDocument = PDFDocumentModule.default || PDFDocumentModule;
+var archiver = archiverModule.default || archiverModule;
 var generatePdfBuffer = async (form, signatureBase64, psyName, sipp) => {
   let batchLogo = null;
   let useLogoInReport = false;

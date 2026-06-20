@@ -1,6 +1,8 @@
 import { Response } from "express";
-import PDFDocument from "pdfkit";
-import archiver from "archiver";
+import * as PDFDocumentModule from "pdfkit";
+import * as archiverModule from "archiver";
+const PDFDocument = (PDFDocumentModule.default || PDFDocumentModule) as any;
+const archiver = (archiverModule.default || archiverModule) as any;
 import { query, logActivity } from "../config/db";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 
@@ -35,9 +37,9 @@ const generatePdfBuffer = async (
     const doc = new PDFDocument({ size: "A4", margin: 50 });
     const chunks: Buffer[] = [];
 
-    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("data", (chunk: any) => chunks.push(chunk));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
-    doc.on("error", (err) => reject(err));
+    doc.on("error", (err: any) => reject(err));
 
     // Draw Right Logo if enabled
     if (useLogoInReport && batchLogo && batchLogo.startsWith("data:image")) {
@@ -351,7 +353,7 @@ export const batchDownloadReports = async (req: AuthenticatedRequest, res: Respo
     res.setHeader("Content-Type", "application/zip");
     res.setHeader("Content-Disposition", 'attachment; filename="counseling_reports_batch.zip"');
 
-    archive.on("error", (err) => {
+    archive.on("error", (err: any) => {
       throw err;
     });
 
