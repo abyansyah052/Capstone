@@ -20,6 +20,15 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" })); // Allow large payloads for base64 photo/signature uploads
 
+// Health check endpoint (placed before DB connection to bypass DB check during ping verification)
+app.get("/api/health", (_req: Request, res: Response) => {
+  res.json({
+    status: "ok",
+    message: "Asisya IHMS Backend API is running on Vercel Serverless",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Lazy initialize Database connection on first request
 let dbInitialized = false;
 app.use(async (_req: Request, _res: Response, next: NextFunction) => {
@@ -44,15 +53,6 @@ app.use("/api/appointments", appointmentRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/batches", batchRoutes);
 app.use("/api/dashboard", dashboardRoutes);
-
-// Health check endpoint
-app.get("/api/health", (_req: Request, res: Response) => {
-  res.json({
-    status: "ok",
-    message: "Asisya IHMS Backend API is running on Vercel Serverless",
-    timestamp: new Date().toISOString(),
-  });
-});
 
 // Default fallback route
 app.use((_req: Request, res: Response) => {
