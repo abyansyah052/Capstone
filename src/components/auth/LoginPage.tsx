@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { TextInput, PasswordInput, Checkbox, Button } from "@mantine/core";
 import { Eye, EyeOff } from "lucide-react";
+import loginBg from "../../assets/Psikolog Asisya Web Design.png";
 
 type LoginPageProps = {
   onLoginSuccess: (user: { id: string; name: string; email: string; role: string; signature: string | null }) => void;
@@ -236,7 +237,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         {/* Background Image overlayed with gradient */}
         <div
           className="absolute inset-0 bg-cover bg-bottom transition-transform duration-700 hover:scale-105"
-          style={{ backgroundImage: "url('/src/assets/Psikolog Asisya Web Design.png')", backgroundPosition: "bottom" }}
+          style={{ backgroundImage: `url(${loginBg})`, backgroundPosition: "bottom" }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent mix-blend-multiply opacity-90" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/80" />
