@@ -1,4 +1,4 @@
-import express, { Request, Response } from "express";
+import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { initDb } from "../backend/src/config/db";
@@ -22,7 +22,7 @@ app.use(express.json({ limit: "50mb" })); // Allow large payloads for base64 pho
 
 // Lazy initialize Database on first request
 let dbInitialized = false;
-app.use(async (_req, _res, next) => {
+app.use(async (_req: Request, _res: Response, next: NextFunction) => {
   if (!dbInitialized) {
     try {
       console.log("[serverless] Connecting and initializing database...");
