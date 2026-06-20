@@ -22,7 +22,7 @@ app.use(express.json({ limit: "50mb" })); // Allow large payloads for base64 pho
 
 // Lazy initialize Database on first request
 let dbInitialized = false;
-app.use(async (req, res, next) => {
+app.use(async (_req, _res, next) => {
   if (!dbInitialized) {
     try {
       console.log("[serverless] Connecting and initializing database...");
