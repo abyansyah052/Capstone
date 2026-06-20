@@ -14,6 +14,11 @@ export const pool = new Pool({
   ssl: useSsl ? { rejectUnauthorized: false } : false,
 });
 
+// Prevent process crash on unexpected database client errors
+pool.on("error", (err) => {
+  console.error("[db] Unexpected error on idle client:", err);
+});
+
 // Helper to query database
 export const query = (text: string, params?: any[]) => {
   return pool.query(text, params);
