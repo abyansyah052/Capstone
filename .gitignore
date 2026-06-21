@@ -34,3 +34,4 @@ std.md
 
 # Generated serverless function build
 # We need to track index.js in git so Vercel registers it as an entry point
+.vercel

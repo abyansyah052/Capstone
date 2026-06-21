@@ -39,7 +39,14 @@ export const createPatient = async (req: AuthenticatedRequest, res: Response): P
   const id = patientData.id || `pt-${Date.now()}`;
   const registeredAt = patientData.registeredAt || new Date().toISOString().split("T")[0];
   const age = Number(patientData.age) || 0;
-  const initials = patientData.initials || patientData.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+  const initials =
+    patientData.initials ||
+    patientData.name
+      .split(" ")
+      .map((n: string) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
 
   try {
     await query(
@@ -101,7 +108,14 @@ export const updatePatient = async (req: AuthenticatedRequest, res: Response): P
 
     const currentPatient = checkResult.rows[0];
     const age = patientData.age !== undefined ? Number(patientData.age) : currentPatient.age;
-    const initials = patientData.name ? patientData.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) : currentPatient.initials;
+    const initials = patientData.name
+      ? patientData.name
+          .split(" ")
+          .map((n: string) => n[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 2)
+      : currentPatient.initials;
 
     await query(
       `UPDATE patients SET
@@ -120,14 +134,22 @@ export const updatePatient = async (req: AuthenticatedRequest, res: Response): P
         patientData.batchId !== undefined ? patientData.batchId : currentPatient.batch_id,
         patientData.birthPlace !== undefined ? patientData.birthPlace : currentPatient.birth_place,
         patientData.education !== undefined ? patientData.education : currentPatient.education,
-        patientData.siblingOrder !== undefined ? patientData.siblingOrder : currentPatient.sibling_order,
-        patientData.totalSiblings !== undefined ? patientData.totalSiblings : currentPatient.total_siblings,
-        patientData.dateOfBirth !== undefined ? patientData.dateOfBirth : currentPatient.date_of_birth,
+        patientData.siblingOrder !== undefined
+          ? patientData.siblingOrder
+          : currentPatient.sibling_order,
+        patientData.totalSiblings !== undefined
+          ? patientData.totalSiblings
+          : currentPatient.total_siblings,
+        patientData.dateOfBirth !== undefined
+          ? patientData.dateOfBirth
+          : currentPatient.date_of_birth,
         patientData.occupation !== undefined ? patientData.occupation : currentPatient.occupation,
         patientData.country !== undefined ? patientData.country : currentPatient.country,
         patientData.province !== undefined ? patientData.province : currentPatient.province,
         patientData.city !== undefined ? patientData.city : currentPatient.city,
-        patientData.fullAddress !== undefined ? patientData.fullAddress : currentPatient.full_address,
+        patientData.fullAddress !== undefined
+          ? patientData.fullAddress
+          : currentPatient.full_address,
         patientData.photo !== undefined ? patientData.photo : currentPatient.photo,
         initials,
         id,

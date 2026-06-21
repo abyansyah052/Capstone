@@ -38,15 +38,17 @@ export function SignatureModal({ currentUser, onSaveSuccess, onClose }: Signatur
     }
   }, [activeTab, isViewingPreview]);
 
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const startDrawing = (
+    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
+  ) => {
     const canvas = canvasRef.current;
     const ctx = getContext();
     if (!canvas || !ctx) return;
 
     setIsDrawing(true);
     const rect = canvas.getBoundingClientRect();
-    const x = ("touches" in e) ? (e.touches[0]?.clientX ?? 0) - rect.left : e.clientX - rect.left;
-    const y = ("touches" in e) ? (e.touches[0]?.clientY ?? 0) - rect.top : e.clientY - rect.top;
+    const x = "touches" in e ? (e.touches[0]?.clientX ?? 0) - rect.left : e.clientX - rect.left;
+    const y = "touches" in e ? (e.touches[0]?.clientY ?? 0) - rect.top : e.clientY - rect.top;
 
     ctx.beginPath();
     ctx.moveTo(x, y);
@@ -62,8 +64,8 @@ export function SignatureModal({ currentUser, onSaveSuccess, onClose }: Signatur
     if (e.cancelable) e.preventDefault();
 
     const rect = canvas.getBoundingClientRect();
-    const x = ("touches" in e) ? (e.touches[0]?.clientX ?? 0) - rect.left : e.clientX - rect.left;
-    const y = ("touches" in e) ? (e.touches[0]?.clientY ?? 0) - rect.top : e.clientY - rect.top;
+    const x = "touches" in e ? (e.touches[0]?.clientX ?? 0) - rect.left : e.clientX - rect.left;
+    const y = "touches" in e ? (e.touches[0]?.clientY ?? 0) - rect.top : e.clientY - rect.top;
 
     ctx.lineTo(x, y);
     ctx.stroke();
@@ -96,11 +98,11 @@ export function SignatureModal({ currentUser, onSaveSuccess, onClose }: Signatur
     if (activeTab === "draw") {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      
+
       // Check if canvas is empty
       const ctx = getContext();
       if (!ctx) return;
-      
+
       signatureData = canvas.toDataURL("image/png");
     } else {
       if (!uploadFile) {
@@ -154,7 +156,9 @@ export function SignatureModal({ currentUser, onSaveSuccess, onClose }: Signatur
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/60">
               <div className="flex items-center gap-2">
                 <PenTool className="text-[#01696f]" size={18} />
-                <span className="text-sm font-bold text-slate-800">Tanda Tangan Digital Saat Ini</span>
+                <span className="text-sm font-bold text-slate-800">
+                  Tanda Tangan Digital Saat Ini
+                </span>
               </div>
               {onClose && (
                 <button
@@ -170,11 +174,16 @@ export function SignatureModal({ currentUser, onSaveSuccess, onClose }: Signatur
             {/* Content Preview */}
             <div className="p-5 space-y-4 flex flex-col items-center">
               <p className="text-xs text-slate-500 leading-relaxed text-center">
-                Berikut adalah tanda tangan digital Anda yang saat ini digunakan pada Laporan Psikologis yang Anda terbitkan.
+                Berikut adalah tanda tangan digital Anda yang saat ini digunakan pada Laporan
+                Psikologis yang Anda terbitkan.
               </p>
 
               <div className="w-full border border-slate-200 rounded-xl overflow-hidden bg-slate-50 relative h-48 flex items-center justify-center p-4">
-                <img src={currentUser.signature} alt="Tanda Tangan Digital" className="max-h-full object-contain" />
+                <img
+                  src={currentUser.signature}
+                  alt="Tanda Tangan Digital"
+                  className="max-h-full object-contain"
+                />
               </div>
             </div>
 
@@ -202,7 +211,9 @@ export function SignatureModal({ currentUser, onSaveSuccess, onClose }: Signatur
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/60">
               <div className="flex items-center gap-2">
                 <PenTool className="text-[#01696f]" size={18} />
-                <span className="text-sm font-bold text-slate-800">Lengkapi Tanda Tangan Digital</span>
+                <span className="text-sm font-bold text-slate-800">
+                  Lengkapi Tanda Tangan Digital
+                </span>
               </div>
               <button
                 onClick={handleCancelEdit}
@@ -216,7 +227,9 @@ export function SignatureModal({ currentUser, onSaveSuccess, onClose }: Signatur
             {/* Content Edit */}
             <div className="p-5 space-y-4">
               <p className="text-xs text-slate-500 leading-relaxed">
-                Sebagai psikolog, Anda diwajibkan untuk mengunggah atau menggambar tanda tangan digital. Tanda tangan ini akan otomatis dicantumkan pada setiap Laporan Psikologis yang Anda terbitkan.
+                Sebagai psikolog, Anda diwajibkan untuk mengunggah atau menggambar tanda tangan
+                digital. Tanda tangan ini akan otomatis dicantumkan pada setiap Laporan Psikologis
+                yang Anda terbitkan.
               </p>
 
               {/* Tabs */}
@@ -224,7 +237,9 @@ export function SignatureModal({ currentUser, onSaveSuccess, onClose }: Signatur
                 <button
                   onClick={() => setActiveTab("draw")}
                   className={`flex-1 pb-2 text-center transition-colors ${
-                    activeTab === "draw" ? "border-b-2 border-[#01696f] text-[#01696f]" : "text-slate-400"
+                    activeTab === "draw"
+                      ? "border-b-2 border-[#01696f] text-[#01696f]"
+                      : "text-slate-400"
                   }`}
                 >
                   Gambar Online
@@ -232,7 +247,9 @@ export function SignatureModal({ currentUser, onSaveSuccess, onClose }: Signatur
                 <button
                   onClick={() => setActiveTab("upload")}
                   className={`flex-1 pb-2 text-center transition-colors ${
-                    activeTab === "upload" ? "border-b-2 border-[#01696f] text-[#01696f]" : "text-slate-400"
+                    activeTab === "upload"
+                      ? "border-b-2 border-[#01696f] text-[#01696f]"
+                      : "text-slate-400"
                   }`}
                 >
                   Unggah File Gambar
@@ -278,8 +295,12 @@ export function SignatureModal({ currentUser, onSaveSuccess, onClose }: Signatur
                     ) : (
                       <div className="flex flex-col items-center gap-2">
                         <PenTool size={20} className="text-slate-400" />
-                        <span className="text-xs font-semibold text-slate-500">Pilih file gambar TTD</span>
-                        <span className="text-[10px] text-slate-400">PNG / JPG (Transparan disukai)</span>
+                        <span className="text-xs font-semibold text-slate-500">
+                          Pilih file gambar TTD
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          PNG / JPG (Transparan disukai)
+                        </span>
                       </div>
                     )}
                   </div>

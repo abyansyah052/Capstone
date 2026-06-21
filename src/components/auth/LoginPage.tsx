@@ -6,7 +6,13 @@ import { Eye, EyeOff } from "lucide-react";
 import loginBg from "../../assets/Psikolog Asisya Web Design.png";
 
 type LoginPageProps = {
-  onLoginSuccess: (user: { id: string; name: string; email: string; role: string; signature: string | null }) => void;
+  onLoginSuccess: (user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    signature: string | null;
+  }) => void;
 };
 
 export function LoginPage({ onLoginSuccess }: LoginPageProps) {
@@ -35,12 +41,19 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         try {
           const client = g.accounts.oauth2.initTokenClient({
             client_id: clientId,
-            scope: "https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email",
+            scope:
+              "https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email",
             callback: async (tokenResponse: any) => {
               console.log("Google OAuth token client response received:", tokenResponse);
               if (tokenResponse?.error) {
-                console.error("Google OAuth authentication error:", tokenResponse.error, tokenResponse.error_description);
-                alert(`Google OAuth Error: ${tokenResponse.error_description || tokenResponse.error}`);
+                console.error(
+                  "Google OAuth authentication error:",
+                  tokenResponse.error,
+                  tokenResponse.error_description
+                );
+                alert(
+                  `Google OAuth Error: ${tokenResponse.error_description || tokenResponse.error}`
+                );
                 setIsLoading(false);
                 return;
               }
@@ -86,7 +99,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       initGoogleOAuth();
     } else {
       console.log("Google client script not loaded yet; setting up listeners...");
-      
+
       // Hook into Google Identity Services global load callback
       (window as any).onGoogleLibraryLoad = () => {
         console.log("onGoogleLibraryLoad callback triggered.");
@@ -118,7 +131,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   }, []);
 
   const toggleMode = () => {
-    setIsSignUp(prev => !prev);
+    setIsSignUp((prev) => !prev);
     setName("");
     setEmail("");
     setPassword("");
@@ -226,7 +239,9 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     if (tokenClient) {
       tokenClient.requestAccessToken();
     } else {
-      alert("API Google Sign-in sedang memuat. Silakan tunggu sebentar atau pastikan koneksi internet aktif.");
+      alert(
+        "API Google Sign-in sedang memuat. Silakan tunggu sebentar atau pastikan koneksi internet aktif."
+      );
     }
   };
 
@@ -269,13 +284,12 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           <div className="w-full flex flex-col gap-6">
             <div className="text-center flex flex-col gap-2">
               <h1 className="text-[30px] font-bold text-[#1C243B] tracking-tight">
-                {isSignUp ? "Daftar Akun Baru" : "Welcome Back"}
+                {isSignUp ? "Daftar Akun Baru" : "WELCOME BACK"}
               </h1>
               <p className="text-[13px] text-[#6B7280] font-normal leading-relaxed">
                 {isSignUp
                   ? "Lengkapi formulir di bawah ini untuk membuat akun baru"
-                  : "Enter your email and password to access your account"
-                }
+                  : "Enter your email and password to access your account"}
               </p>
             </div>
 
@@ -305,8 +319,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                           borderColor: "#1C243B",
                           borderWidth: "1px",
                           backgroundColor: "#ffffff",
-                        }
-                      }
+                        },
+                      },
                     }}
                   />
                 </div>
@@ -336,8 +350,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                         borderColor: "#1C243B",
                         borderWidth: "1px",
                         backgroundColor: "#ffffff",
-                      }
-                    }
+                      },
+                    },
                   }}
                 />
               </div>
@@ -354,7 +368,11 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   }}
                   error={passwordError || undefined}
                   visibilityToggleIcon={({ reveal }) =>
-                    reveal ? <EyeOff size={15} className="text-[#6B7280]" /> : <Eye size={15} className="text-[#6B7280]" />
+                    reveal ? (
+                      <EyeOff size={15} className="text-[#6B7280]" />
+                    ) : (
+                      <Eye size={15} className="text-[#6B7280]" />
+                    )
                   }
                   styles={{
                     input: {
@@ -369,7 +387,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                         borderColor: "#1C243B",
                         borderWidth: "1px",
                         backgroundColor: "#ffffff",
-                      }
+                      },
                     },
                     innerInput: {
                       height: "42px",
@@ -377,9 +395,9 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     },
                     visibilityToggle: {
                       "&:hover": {
-                        backgroundColor: "transparent"
-                      }
-                    }
+                        backgroundColor: "transparent",
+                      },
+                    },
                   }}
                 />
               </div>
@@ -387,7 +405,9 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               {/* Confirm Password Input (Register Only) */}
               {isSignUp && (
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-[#1C243B]">Konfirmasi Password</label>
+                  <label className="text-xs font-semibold text-[#1C243B]">
+                    Konfirmasi Password
+                  </label>
                   <PasswordInput
                     placeholder="Repeat your password"
                     value={confirmPassword}
@@ -397,7 +417,11 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     }}
                     error={confirmPasswordError || undefined}
                     visibilityToggleIcon={({ reveal }) =>
-                      reveal ? <EyeOff size={15} className="text-[#6B7280]" /> : <Eye size={15} className="text-[#6B7280]" />
+                      reveal ? (
+                        <EyeOff size={15} className="text-[#6B7280]" />
+                      ) : (
+                        <Eye size={15} className="text-[#6B7280]" />
+                      )
                     }
                     styles={{
                       input: {
@@ -412,7 +436,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                           borderColor: "#1C243B",
                           borderWidth: "1px",
                           backgroundColor: "#ffffff",
-                        }
+                        },
                       },
                       innerInput: {
                         height: "42px",
@@ -420,9 +444,9 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                       },
                       visibilityToggle: {
                         "&:hover": {
-                          backgroundColor: "transparent"
-                        }
-                      }
+                          backgroundColor: "transparent",
+                        },
+                      },
                     }}
                   />
                 </div>
@@ -446,11 +470,15 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                         "&:checked": {
                           backgroundColor: "#1C243B",
                           borderColor: "#1C243B",
-                        }
-                      }
+                        },
+                      },
                     }}
                   />
-                  <a href="/forgot-password" onClick={(e) => e.preventDefault()} className="font-medium hover:text-[#1C243B] transition-colors">
+                  <a
+                    href="/forgot-password"
+                    onClick={(e) => e.preventDefault()}
+                    className="font-medium hover:text-[#1C243B] transition-colors"
+                  >
                     Forgot Password
                   </a>
                 </div>
@@ -472,11 +500,11 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                       transition: "all 0.15s ease",
                       "&:hover": {
                         backgroundColor: "#2d3a55",
-                      }
-                    }
+                      },
+                    },
                   }}
                 >
-                  {isSignUp ? "Sign Up" : "Sign In"}
+                  {isSignUp ? "Sign Up" : "SIGN IN"}
                 </Button>
               </motion.div>
 
@@ -487,11 +515,27 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   onClick={handleGoogleLogin}
                   loading={isLoading}
                   leftSection={
-                    <svg className="h-[18px] w-[18px]" viewBox="0 0 48 48" style={{ display: "block" }}>
-                      <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
-                      <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" />
-                      <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" />
-                      <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" />
+                    <svg
+                      className="h-[18px] w-[18px]"
+                      viewBox="0 0 48 48"
+                      style={{ display: "block" }}
+                    >
+                      <path
+                        fill="#FFC107"
+                        d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
+                      />
+                      <path
+                        fill="#FF3D00"
+                        d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"
+                      />
+                      <path
+                        fill="#4CAF50"
+                        d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"
+                      />
+                      <path
+                        fill="#1976D2"
+                        d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
+                      />
                     </svg>
                   }
                   styles={{
@@ -507,8 +551,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                       transition: "all 0.15s ease",
                       "&:hover": {
                         backgroundColor: "#f8fafc",
-                      }
-                    }
+                      },
+                    },
                   }}
                 >
                   {isSignUp ? "Sign Up with Google" : "Sign In with Google"}
@@ -520,7 +564,14 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           {/* Bottom footer registration link */}
           <div className="text-center text-[13px] text-[#6B7280] font-normal">
             {isSignUp ? "Already have an account? " : "Don't have an account? "}
-            <a href={isSignUp ? "/login" : "/register"} onClick={(e) => { e.preventDefault(); toggleMode(); }} className="font-bold text-[#1C243B] hover:underline">
+            <a
+              href={isSignUp ? "/login" : "/register"}
+              onClick={(e) => {
+                e.preventDefault();
+                toggleMode();
+              }}
+              className="font-bold text-[#1C243B] hover:underline"
+            >
               {isSignUp ? "Sign In" : "Sign Up"}
             </a>
           </div>

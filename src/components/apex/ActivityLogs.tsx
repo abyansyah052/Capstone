@@ -1,5 +1,16 @@
 import { useState, useEffect } from "react";
-import { Search, RotateCw, History, ShieldAlert, Key, UserPlus, Database, Calendar, Edit, FileText } from "lucide-react";
+import {
+  Search,
+  RotateCw,
+  History,
+  ShieldAlert,
+  Key,
+  UserPlus,
+  Database,
+  Calendar,
+  Edit,
+  FileText,
+} from "lucide-react";
 import { motion } from "motion/react";
 
 interface Log {
@@ -23,23 +34,55 @@ const getActionMeta = (action: string) => {
       return { icon: Key, color: "bg-blue-50 text-blue-700 border-blue-100", label: "Login" };
     case "USER_REGISTER":
     case "USER_GOOGLE_REGISTER":
-      return { icon: UserPlus, color: "bg-indigo-50 text-indigo-700 border-indigo-100", label: "Registrasi" };
+      return {
+        icon: UserPlus,
+        color: "bg-indigo-50 text-indigo-700 border-indigo-100",
+        label: "Registrasi",
+      };
     case "USER_ROLE_PROMOTION":
-      return { icon: ShieldAlert, color: "bg-purple-50 text-purple-700 border-purple-100", label: "Promosi Role" };
+      return {
+        icon: ShieldAlert,
+        color: "bg-purple-50 text-purple-700 border-purple-100",
+        label: "Promosi Role",
+      };
     case "USER_BANNED":
     case "USER_DELETED":
-      return { icon: ShieldAlert, color: "bg-red-50 text-red-700 border-red-100", label: "Moderasi" };
+      return {
+        icon: ShieldAlert,
+        color: "bg-red-50 text-red-700 border-red-100",
+        label: "Moderasi",
+      };
     case "PATIENT_CREATE":
-      return { icon: Database, color: "bg-green-50 text-green-700 border-green-100", label: "Buat Pasien" };
+      return {
+        icon: Database,
+        color: "bg-green-50 text-green-700 border-green-100",
+        label: "Buat Pasien",
+      };
     case "PATIENT_UPDATE":
     case "PATIENT_DELETE":
-      return { icon: Edit, color: "bg-yellow-50 text-yellow-700 border-yellow-100", label: "Edit Pasien" };
+      return {
+        icon: Edit,
+        color: "bg-yellow-50 text-yellow-700 border-yellow-100",
+        label: "Edit Pasien",
+      };
     case "APPOINTMENT_SCHEDULE":
-      return { icon: Calendar, color: "bg-teal-50 text-teal-700 border-teal-100", label: "Janji Temu" };
+      return {
+        icon: Calendar,
+        color: "bg-teal-50 text-teal-700 border-teal-100",
+        label: "Janji Temu",
+      };
     case "PSYCHOLOGIST_SIGNATURE_UPDATE":
-      return { icon: FileText, color: "bg-emerald-50 text-emerald-700 border-emerald-100", label: "Tanda Tangan" };
+      return {
+        icon: FileText,
+        color: "bg-emerald-50 text-emerald-700 border-emerald-100",
+        label: "Tanda Tangan",
+      };
     default:
-      return { icon: History, color: "bg-slate-50 text-slate-700 border-slate-100", label: "Sistem" };
+      return {
+        icon: History,
+        color: "bg-slate-50 text-slate-700 border-slate-100",
+        label: "Sistem",
+      };
   }
 };
 
@@ -103,7 +146,9 @@ export function ActivityLogs({ currentUser }: ActivityLogsProps) {
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <History className="text-[#01696f]" /> System Activity Logs
           </h1>
-          <p className="text-sm text-slate-500 mt-1">Audit log aktivitas pengguna, modifikasi data, login, dan promosi sistem.</p>
+          <p className="text-sm text-slate-500 mt-1">
+            Audit log aktivitas pengguna, modifikasi data, login, dan promosi sistem.
+          </p>
         </div>
         <button
           onClick={fetchLogs}
@@ -131,9 +176,13 @@ export function ActivityLogs({ currentUser }: ActivityLogsProps) {
       {/* Logs Feed Timeline */}
       <div className="relative border-l-2 border-slate-200 ml-4 pl-6 space-y-6">
         {isLoading && logs.length === 0 ? (
-          <div className="text-center py-10 text-slate-400 font-medium ml-[-1.5rem] pl-0">Memuat log sistem...</div>
+          <div className="text-center py-10 text-slate-400 font-medium ml-[-1.5rem] pl-0">
+            Memuat log sistem...
+          </div>
         ) : filteredLogs.length === 0 ? (
-          <div className="text-center py-10 text-slate-400 font-medium ml-[-1.5rem] pl-0">Tidak ada log aktivitas ditemukan.</div>
+          <div className="text-center py-10 text-slate-400 font-medium ml-[-1.5rem] pl-0">
+            Tidak ada log aktivitas ditemukan.
+          </div>
         ) : (
           filteredLogs.map((log) => {
             const meta = getActionMeta(log.action);
@@ -158,7 +207,9 @@ export function ActivityLogs({ currentUser }: ActivityLogsProps) {
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-slate-800 text-sm">{log.email}</span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${meta.color}`}>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${meta.color}`}
+                    >
                       {meta.label}
                     </span>
                   </div>
@@ -168,7 +219,9 @@ export function ActivityLogs({ currentUser }: ActivityLogsProps) {
                 {/* Timestamp & Meta */}
                 <div className="flex flex-col md:items-end justify-center text-xs text-slate-400 flex-shrink-0 font-medium">
                   <span>{formatLogTime(log.created_at)}</span>
-                  <span className="font-mono text-[10px] opacity-75 mt-0.5">UID: {log.user_id}</span>
+                  <span className="font-mono text-[10px] opacity-75 mt-0.5">
+                    UID: {log.user_id}
+                  </span>
                 </div>
               </motion.div>
             );

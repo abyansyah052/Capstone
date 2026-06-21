@@ -11,8 +11,13 @@ router.get("/stats", requireAuth, async (_req: AuthenticatedRequest, res: Respon
     const today = new Date().toISOString().split("T")[0];
 
     const patientsCountResult = await query("SELECT COUNT(*) FROM patients");
-    const todayAppointmentsResult = await query("SELECT COUNT(*) FROM appointments WHERE date = $1 AND status != 'cancelled'", [today]);
-    const internalAppointmentsResult = await query("SELECT COUNT(*) FROM appointments WHERE visible_to_regular = false AND status != 'cancelled'");
+    const todayAppointmentsResult = await query(
+      "SELECT COUNT(*) FROM appointments WHERE date = $1 AND status != 'cancelled'",
+      [today]
+    );
+    const internalAppointmentsResult = await query(
+      "SELECT COUNT(*) FROM appointments WHERE visible_to_regular = false AND status != 'cancelled'"
+    );
 
     res.json({
       ok: true,
@@ -20,7 +25,7 @@ router.get("/stats", requireAuth, async (_req: AuthenticatedRequest, res: Respon
         totalPatients: parseInt(patientsCountResult.rows[0].count) || 0,
         todayAppointments: parseInt(todayAppointmentsResult.rows[0].count) || 0,
         internalAppointments: parseInt(internalAppointmentsResult.rows[0].count) || 0,
-      }
+      },
     });
   } catch (error: any) {
     res.status(500).json({ ok: false, error: error.message });

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+api/index.js
+backend/dist/
+pnpm-lock.yaml
+*.sql
+*.png
+*.pdf
+*.md

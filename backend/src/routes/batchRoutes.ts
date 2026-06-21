@@ -1,5 +1,10 @@
 import { Router } from "express";
-import { getAllBatches, createBatch, deleteBatch, updateBatch } from "../controllers/batchController";
+import {
+  getAllBatches,
+  createBatch,
+  deleteBatch,
+  updateBatch,
+} from "../controllers/batchController";
 import { requireAuth, requireRole } from "../middlewares/authMiddleware";
 
 const router = Router();

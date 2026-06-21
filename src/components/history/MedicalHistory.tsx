@@ -1,30 +1,40 @@
-import { useState, useMemo, useEffect } from "react"
-import { FileText, Search, X, ChevronRight, ChevronDown, Activity } from "lucide-react"
-import { motion, AnimatePresence } from "motion/react"
-import { Patient, Batch } from "../../types"
+import { useState, useMemo, useEffect } from "react";
+import { FileText, Search, X, ChevronRight, ChevronDown, Activity } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { Patient, Batch } from "../../types";
 
-const PREVIEW_LIMIT = 3
+const PREVIEW_LIMIT = 3;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function Hl({ text, q }: { text: string; q: string }) {
-  if (!q.trim()) return <>{text}</>
-  const i = text.toLowerCase().indexOf(q.toLowerCase())
-  if (i === -1) return <>{text}</>
+  if (!q.trim()) return <>{text}</>;
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  if (i === -1) return <>{text}</>;
   return (
     <>
       {text.slice(0, i)}
-      <mark className="bg-amber-100 text-amber-800 rounded-[2px] not-italic">{text.slice(i, i + q.length)}</mark>
+      <mark className="bg-amber-100 text-amber-800 rounded-[2px] not-italic">
+        {text.slice(i, i + q.length)}
+      </mark>
       {text.slice(i + q.length)}
     </>
-  )
+  );
 }
 
 // ─── Batch Badge ──────────────────────────────────────────────────────────────
 
-function BatchBadge({ batchId, batches, size = "sm" }: { batchId: string; batches: Batch[]; size?: "sm" | "xs" }) {
-  const batch = batches.find(b => b.id === batchId)
-  if (!batch) return <span className="text-[11px] text-slate-400">—</span>
+function BatchBadge({
+  batchId,
+  batches,
+  size = "sm",
+}: {
+  batchId: string;
+  batches: Batch[];
+  size?: "sm" | "xs";
+}) {
+  const batch = batches.find((b) => b.id === batchId);
+  if (!batch) return <span className="text-[11px] text-slate-400">—</span>;
   return (
     <span
       className={`inline-flex items-center font-semibold text-white rounded whitespace-nowrap ${
@@ -35,21 +45,32 @@ function BatchBadge({ batchId, batches, size = "sm" }: { batchId: string; batche
     >
       {batch.id}
     </span>
-  )
+  );
 }
 
 // ─── Patient Row ──────────────────────────────────────────────────────────────
 
 function PatientRow({
-  patient, isActive, batchColor, q, onSelect,
+  patient,
+  isActive,
+  batchColor,
+  q,
+  onSelect,
 }: {
-  patient: any
-  isActive: boolean
-  batchColor: string
-  q: string
-  onSelect: () => void
+  patient: any;
+  isActive: boolean;
+  batchColor: string;
+  q: string;
+  onSelect: () => void;
 }) {
-  const initials = (patient.name || "").split(" ").filter(Boolean).map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "??"
+  const initials =
+    (patient.name || "")
+      .split(" ")
+      .filter(Boolean)
+      .map((n: string) => n[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "??";
   return (
     <motion.button
       layout
@@ -69,9 +90,11 @@ function PatientRow({
         {initials}
       </div>
       <div className="flex-1 min-w-0">
-        <p className={`text-[13px] font-medium truncate ${
-          isActive ? "text-[#16254c]" : "text-slate-800"
-        }`}>
+        <p
+          className={`text-[13px] font-medium truncate ${
+            isActive ? "text-[#16254c]" : "text-slate-800"
+          }`}
+        >
           <Hl text={patient.name} q={q} />
         </p>
         <p className="text-[11px] font-mono text-slate-400 truncate mt-0.5">
@@ -80,56 +103,60 @@ function PatientRow({
       </div>
       <div className="flex flex-col items-end gap-1 shrink-0">
         {patient.records.length > 0 && (
-          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded tabular-nums ${
-            isActive ? "bg-[#16254c]/10 text-[#16254c]" : "bg-slate-100 text-slate-500"
-          }`}>
+          <span
+            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded tabular-nums ${
+              isActive ? "bg-[#16254c]/10 text-[#16254c]" : "bg-slate-100 text-slate-500"
+            }`}
+          >
             {patient.records.length}
           </span>
         )}
         <ChevronRight size={11} className={isActive ? "text-[#16254c]" : "text-slate-300"} />
       </div>
     </motion.button>
-  )
+  );
 }
 
 // ─── Patient List Sidebar ─────────────────────────────────────────────────────
 
 function PatientList({
-  patients, selectedId, onSelect, batches = [],
+  patients,
+  selectedId,
+  onSelect,
+  batches = [],
 }: {
-  patients: any[]
-  selectedId: string | null
-  onSelect: (id: string) => void
-  batches: Batch[]
+  patients: any[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  batches: Batch[];
 }) {
-  const [q, setQ] = useState("")
-  const [activeBatch, setActiveBatch] = useState<string>("all")
-  const [expandedBatch, setExpandedBatch] = useState<string | null>(null)
+  const [q, setQ] = useState("");
+  const [activeBatch, setActiveBatch] = useState<string>("all");
+  const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
 
   const toggleExpand = (batchId: string) =>
-    setExpandedBatch(prev => (prev === batchId ? null : batchId))
+    setExpandedBatch((prev) => (prev === batchId ? null : batchId));
 
   const groups = useMemo(() => {
-    const filtered = patients.filter(p => {
-      const matchQ = !q.trim() ||
+    const filtered = patients.filter((p) => {
+      const matchQ =
+        !q.trim() ||
         (p.name && p.name.toLowerCase().includes(q.toLowerCase())) ||
-        (p.patientId && p.patientId.toLowerCase().includes(q.toLowerCase()))
-      const matchBatch = activeBatch === "all" || p.batchId === activeBatch
-      return matchQ && matchBatch
-    })
-    const map: Record<string, any[]> = {}
+        (p.patientId && p.patientId.toLowerCase().includes(q.toLowerCase()));
+      const matchBatch = activeBatch === "all" || p.batchId === activeBatch;
+      return matchQ && matchBatch;
+    });
+    const map: Record<string, any[]> = {};
     for (const p of filtered) {
-      const arr = map[p.batchId] ?? []
-      arr.push(p)
-      map[p.batchId] = arr
+      const arr = map[p.batchId] ?? [];
+      arr.push(p);
+      map[p.batchId] = arr;
     }
-    return batches
-      .filter(b => map[b.id])
-      .map(b => ({ batch: b, patients: map[b.id] ?? [] }))
-  }, [patients, q, activeBatch, batches])
+    return batches.filter((b) => map[b.id]).map((b) => ({ batch: b, patients: map[b.id] ?? [] }));
+  }, [patients, q, activeBatch, batches]);
 
-  const isSearching = q.trim().length > 0
-  const total = patients.reduce((n, p) => n + p.records.length, 0)
+  const isSearching = q.trim().length > 0;
+  const total = patients.reduce((n, p) => n + p.records.length, 0);
 
   return (
     <aside className="flex flex-col h-full bg-white border-r border-slate-200">
@@ -144,13 +171,18 @@ function PatientList({
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-slate-100 transition-all">
           <Search size={13} className="text-slate-400 shrink-0" />
           <input
-            type="text" value={q}
-            onChange={e => setQ(e.target.value)}
+            type="text"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
             placeholder="Cari nama..."
             className="flex-1 min-w-0 text-[13px] text-slate-700 placeholder:text-slate-400 bg-transparent focus:outline-none"
           />
           {q && (
-            <button onClick={() => setQ("")} className="text-slate-300 hover:text-slate-500 transition-colors" aria-label="Hapus">
+            <button
+              onClick={() => setQ("")}
+              className="text-slate-300 hover:text-slate-500 transition-colors"
+              aria-label="Hapus"
+            >
               <X size={12} />
             </button>
           )}
@@ -160,13 +192,15 @@ function PatientList({
           <button
             onClick={() => setActiveBatch("all")}
             className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
-              activeBatch === "all" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+              activeBatch === "all"
+                ? "bg-slate-800 text-white"
+                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
             }`}
             style={{ fontSize: "10px" }}
           >
             Semua
           </button>
-          {batches.map(b => (
+          {batches.map((b) => (
             <button
               key={b.id}
               onClick={() => setActiveBatch(activeBatch === b.id ? "all" : b.id)}
@@ -177,7 +211,7 @@ function PatientList({
               style={{
                 backgroundColor: activeBatch === b.id ? b.color : b.color + "22",
                 color: activeBatch === b.id ? "#fff" : b.color,
-                fontSize: "10px"
+                fontSize: "10px",
               }}
             >
               {b.id}
@@ -193,9 +227,9 @@ function PatientList({
           </div>
         ) : (
           groups.map(({ batch, patients: pts }) => {
-            const isExpanded = isSearching || expandedBatch === batch.id
-            const visible    = isExpanded ? pts : pts.slice(0, PREVIEW_LIMIT)
-            const hiddenCount = pts.length - PREVIEW_LIMIT
+            const isExpanded = isSearching || expandedBatch === batch.id;
+            const visible = isExpanded ? pts : pts.slice(0, PREVIEW_LIMIT);
+            const hiddenCount = pts.length - PREVIEW_LIMIT;
 
             return (
               <div key={batch.id}>
@@ -204,12 +238,16 @@ function PatientList({
                     className="inline-block w-2 h-2 rounded-sm shrink-0"
                     style={{ backgroundColor: batch.color }}
                   />
-                  <p className="text-[11px] font-semibold text-slate-500 truncate flex-1">{batch.name}</p>
-                  <span className="text-[10px] text-slate-400 tabular-nums shrink-0">{pts.length}</span>
+                  <p className="text-[11px] font-semibold text-slate-500 truncate flex-1">
+                    {batch.name}
+                  </p>
+                  <span className="text-[10px] text-slate-400 tabular-nums shrink-0">
+                    {pts.length}
+                  </span>
                 </div>
 
                 <AnimatePresence initial={false}>
-                  {visible.map(p => (
+                  {visible.map((p) => (
                     <PatientRow
                       key={p.id}
                       patient={p}
@@ -244,12 +282,12 @@ function PatientList({
                   </motion.button>
                 )}
               </div>
-            )
+            );
           })
         )}
       </div>
     </aside>
-  )
+  );
 }
 
 // ─── Record Card ──────────────────────────────────────────────────────────────
@@ -268,24 +306,40 @@ function RecordCard({ record }: { record: any }) {
       </div>
       <div className="px-4 py-4 flex flex-col gap-4">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[#01696f] mb-1.5">Permasalahan Saat Ini</p>
-          <p className="text-[13px] text-slate-700 leading-relaxed bg-slate-50/50 p-2.5 rounded-lg border border-slate-100 whitespace-pre-wrap">{record.permasalahan}</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#01696f] mb-1.5">
+            Permasalahan Saat Ini
+          </p>
+          <p className="text-[13px] text-slate-700 leading-relaxed bg-slate-50/50 p-2.5 rounded-lg border border-slate-100 whitespace-pre-wrap">
+            {record.permasalahan}
+          </p>
         </div>
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[#01696f] mb-1.5">Proses Konseling</p>
-          <p className="text-[13px] text-slate-700 leading-relaxed bg-slate-50/50 p-2.5 rounded-lg border border-slate-100 whitespace-pre-wrap">{record.prosesKonseling}</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#01696f] mb-1.5">
+            Proses Konseling
+          </p>
+          <p className="text-[13px] text-slate-700 leading-relaxed bg-slate-50/50 p-2.5 rounded-lg border border-slate-100 whitespace-pre-wrap">
+            {record.prosesKonseling}
+          </p>
         </div>
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[#01696f] mb-1.5">Diagnosis Klinis</p>
-          <p className="text-[13px] text-slate-700 leading-relaxed bg-slate-50/50 p-2.5 rounded-lg border border-slate-100 whitespace-pre-wrap">{record.diagnosisKlinis}</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#01696f] mb-1.5">
+            Diagnosis Klinis
+          </p>
+          <p className="text-[13px] text-slate-700 leading-relaxed bg-slate-50/50 p-2.5 rounded-lg border border-slate-100 whitespace-pre-wrap">
+            {record.diagnosisKlinis}
+          </p>
         </div>
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[#01696f] mb-1.5">Saran Pengembangan dan Intervensi</p>
-          <p className="text-[13px] text-slate-700 leading-relaxed bg-slate-50/50 p-2.5 rounded-lg border border-slate-100 whitespace-pre-wrap">{record.saranPengembangan}</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#01696f] mb-1.5">
+            Saran Pengembangan dan Intervensi
+          </p>
+          <p className="text-[13px] text-slate-700 leading-relaxed bg-slate-50/50 p-2.5 rounded-lg border border-slate-100 whitespace-pre-wrap">
+            {record.saranPengembangan}
+          </p>
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // ─── Patient Detail Pane ──────────────────────────────────────────────────────
@@ -309,9 +363,12 @@ function PatientDetail({ patient, batches }: { patient: any; batches: Batch[] })
         {patient.records.length === 0 ? (
           <div className="py-20 flex flex-col items-center gap-2 text-center">
             <FileText size={28} className="text-slate-200" />
-            <p className="text-[13px] font-medium text-slate-400">Tidak ada riwayat konseling yang dilakukan</p>
+            <p className="text-[13px] font-medium text-slate-400">
+              Tidak ada riwayat konseling yang dilakukan
+            </p>
             <p className="text-[11px] text-slate-300 max-w-[32ch] leading-relaxed">
-              Catatan akan otomatis muncul setelah Laporan Psikologis dengan checklist &ldquo;Pasien Konseling&rdquo; disimpan.
+              Catatan akan otomatis muncul setelah Laporan Psikologis dengan checklist &ldquo;Pasien
+              Konseling&rdquo; disimpan.
             </p>
           </div>
         ) : (
@@ -323,20 +380,20 @@ function PatientDetail({ patient, batches }: { patient: any; batches: Batch[] })
         )}
       </div>
     </div>
-  )
+  );
 }
 
 // ─── Main Export ──────────────────────────────────────────────────────────────
 
 type MedicalHistoryProps = {
-  patients: Patient[]
-  currentUser: { id: string; role: string; email: string }
-  batches?: Batch[]
-}
+  patients: Patient[];
+  currentUser: { id: string; role: string; email: string };
+  batches?: Batch[];
+};
 
 export function MedicalHistory({ patients = [], currentUser, batches = [] }: MedicalHistoryProps) {
-  const [reports, setReports] = useState<any[]>([])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [reports, setReports] = useState<any[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -347,28 +404,28 @@ export function MedicalHistory({ patients = [], currentUser, batches = [] }: Med
             "x-user-id": currentUser.id,
             "x-user-role": currentUser.role,
             "x-user-email": currentUser.email,
-          }
-        })
-        const json = await res.json()
-        if (json.ok) setReports(json.data)
+          },
+        });
+        const json = await res.json();
+        if (json.ok) setReports(json.data);
       } catch (e) {
-        console.error(e)
+        console.error(e);
       }
-    }
-    fetchReports()
-  }, [currentUser])
+    };
+    fetchReports();
+  }, [currentUser]);
 
   // Map database patients and reports to medical records structure
   const psychPatients = useMemo(() => {
-    return patients.map(p => {
-      const patientReports = reports.filter(r => {
-        const isCounseling = r.form?.pasienKonseling === true
-        const matchesId = r.form?.patientId === p.id
-        const matchesName = r.form?.namaLengkap?.toLowerCase() === (p.name || "").toLowerCase()
-        return isCounseling && (matchesId || (r.form?.patientId == null && matchesName))
-      })
+    return patients.map((p) => {
+      const patientReports = reports.filter((r) => {
+        const isCounseling = r.form?.pasienKonseling === true;
+        const matchesId = r.form?.patientId === p.id;
+        const matchesName = r.form?.namaLengkap?.toLowerCase() === (p.name || "").toLowerCase();
+        return isCounseling && (matchesId || (r.form?.patientId == null && matchesName));
+      });
 
-      const records = patientReports.map(r => ({
+      const records = patientReports.map((r) => ({
         id: r.id,
         title: r.name ? r.name.replace(".pdf", "").replace("Laporan_", "") : "—",
         date: r.createdAt || "—",
@@ -376,7 +433,7 @@ export function MedicalHistory({ patients = [], currentUser, batches = [] }: Med
         prosesKonseling: r.form?.prosesKonseling || "—",
         diagnosisKlinis: r.form?.diagnosisKlinis || "—",
         saranPengembangan: r.form?.saranPengembangan || "—",
-      }))
+      }));
 
       return {
         id: p.id,
@@ -385,11 +442,13 @@ export function MedicalHistory({ patients = [], currentUser, batches = [] }: Med
         dateOfBirth: p.dateOfBirth || "",
         batchId: p.batchId || "",
         records,
-      }
-    })
-  }, [patients, reports])
+      };
+    });
+  }, [patients, reports]);
 
-  const selectedPatient = selectedId ? psychPatients.find(p => p.id === selectedId) ?? null : null
+  const selectedPatient = selectedId
+    ? (psychPatients.find((p) => p.id === selectedId) ?? null)
+    : null;
 
   return (
     <div className="flex flex-col h-full bg-[#f8f9fa]">
@@ -397,7 +456,9 @@ export function MedicalHistory({ patients = [], currentUser, batches = [] }: Med
         <Activity className="text-[#01696f]" size={20} />
         <div>
           <h1 className="text-[16px] font-bold text-slate-900 leading-none">Riwayat Psikologis</h1>
-          <p className="text-[11px] text-slate-400 mt-1">Lacak dan tinjau riwayat klinis pasien yang terhubung dari Laporan Konseling.</p>
+          <p className="text-[11px] text-slate-400 mt-1">
+            Lacak dan tinjau riwayat klinis pasien yang terhubung dari Laporan Konseling.
+          </p>
         </div>
       </div>
 
@@ -406,7 +467,7 @@ export function MedicalHistory({ patients = [], currentUser, batches = [] }: Med
           <PatientList
             patients={psychPatients}
             selectedId={selectedId}
-            onSelect={id => setSelectedId(id)}
+            onSelect={(id) => setSelectedId(id)}
             batches={batches}
           />
         </div>
@@ -426,6 +487,6 @@ export function MedicalHistory({ patients = [], currentUser, batches = [] }: Med
         </div>
       </div>
     </div>
-  )
+  );
 }
 export default MedicalHistory;

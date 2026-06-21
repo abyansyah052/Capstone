@@ -19,9 +19,14 @@ const generatePdfBuffer = async (
   let logoScale = 1.0;
   if (form.patientId) {
     try {
-      const patientRes = await query("SELECT batch_id FROM patients WHERE id = $1", [form.patientId]);
+      const patientRes = await query("SELECT batch_id FROM patients WHERE id = $1", [
+        form.patientId,
+      ]);
       if (patientRes.rows.length > 0 && patientRes.rows[0].batch_id) {
-        const batchRes = await query("SELECT logo, use_logo_in_report, logo_scale FROM batches WHERE id = $1", [patientRes.rows[0].batch_id]);
+        const batchRes = await query(
+          "SELECT logo, use_logo_in_report, logo_scale FROM batches WHERE id = $1",
+          [patientRes.rows[0].batch_id]
+        );
         if (batchRes.rows.length > 0) {
           batchLogo = batchRes.rows[0].logo;
           useLogoInReport = !!batchRes.rows[0].use_logo_in_report;
@@ -56,8 +61,14 @@ const generatePdfBuffer = async (
     }
 
     // Header Title
-    doc.fontSize(14).font("Helvetica-Bold").text("ASISYA PSYCHOLOGICAL CENTER", { align: "center" });
-    doc.fontSize(8).font("Helvetica").text("Ruko Grand City Regency A7 - A8 Jl. Rungkut Madya", { align: "center" });
+    doc
+      .fontSize(14)
+      .font("Helvetica-Bold")
+      .text("ASISYA PSYCHOLOGICAL CENTER", { align: "center" });
+    doc
+      .fontSize(8)
+      .font("Helvetica")
+      .text("Ruko Grand City Regency A7 - A8 Jl. Rungkut Madya", { align: "center" });
     doc.text("Surabaya - Jawa Timur", { align: "center" });
     doc.moveDown(0.5);
 
@@ -84,11 +95,19 @@ const generatePdfBuffer = async (
     };
 
     drawRow("Nama Lengkap:", form.namaLengkap);
-    drawRow("Tempat/Tanggal Lahir:", `${form.tempatLahir || "—"}${form.tempatLahir && form.tanggalLahir ? " / " : ""}${form.tanggalLahir || ""}`);
+    drawRow(
+      "Tempat/Tanggal Lahir:",
+      `${form.tempatLahir || "—"}${form.tempatLahir && form.tanggalLahir ? " / " : ""}${form.tanggalLahir || ""}`
+    );
     drawRow("Jenis Kelamin:", form.jenisKelamin);
     drawRow("Usia:", form.usia ? `${form.usia} Tahun` : "—");
     drawRow("Pendidikan Terakhir:", form.pendidikan);
-    drawRow("Anak Keberapa:", form.anakKeberapa || form.jumlahSaudara ? `Anak ke ${form.anakKeberapa || "—"} dari ${form.jumlahSaudara || "—"} bersaudara` : "—");
+    drawRow(
+      "Anak Keberapa:",
+      form.anakKeberapa || form.jumlahSaudara
+        ? `Anak ke ${form.anakKeberapa || "—"} dari ${form.jumlahSaudara || "—"} bersaudara`
+        : "—"
+    );
     drawRow("Alamat:", form.alamat);
     doc.moveDown(0.5);
 
@@ -96,7 +115,10 @@ const generatePdfBuffer = async (
       doc.fontSize(10).font("Helvetica-Bold").text(title, leftColX);
       doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor("#6b7280").lineWidth(1).stroke();
       doc.moveDown(0.5);
-      doc.fontSize(9).font("Helvetica").text(text || "—", { align: "justify", lineGap: 3 });
+      doc
+        .fontSize(9)
+        .font("Helvetica")
+        .text(text || "—", { align: "justify", lineGap: 3 });
       doc.moveDown(1);
     };
 
@@ -112,10 +134,13 @@ const generatePdfBuffer = async (
       weekday: "long",
       year: "numeric",
       month: "long",
-      day: "numeric"
+      day: "numeric",
     });
 
-    doc.fontSize(9).font("Helvetica").text(`Surabaya, ${today}`, rightAlignX, doc.y, { align: "center", width: 200 });
+    doc
+      .fontSize(9)
+      .font("Helvetica")
+      .text(`Surabaya, ${today}`, rightAlignX, doc.y, { align: "center", width: 200 });
     doc.text("Psikolog / Konselor", { align: "center", width: 200 });
     doc.moveDown(0.2);
 
@@ -132,9 +157,15 @@ const generatePdfBuffer = async (
       doc.moveDown(3);
     }
 
-    doc.font("Helvetica-Bold").text(`( ${psyName || "Dairy Team"} )`, { align: "center", width: 200 });
+    doc
+      .font("Helvetica-Bold")
+      .text(`( ${psyName || "Dairy Team"} )`, { align: "center", width: 200 });
     if (sipp) {
-      doc.fontSize(8).font("Helvetica-Oblique").fillColor("#6b7280").text(`No. SIPP: ${sipp}`, { align: "center", width: 200 });
+      doc
+        .fontSize(8)
+        .font("Helvetica-Oblique")
+        .fillColor("#6b7280")
+        .text(`No. SIPP: ${sipp}`, { align: "center", width: 200 });
     }
 
     doc.end();
@@ -142,9 +173,14 @@ const generatePdfBuffer = async (
 };
 
 // GET /api/reports/nodes - Get all nodes (folders & files)
-export const getAllReportNodes = async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const getAllReportNodes = async (
+  _req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
   try {
-    const result = await query("SELECT id, name, kind, parent_id as \"parentId\", mime_type as \"mimeType\", size, created_at as \"createdAt\" FROM report_nodes ORDER BY created_at DESC");
+    const result = await query(
+      'SELECT id, name, kind, parent_id as "parentId", mime_type as "mimeType", size, created_at as "createdAt" FROM report_nodes ORDER BY created_at DESC'
+    );
     res.json({ ok: true, data: result.rows });
   } catch (error: any) {
     res.status(500).json({ ok: false, error: error.message });
@@ -165,7 +201,16 @@ export const createReportNode = async (req: AuthenticatedRequest, res: Response)
   try {
     await query(
       "INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-      [id, name, kind, parentId || null, mimeType || null, size || null, fileContent || null, createdDate]
+      [
+        id,
+        name,
+        kind,
+        parentId || null,
+        mimeType || null,
+        size || null,
+        fileContent || null,
+        createdDate,
+      ]
     );
 
     await logActivity(
@@ -175,7 +220,10 @@ export const createReportNode = async (req: AuthenticatedRequest, res: Response)
       `Created report explorer node: ${name} (Kind: ${kind}, ID: ${id})`
     );
 
-    const created = await query("SELECT id, name, kind, parent_id as \"parentId\", mime_type as \"mimeType\", size, created_at as \"createdAt\" FROM report_nodes WHERE id = $1", [id]);
+    const created = await query(
+      'SELECT id, name, kind, parent_id as "parentId", mime_type as "mimeType", size, created_at as "createdAt" FROM report_nodes WHERE id = $1',
+      [id]
+    );
     res.status(201).json({ ok: true, data: created.rows[0] });
   } catch (error: any) {
     res.status(500).json({ ok: false, error: error.message });
@@ -241,7 +289,10 @@ export const deleteReportNode = async (req: AuthenticatedRequest, res: Response)
 };
 
 // POST /api/reports/nodes/bulk-delete - Delete multiple nodes
-export const deleteReportNodesBulk = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const deleteReportNodesBulk = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
   const { ids } = req.body;
 
   if (!ids || !Array.isArray(ids) || ids.length === 0) {
@@ -265,7 +316,10 @@ export const deleteReportNodesBulk = async (req: AuthenticatedRequest, res: Resp
 };
 
 // GET /api/reports/nodes/:id/pdf - Preview or Download PDF file
-export const previewOrDownloadPdf = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const previewOrDownloadPdf = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
   const { id } = req.params;
 
   try {
@@ -280,7 +334,10 @@ export const previewOrDownloadPdf = async (req: AuthenticatedRequest, res: Respo
     const isDownload = req.query.download === "true";
 
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `${isDownload ? "attachment" : "inline"}; filename="${node.name}"`);
+    res.setHeader(
+      "Content-Disposition",
+      `${isDownload ? "attachment" : "inline"}; filename="${node.name}"`
+    );
 
     // Case 1: Uploaded direct PDF (stored as base64 string starting with data:application/pdf;base64)
     if (fileContent.startsWith("data:application/pdf;base64,")) {
@@ -306,7 +363,9 @@ export const previewOrDownloadPdf = async (req: AuthenticatedRequest, res: Respo
 
     // Query active psychologist details if req.user is valid and role is psychologist
     if (req.user?.role === "psikolog") {
-      const psyResult = await query("SELECT * FROM psychologists WHERE user_id = $1", [req.user.id]);
+      const psyResult = await query("SELECT * FROM psychologists WHERE user_id = $1", [
+        req.user.id,
+      ]);
       if (psyResult.rows.length > 0) {
         const p = psyResult.rows[0];
         signature = p.signature;
@@ -315,7 +374,9 @@ export const previewOrDownloadPdf = async (req: AuthenticatedRequest, res: Respo
       }
     } else {
       // Fallback: search for first seeded psychologist
-      const fallbackResult = await query("SELECT * FROM psychologists ORDER BY created_at ASC LIMIT 1");
+      const fallbackResult = await query(
+        "SELECT * FROM psychologists ORDER BY created_at ASC LIMIT 1"
+      );
       if (fallbackResult.rows.length > 0) {
         const p = fallbackResult.rows[0];
         signature = p.signature;
@@ -332,7 +393,10 @@ export const previewOrDownloadPdf = async (req: AuthenticatedRequest, res: Respo
 };
 
 // POST /api/reports/nodes/batch-download - ZIP download of selected folders & files
-export const batchDownloadReports = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const batchDownloadReports = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
   const { ids } = req.body;
 
   if (!ids || !Array.isArray(ids) || ids.length === 0) {
@@ -342,7 +406,9 @@ export const batchDownloadReports = async (req: AuthenticatedRequest, res: Respo
 
   try {
     // Retrieve all nodes in database to build paths
-    const dbNodesResult = await query("SELECT id, name, kind, parent_id as \"parentId\", file_content as \"fileContent\" FROM report_nodes");
+    const dbNodesResult = await query(
+      'SELECT id, name, kind, parent_id as "parentId", file_content as "fileContent" FROM report_nodes'
+    );
     const dbNodes = dbNodesResult.rows;
 
     const nodeMap = new Map<string, any>();
@@ -363,7 +429,9 @@ export const batchDownloadReports = async (req: AuthenticatedRequest, res: Respo
     let signature = null;
     let psyName = "Dairy Team";
     let sipp = "SIPP/09/2026/01-DT";
-    const fallbackResult = await query("SELECT * FROM psychologists ORDER BY created_at ASC LIMIT 1");
+    const fallbackResult = await query(
+      "SELECT * FROM psychologists ORDER BY created_at ASC LIMIT 1"
+    );
     if (fallbackResult.rows.length > 0) {
       const p = fallbackResult.rows[0];
       signature = p.signature;
@@ -436,12 +504,15 @@ export const batchDownloadReports = async (req: AuthenticatedRequest, res: Respo
 };
 
 // GET /api/reports/counseling - Get only counseling reports (non-PDF upload nodes)
-export const getCounselingReports = async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const getCounselingReports = async (
+  _req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
   try {
     const result = await query(
-      "SELECT id, name, kind, parent_id as \"parentId\", mime_type as \"mimeType\", size, file_content as \"fileContent\", created_at as \"createdAt\" FROM report_nodes WHERE kind = 'file' AND file_content NOT LIKE 'data:application/pdf%'"
+      'SELECT id, name, kind, parent_id as "parentId", mime_type as "mimeType", size, file_content as "fileContent", created_at as "createdAt" FROM report_nodes WHERE kind = \'file\' AND file_content NOT LIKE \'data:application/pdf%\''
     );
-    const parsed = result.rows.map(row => {
+    const parsed = result.rows.map((row) => {
       let form = {};
       try {
         form = JSON.parse(row.fileContent || "{}");
@@ -453,7 +524,7 @@ export const getCounselingReports = async (_req: AuthenticatedRequest, res: Resp
         name: row.name,
         parentId: row.parentId,
         createdAt: row.createdAt,
-        form
+        form,
       };
     });
     res.json({ ok: true, data: parsed });

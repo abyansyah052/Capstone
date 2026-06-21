@@ -3,7 +3,10 @@ import { query, logActivity } from "../config/db";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 
 // GET /api/psychologists - Get all psychologists
-export const getAllPsychologists = async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const getAllPsychologists = async (
+  _req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
   try {
     const result = await query("SELECT * FROM psychologists ORDER BY created_at DESC");
     res.json({ ok: true, data: result.rows });
@@ -13,7 +16,10 @@ export const getAllPsychologists = async (_req: AuthenticatedRequest, res: Respo
 };
 
 // GET /api/psychologists/:id - Get psychologist by ID
-export const getPsychologistById = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const getPsychologistById = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
   const { id } = req.params;
   try {
     const result = await query("SELECT * FROM psychologists WHERE id = $1", [id]);
@@ -28,7 +34,10 @@ export const getPsychologistById = async (req: AuthenticatedRequest, res: Respon
 };
 
 // POST /api/psychologists - Create psychologist
-export const createPsychologist = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const createPsychologist = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
   const psyData = req.body;
 
   if (!psyData.name || !psyData.email || !psyData.sipp) {
@@ -72,7 +81,10 @@ export const createPsychologist = async (req: AuthenticatedRequest, res: Respons
 };
 
 // PUT /api/psychologists/:id - Update psychologist profile
-export const updatePsychologist = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const updatePsychologist = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
   const { id } = req.params;
   const psyData = req.body;
 
@@ -119,7 +131,10 @@ export const updatePsychologist = async (req: AuthenticatedRequest, res: Respons
 };
 
 // DELETE /api/psychologists/:id - Delete psychologist profile
-export const deletePsychologist = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const deletePsychologist = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
   const { id } = req.params;
 
   try {

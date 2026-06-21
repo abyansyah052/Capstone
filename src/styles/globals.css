@@ -2,20 +2,20 @@
 
 :root {
   --font-size: 16px;
-  --background: #F4F6F9;
+  --background: #f4f6f9;
   --foreground: #111827;
   --card: #ffffff;
   --card-foreground: #111827;
   --popover: #ffffff;
   --popover-foreground: #111827;
-  --primary: #1C243B;
+  --primary: #1c243b;
   --primary-foreground: #ffffff;
-  --secondary: #E6F0FD;
+  --secondary: #e6f0fd;
   --secondary-foreground: #475569;
-  --muted: #F4F6F9;
-  --muted-foreground: #6B7280;
-  --accent: #E5B55C;
-  --accent-foreground: #1C243B;
+  --muted: #f4f6f9;
+  --muted-foreground: #6b7280;
+  --accent: #e5b55c;
+  --accent-foreground: #1c243b;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
   --border: #e2e8f0;
@@ -24,21 +24,21 @@
   --switch-background: #cbd5e1;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: #1C243B;
+  --ring: #1c243b;
   --chart-1: #2563eb;
   --chart-2: #10b981;
   --chart-3: #f59e0b;
   --chart-4: #8b5cf6;
   --chart-5: #06b6d4;
   --radius: 0.625rem;
-  --sidebar: #1C243B;
+  --sidebar: #1c243b;
   --sidebar-foreground: #ffffff;
-  --sidebar-primary: #E5B55C;
-  --sidebar-primary-foreground: #1C243B;
+  --sidebar-primary: #e5b55c;
+  --sidebar-primary-foreground: #1c243b;
   --sidebar-accent: #243050;
-  --sidebar-accent-foreground: #E5B55C;
+  --sidebar-accent-foreground: #e5b55c;
   --sidebar-border: #2d3a55;
-  --sidebar-ring: #E5B55C;
+  --sidebar-ring: #e5b55c;
 }
 
 .dark {
@@ -48,19 +48,19 @@
   --card-foreground: #f1f5f9;
   --popover: #1e293b;
   --popover-foreground: #f1f5f9;
-  --primary: #E5B55C;
-  --primary-foreground: #1C243B;
-  --secondary: #1C243B;
+  --primary: #e5b55c;
+  --primary-foreground: #1c243b;
+  --secondary: #1c243b;
   --secondary-foreground: #f1f5f9;
   --muted: #334155;
   --muted-foreground: #94a3b8;
-  --accent: #1C243B;
-  --accent-foreground: #E5B55C;
+  --accent: #1c243b;
+  --accent-foreground: #e5b55c;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --border: #334155;
   --input: #334155;
-  --ring: #E5B55C;
+  --ring: #e5b55c;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --chart-1: #3b82f6;
@@ -68,14 +68,14 @@
   --chart-3: #f59e0b;
   --chart-4: #a855f7;
   --chart-5: #06b6d4;
-  --sidebar: #1C243B;
+  --sidebar: #1c243b;
   --sidebar-foreground: #f1f5f9;
-  --sidebar-primary: #E5B55C;
-  --sidebar-primary-foreground: #1C243B;
+  --sidebar-primary: #e5b55c;
+  --sidebar-primary-foreground: #1c243b;
   --sidebar-accent: #243050;
   --sidebar-accent-foreground: #f1f5f9;
   --sidebar-border: #2d3a55;
-  --sidebar-ring: #E5B55C;
+  --sidebar-ring: #e5b55c;
 }
 
 @theme inline {
@@ -179,9 +179,8 @@ html {
 
 /* ───── Sidebar Pattern ───── */
 [data-sidebar="sidebar"] {
-  background-color: #1C243B !important;
+  background-color: #1c243b !important;
   background-image: url("/topography.svg") !important;
   background-size: 600px 600px !important;
   background-repeat: repeat !important;
 }
-

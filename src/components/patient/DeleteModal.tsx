@@ -1,31 +1,40 @@
-import { useState, useEffect } from "react"
-import { Trash2 } from "lucide-react"
-import { motion } from "motion/react"
-import { Patient } from "../../types"
+import { useState, useEffect } from "react";
+import { Trash2 } from "lucide-react";
+import { motion } from "motion/react";
+import { Patient } from "../../types";
 
 type DeleteModalProps = {
-  targets: Patient[]
-  onConfirm: () => void
-  onCancel: () => void
-}
+  targets: Patient[];
+  onConfirm: () => void;
+  onCancel: () => void;
+};
 
 export function DeleteModal({ targets, onConfirm, onCancel }: DeleteModalProps) {
-  const [input, setInput] = useState("")
-  const isSingle = targets.length === 1
-  const firstTarget = targets[0]
-  const phrase = isSingle && firstTarget ? firstTarget.name : String(targets.length)
-  const valid = input.trim() === phrase
+  const [input, setInput] = useState("");
+  const isSingle = targets.length === 1;
+  const firstTarget = targets[0];
+  const phrase = isSingle && firstTarget ? firstTarget.name : String(targets.length);
+  const valid = input.trim() === phrase;
 
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel() }
-    window.addEventListener("keydown", h)
-    return () => window.removeEventListener("keydown", h)
-  }, [onCancel])
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onCancel]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-title"
+    >
       <motion.div
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         transition={{ duration: 0.15 }}
         className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"
         onClick={onCancel}
@@ -44,26 +53,46 @@ export function DeleteModal({ targets, onConfirm, onCancel }: DeleteModalProps) 
             </h2>
             <p className="text-sm text-slate-500 leading-relaxed">
               {isSingle && firstTarget ? (
-                <><span className="font-semibold text-slate-800">{firstTarget.name}</span> akan dihapus secara permanen dari sistem. Data tidak dapat dipulihkan kembali.</>
+                <>
+                  <span className="font-semibold text-slate-800">{firstTarget.name}</span> akan
+                  dihapus secara permanen dari sistem. Data tidak dapat dipulihkan kembali.
+                </>
               ) : (
-                <><span className="font-semibold text-slate-800">{targets.length} peserta</span> yang dipilih akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.</>
+                <>
+                  <span className="font-semibold text-slate-800">{targets.length} peserta</span>{" "}
+                  yang dipilih akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.
+                </>
               )}
             </p>
           </div>
           <div className="flex flex-col gap-2">
             <label htmlFor="delete-confirm" className="text-sm text-slate-600">
               {isSingle ? (
-                <>Ketik nama <span className="font-mono font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-xs">{phrase}</span> untuk melanjutkan</>
+                <>
+                  Ketik nama{" "}
+                  <span className="font-mono font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-xs">
+                    {phrase}
+                  </span>{" "}
+                  untuk melanjutkan
+                </>
               ) : (
-                <>Ketik angka <span className="font-mono font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-xs">{phrase}</span> untuk melanjutkan</>
+                <>
+                  Ketik angka{" "}
+                  <span className="font-mono font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-xs">
+                    {phrase}
+                  </span>{" "}
+                  untuk melanjutkan
+                </>
               )}
             </label>
             <input
               id="delete-confirm"
               autoFocus
               value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && valid) onConfirm() }}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && valid) onConfirm();
+              }}
               placeholder={isSingle ? `Ketik nama pasien…` : `Ketik ${phrase}`}
               spellCheck={false}
               autoComplete="off"
@@ -71,8 +100,8 @@ export function DeleteModal({ targets, onConfirm, onCancel }: DeleteModalProps) 
                 input.length > 0 && !valid
                   ? "border-red-300 bg-red-50/40 focus:border-red-400 focus:ring-2 focus:ring-red-100"
                   : valid
-                  ? "border-green-400 bg-green-50/40 focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                  : "border-slate-200 bg-slate-50 focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                    ? "border-green-400 bg-green-50/40 focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                    : "border-slate-200 bg-slate-50 focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
               }`}
             />
           </div>
@@ -99,5 +128,5 @@ export function DeleteModal({ targets, onConfirm, onCancel }: DeleteModalProps) 
         </div>
       </motion.div>
     </div>
-  )
+  );
 }

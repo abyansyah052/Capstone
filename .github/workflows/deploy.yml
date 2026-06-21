@@ -1,0 +1,110 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  ci-validation:
+    name: CI Quality Gates (Lint, Format & Build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Prettier formatting check
+        run: pnpm run format:check
+
+      - name: Run ESLint static analysis
+        run: pnpm run lint
+
+      - name: Compile and build production bundle
+        run: pnpm run build
+
+  deploy-staging:
+    name: Deploy to Staging (Vercel)
+    needs: ci-validation
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel environment configurations
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Build Vercel production bundle
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy to Vercel (Staging Environment)
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  deploy-production:
+    name: Deploy to Production (VPS)
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    # Enforces a manual gate on GitHub: the job will pause until a reviewer approves
+    environment:
+      name: production
+      url: http://103.245.39.8/
+    steps:
+      - name: Execute remote SSH deployment commands
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_SSH_HOST }}
+          username: root
+          password: ${{ secrets.VPS_SSH_PASSWORD }}
+          port: 22
+          script: |
+            echo "Starting Production VPS Deploy..."
+            cd /var/www/asisya
+
+            echo "Fetching latest changes from Git..."
+            git fetch origin
+            git checkout main
+            git reset --hard origin/main
+
+            echo "Installing dependencies..."
+            pnpm install --frozen-lockfile
+
+            echo "Building project (frontend & backend API compiler)..."
+            pnpm run build
+
+            echo "Reloading backend server daemon using PM2..."
+            pm2 reload asisya-backend --update-env
+
+            echo "Verification checking of server process..."
+            pm2 status
+
+            echo "Production VPS Deploy complete!"

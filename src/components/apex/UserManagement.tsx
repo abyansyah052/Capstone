@@ -163,27 +163,59 @@ export function UserManagement({ currentUser }: UserManagementProps) {
             className="fixed top-6 right-6 z-50 bg-[#01696f] text-white px-4 py-2.5 rounded-xl shadow-lg font-medium text-sm"
           >
             {message}
-            <button onClick={() => setMessage("")} className="ml-3 font-bold opacity-80 hover:opacity-100">×</button>
+            <button
+              onClick={() => setMessage("")}
+              className="ml-3 font-bold opacity-80 hover:opacity-100"
+            >
+              ×
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
 
       <div>
         <h1 className="text-2xl font-bold text-slate-900">User Management Console</h1>
-        <p className="text-sm text-slate-500 mt-1">Mengelola akses akun, penugasan role, dan status keanggotaan pengguna.</p>
+        <p className="text-sm text-slate-500 mt-1">
+          Mengelola akses akun, penugasan role, dan status keanggotaan pengguna.
+        </p>
       </div>
 
       {/* Stats row */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
-          { label: "Total Pengguna", value: stats.total, color: "bg-blue-50 text-blue-700 border-blue-100" },
-          { label: "Apex Admin", value: stats.apex, color: "bg-red-50 text-red-700 border-red-100" },
-          { label: "Staff Admins", value: stats.staff, color: "bg-amber-50 text-amber-700 border-amber-100" },
-          { label: "Psikolog", value: stats.psikolog, color: "bg-teal-50 text-teal-700 border-teal-100" },
-          { label: "User Reguler", value: stats.reguler, color: "bg-slate-50 text-slate-700 border-slate-100" },
+          {
+            label: "Total Pengguna",
+            value: stats.total,
+            color: "bg-blue-50 text-blue-700 border-blue-100",
+          },
+          {
+            label: "Apex Admin",
+            value: stats.apex,
+            color: "bg-red-50 text-red-700 border-red-100",
+          },
+          {
+            label: "Staff Admins",
+            value: stats.staff,
+            color: "bg-amber-50 text-amber-700 border-amber-100",
+          },
+          {
+            label: "Psikolog",
+            value: stats.psikolog,
+            color: "bg-teal-50 text-teal-700 border-teal-100",
+          },
+          {
+            label: "User Reguler",
+            value: stats.reguler,
+            color: "bg-slate-50 text-slate-700 border-slate-100",
+          },
         ].map((s) => (
-          <div key={s.label} className={`p-4 rounded-xl border bg-white ${s.color} shadow-sm flex flex-col justify-between`}>
-            <span className="text-xs font-semibold uppercase tracking-wider opacity-80">{s.label}</span>
+          <div
+            key={s.label}
+            className={`p-4 rounded-xl border bg-white ${s.color} shadow-sm flex flex-col justify-between`}
+          >
+            <span className="text-xs font-semibold uppercase tracking-wider opacity-80">
+              {s.label}
+            </span>
             <span className="text-2xl font-bold mt-2">{s.value}</span>
           </div>
         ))}
@@ -208,21 +240,35 @@ export function UserManagement({ currentUser }: UserManagementProps) {
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/30">
               <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400">Nama</th>
-              <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400">Email</th>
-              <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400">Role Saat Ini</th>
-              <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400">Status</th>
-              <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400">Ubah Role</th>
-              <th className="px-4 py-3 text-center text-[11px] font-semibold text-slate-400 w-36">Tindakan</th>
+              <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400">
+                Email
+              </th>
+              <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400">
+                Role Saat Ini
+              </th>
+              <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400">
+                Status
+              </th>
+              <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400">
+                Ubah Role
+              </th>
+              <th className="px-4 py-3 text-center text-[11px] font-semibold text-slate-400 w-36">
+                Tindakan
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="px-5 py-12 text-center text-slate-400 font-medium">Memuat data pengguna...</td>
+                <td colSpan={6} className="px-5 py-12 text-center text-slate-400 font-medium">
+                  Memuat data pengguna...
+                </td>
               </tr>
             ) : filteredUsers.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-5 py-12 text-center text-slate-400 font-medium">Tidak ada data pengguna yang sesuai</td>
+                <td colSpan={6} className="px-5 py-12 text-center text-slate-400 font-medium">
+                  Tidak ada data pengguna yang sesuai
+                </td>
               </tr>
             ) : (
               filteredUsers.map((u) => {
@@ -231,7 +277,12 @@ export function UserManagement({ currentUser }: UserManagementProps) {
                   <tr key={u.id} className="hover:bg-slate-50/60 transition-colors">
                     {/* Nama */}
                     <td className="px-4 py-3.5 font-semibold text-slate-800 flex items-center gap-1.5">
-                      {u.name} {isSelf && <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">(Saya)</span>}
+                      {u.name}{" "}
+                      {isSelf && (
+                        <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">
+                          (Saya)
+                        </span>
+                      )}
                     </td>
 
                     {/* Email */}
@@ -239,21 +290,30 @@ export function UserManagement({ currentUser }: UserManagementProps) {
 
                     {/* Role */}
                     <td className="px-4 py-3.5">
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
-                        u.role === "apex" ? "bg-red-100 text-red-800" :
-                        u.role === "staff" ? "bg-amber-100 text-amber-800" :
-                        u.role === "psikolog" ? "bg-teal-100 text-teal-800" :
-                        "bg-slate-100 text-slate-800"
-                      }`}>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
+                          u.role === "apex"
+                            ? "bg-red-100 text-red-800"
+                            : u.role === "staff"
+                              ? "bg-amber-100 text-amber-800"
+                              : u.role === "psikolog"
+                                ? "bg-teal-100 text-teal-800"
+                                : "bg-slate-100 text-slate-800"
+                        }`}
+                      >
                         {u.role}
                       </span>
                     </td>
 
                     {/* Status */}
                     <td className="px-4 py-3.5">
-                      <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
-                        u.status === "active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                      }`}>
+                      <span
+                        className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
+                          u.status === "active"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
                         {u.status === "active" ? "Aktif" : "Diblokir"}
                       </span>
                     </td>
@@ -261,7 +321,11 @@ export function UserManagement({ currentUser }: UserManagementProps) {
                     {/* Ubah Role Action */}
                     <td className="px-4 py-3.5">
                       <select
-                        disabled={isSelf || (currentUser.role === "staff" && (u.role === "apex" || u.role === "staff"))}
+                        disabled={
+                          isSelf ||
+                          (currentUser.role === "staff" &&
+                            (u.role === "apex" || u.role === "staff"))
+                        }
                         value={u.role}
                         onChange={(e) => handleUpdateRole(u.id, e.target.value)}
                         className="text-xs border border-slate-200 bg-white rounded p-1 focus:outline-none focus:border-[#01696f]"
@@ -280,13 +344,16 @@ export function UserManagement({ currentUser }: UserManagementProps) {
                         {currentUser.role === "apex" && (
                           <button
                             disabled={isSelf}
-                            onClick={() => handleUpdateStatus(u.id, u.status === "active" ? "banned" : "active")}
+                            onClick={() =>
+                              handleUpdateStatus(u.id, u.status === "active" ? "banned" : "active")
+                            }
                             title={u.status === "active" ? "Blokir akun" : "Aktifkan akun kembali"}
                             className={`p-1.5 rounded transition-all ${
-                              isSelf ? "text-slate-200 cursor-not-allowed" :
-                              u.status === "active"
-                                ? "text-amber-500 hover:bg-amber-50"
-                                : "text-green-500 hover:bg-green-50"
+                              isSelf
+                                ? "text-slate-200 cursor-not-allowed"
+                                : u.status === "active"
+                                  ? "text-amber-500 hover:bg-amber-50"
+                                  : "text-green-500 hover:bg-green-50"
                             }`}
                           >
                             {u.status === "active" ? <UserX size={15} /> : <UserCheck size={15} />}
@@ -300,7 +367,9 @@ export function UserManagement({ currentUser }: UserManagementProps) {
                             onClick={() => handleDeleteUser(u.id)}
                             title="Hapus user permanen"
                             className={`p-1.5 rounded ${
-                              isSelf ? "text-slate-200 cursor-not-allowed" : "text-red-500 hover:bg-red-50"
+                              isSelf
+                                ? "text-slate-200 cursor-not-allowed"
+                                : "text-red-500 hover:bg-red-50"
                             }`}
                           >
                             <Trash2 size={15} />

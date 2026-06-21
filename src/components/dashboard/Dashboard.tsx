@@ -1,12 +1,20 @@
-import { useState, useEffect } from "react"
-import { Users, Calendar, ClipboardList, Activity, FileText, GraduationCap, Shield } from "lucide-react"
-import { Card, CardContent } from "../ui/card"
-import bannerImg from "../../assets/Psikolog Asisya Web Design.png"
+import { useState, useEffect } from "react";
+import {
+  Users,
+  Calendar,
+  ClipboardList,
+  Activity,
+  FileText,
+  GraduationCap,
+  Shield,
+} from "lucide-react";
+import { Card, CardContent } from "../ui/card";
+import bannerImg from "../../assets/Psikolog Asisya Web Design.png";
 
 interface DashboardProps {
-  onNavigate: (module: string) => void
-  currentUserRole?: string
-  currentUser?: { id: string; role: string; email: string } | null
+  onNavigate: (module: string) => void;
+  currentUserRole?: string;
+  currentUser?: { id: string; role: string; email: string } | null;
 }
 
 const ALL_MODULES = [
@@ -59,16 +67,24 @@ const ALL_MODULES = [
     icon: FileText,
     roles: ["psikolog"],
   },
-]
+];
 
-export function Dashboard({ onNavigate, currentUserRole = "staff", currentUser = null }: DashboardProps) {
-  const effectiveRole = currentUser?.role || currentUserRole
-  const modules = ALL_MODULES.filter(m => m.roles.includes(effectiveRole))
+export function Dashboard({
+  onNavigate,
+  currentUserRole = "staff",
+  currentUser = null,
+}: DashboardProps) {
+  const effectiveRole = currentUser?.role || currentUserRole;
+  const modules = ALL_MODULES.filter((m) => m.roles.includes(effectiveRole));
 
-  const [stats, setStats] = useState({ totalPatients: 0, todayAppointments: 0, internalAppointments: 0 })
+  const [stats, setStats] = useState({
+    totalPatients: 0,
+    todayAppointments: 0,
+    internalAppointments: 0,
+  });
 
   useEffect(() => {
-    if (!currentUser) return
+    if (!currentUser) return;
     const fetchStats = async () => {
       try {
         const res = await fetch("/api/dashboard/stats", {
@@ -76,18 +92,18 @@ export function Dashboard({ onNavigate, currentUserRole = "staff", currentUser =
             "x-user-id": currentUser.id,
             "x-user-role": currentUser.role,
             "x-user-email": currentUser.email,
-          }
-        })
-        const json = await res.json()
+          },
+        });
+        const json = await res.json();
         if (json.ok) {
-          setStats(json.data)
+          setStats(json.data);
         }
       } catch (err) {
-        console.error("Failed to fetch dashboard stats", err)
+        console.error("Failed to fetch dashboard stats", err);
       }
-    }
-    fetchStats()
-  }, [currentUser])
+    };
+    fetchStats();
+  }, [currentUser]);
 
   const scorecards = [
     {
@@ -105,11 +121,10 @@ export function Dashboard({ onNavigate, currentUserRole = "staff", currentUser =
       value: stats.internalAppointments.toLocaleString("id-ID"),
       icon: ClipboardList,
     },
-  ]
+  ];
 
   return (
     <div className="p-6 space-y-6">
-
       {/* Banner Selamat Datang */}
       <div
         className="relative rounded-2xl overflow-hidden h-52"
@@ -120,8 +135,8 @@ export function Dashboard({ onNavigate, currentUserRole = "staff", currentUser =
           className="absolute inset-0 opacity-40"
           style={{
             backgroundImage: `url(${bannerImg})`,
-            backgroundSize: "65%",        // ← zoom out: turunkan %, zoom in: naikkan
-            backgroundPosition: "left 30%",  // ← geser: "left", "20% center", dst
+            backgroundSize: "65%", // ← zoom out: turunkan %, zoom in: naikkan
+            backgroundPosition: "left 30%", // ← geser: "left", "20% center", dst
             backgroundRepeat: "no-repeat",
           }}
         />
@@ -140,8 +155,8 @@ export function Dashboard({ onNavigate, currentUserRole = "staff", currentUser =
             Selamat Datang di Asisya Consulting IPMS
           </h2>
           <p className="text-slate-300 text-sm leading-relaxed">
-            IPMS adalah Internal Psychological management system untuk mengatur informasi pasien, janji temu, dan
-            data psikologis dengan aman dan mudah.
+            IPMS adalah Internal Psychological management system untuk mengatur informasi pasien,
+            janji temu, dan data psikologis dengan aman dan mudah.
           </p>
         </div>
       </div>
@@ -149,9 +164,12 @@ export function Dashboard({ onNavigate, currentUserRole = "staff", currentUser =
       {/* Scorecard Row */}
       <div className="grid grid-cols-3 gap-4">
         {scorecards.map((card) => {
-          const Icon = card.icon
+          const Icon = card.icon;
           return (
-            <Card key={card.label} className="bg-white border border-slate-200 rounded-2xl shadow-sm">
+            <Card
+              key={card.label}
+              className="bg-white border border-slate-200 rounded-2xl shadow-sm"
+            >
               <CardContent className="p-5 flex items-center justify-between">
                 <div>
                   <p className="text-sm text-[#6B7280] mb-1">{card.label}</p>
@@ -165,7 +183,7 @@ export function Dashboard({ onNavigate, currentUserRole = "staff", currentUser =
                 </div>
               </CardContent>
             </Card>
-          )
+          );
         })}
       </div>
 
@@ -174,7 +192,7 @@ export function Dashboard({ onNavigate, currentUserRole = "staff", currentUser =
         <h3 className="text-base font-medium text-[#111827] mb-3">Modul</h3>
         <div className="grid grid-cols-3 gap-4">
           {modules.map((mod) => {
-            const Icon = mod.icon
+            const Icon = mod.icon;
             return (
               <Card
                 key={mod.id}
@@ -194,12 +212,11 @@ export function Dashboard({ onNavigate, currentUserRole = "staff", currentUser =
                   <p className="text-sm text-[#6B7280]">{mod.description}</p>
                 </CardContent>
               </Card>
-            )
+            );
           })}
         </div>
       </div>
-
     </div>
-  )
+  );
 }
 export default Dashboard;

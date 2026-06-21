@@ -1,29 +1,38 @@
-import { useState, useEffect } from "react"
-import { Trash2 } from "lucide-react"
-import { motion } from "motion/react"
-import { Psychologist } from "../../types"
+import { useState, useEffect } from "react";
+import { Trash2 } from "lucide-react";
+import { motion } from "motion/react";
+import { Psychologist } from "../../types";
 
 type DeleteModalProps = {
-  target: Psychologist
-  onConfirm: () => void
-  onCancel: () => void
-}
+  target: Psychologist;
+  onConfirm: () => void;
+  onCancel: () => void;
+};
 
 export function DeleteModal({ target, onConfirm, onCancel }: DeleteModalProps) {
-  const [input, setInput] = useState("")
-  const phrase = target.name
-  const valid = input.trim() === phrase
+  const [input, setInput] = useState("");
+  const phrase = target.name;
+  const valid = input.trim() === phrase;
 
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel() }
-    window.addEventListener("keydown", h)
-    return () => window.removeEventListener("keydown", h)
-  }, [onCancel])
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onCancel]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-title"
+    >
       <motion.div
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         transition={{ duration: 0.15 }}
         className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"
         onClick={onCancel}
@@ -41,19 +50,26 @@ export function DeleteModal({ target, onConfirm, onCancel }: DeleteModalProps) {
               Hapus Psikolog
             </h2>
             <p className="text-sm text-slate-500 leading-relaxed">
-              <span className="font-semibold text-slate-800">{target.name}</span> akan dihapus secara permanen dari database. Tindakan ini tidak dapat dibatalkan.
+              <span className="font-semibold text-slate-800">{target.name}</span> akan dihapus
+              secara permanen dari database. Tindakan ini tidak dapat dibatalkan.
             </p>
           </div>
           <div className="flex flex-col gap-2">
             <label htmlFor="delete-confirm" className="text-sm text-slate-600">
-              Ketik nama psikolog <span className="font-mono font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-xs">{phrase}</span> untuk melanjutkan
+              Ketik nama psikolog{" "}
+              <span className="font-mono font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-xs">
+                {phrase}
+              </span>{" "}
+              untuk melanjutkan
             </label>
             <input
               id="delete-confirm"
               autoFocus
               value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && valid) onConfirm() }}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && valid) onConfirm();
+              }}
               placeholder="Ketik nama psikolog…"
               spellCheck={false}
               autoComplete="off"
@@ -61,8 +77,8 @@ export function DeleteModal({ target, onConfirm, onCancel }: DeleteModalProps) {
                 input.length > 0 && !valid
                   ? "border-red-300 bg-red-50/40 focus:border-red-400 focus:ring-2 focus:ring-red-100"
                   : valid
-                  ? "border-green-400 bg-green-50/40 focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                  : "border-slate-200 bg-slate-50 focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                    ? "border-green-400 bg-green-50/40 focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                    : "border-slate-200 bg-slate-50 focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
               }`}
             />
           </div>
@@ -89,5 +105,5 @@ export function DeleteModal({ target, onConfirm, onCancel }: DeleteModalProps) {
         </div>
       </motion.div>
     </div>
-  )
+  );
 }

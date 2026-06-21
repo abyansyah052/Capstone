@@ -35,7 +35,7 @@ const generateCalendarIcs = (summary: string, dateStr: string, timeStr: string):
     "DESCRIPTION:Sesi konsultasi psikologi terjadwal di Asisya Consulting",
     "STATUS:CONFIRMED",
     "END:VEVENT",
-    "END:VCALENDAR"
+    "END:VCALENDAR",
   ].join("\r\n");
 };
 
@@ -45,7 +45,9 @@ export const sendNotification = async (payload: NotificationPayload): Promise<bo
   const summary = `Janji Temu Konsultasi: ${patientName}`;
   const icsContent = generateCalendarIcs(summary, date, time);
 
-  console.log(`[notification] Triggering notifications for appointment: ${patientName} (${date} at ${time})`);
+  console.log(
+    `[notification] Triggering notifications for appointment: ${patientName} (${date} at ${time})`
+  );
 
   if (channel === "whatsapp" || channel === "both") {
     const waUrl = process.env.WHATSAPP_API_URL || "https://api.whatsapp.example/send";

@@ -36,7 +36,15 @@ export const createBatch = async (req: AuthenticatedRequest, res: Response): Pro
           `UPDATE batches 
            SET name = $1, company = $2, color = $3, logo = $4, use_logo_in_report = $5, logo_scale = $6, deleted = false 
            WHERE id = $7`,
-          [name, company, color, logo || null, !!useLogoInReport, logoScale !== undefined ? logoScale : 1.0, id]
+          [
+            name,
+            company,
+            color,
+            logo || null,
+            !!useLogoInReport,
+            logoScale !== undefined ? logoScale : 1.0,
+            id,
+          ]
         );
         await logActivity(
           req.user?.id || "system",
@@ -67,7 +75,15 @@ export const createBatch = async (req: AuthenticatedRequest, res: Response): Pro
     await query(
       `INSERT INTO batches (id, name, company, color, logo, use_logo_in_report, logo_scale, deleted) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, false)`,
-      [id, name, company, color, logo || null, !!useLogoInReport, logoScale !== undefined ? logoScale : 1.0]
+      [
+        id,
+        name,
+        company,
+        color,
+        logo || null,
+        !!useLogoInReport,
+        logoScale !== undefined ? logoScale : 1.0,
+      ]
     );
 
     await logActivity(
@@ -116,7 +132,15 @@ export const updateBatch = async (req: AuthenticatedRequest, res: Response): Pro
       `UPDATE batches 
        SET name = $1, company = $2, color = $3, logo = $4, use_logo_in_report = $5, logo_scale = $6 
        WHERE id = $7`,
-      [name, company, color, logo !== undefined ? logo : null, !!useLogoInReport, logoScale !== undefined ? logoScale : 1.0, id]
+      [
+        name,
+        company,
+        color,
+        logo !== undefined ? logo : null,
+        !!useLogoInReport,
+        logoScale !== undefined ? logoScale : 1.0,
+        id,
+      ]
     );
 
     await logActivity(

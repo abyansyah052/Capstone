@@ -7,7 +7,7 @@ const formatDate = (val: any): string => {
   if (!val) return "";
   if (val instanceof Date) {
     const offset = val.getTimezoneOffset();
-    const localDate = new Date(val.getTime() - (offset * 60 * 1000));
+    const localDate = new Date(val.getTime() - offset * 60 * 1000);
     return localDate.toISOString().split("T")[0] || "";
   }
   if (typeof val === "string") {
@@ -20,21 +20,30 @@ const formatDate = (val: any): string => {
 };
 
 // GET /api/appointments - Retrieve appointments
-export const getAllAppointments = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const getAllAppointments = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
   const role = req.user?.role;
   try {
     let result;
     if (role === "reguler") {
       // Regular users can only see appointments marked visible to them
-      result = await query("SELECT * FROM appointments WHERE visible_to_regular = true ORDER BY date DESC, time_slot DESC");
+      result = await query(
+        "SELECT * FROM appointments WHERE visible_to_regular = true ORDER BY date DESC, time_slot DESC"
+      );
     } else if (role === "psikolog") {
       // Psychologists can only see their own appointments + internal/general meetings
-      const psyResult = await query("SELECT id FROM psychologists WHERE user_id = $1", [req.user?.id]);
+      const psyResult = await query("SELECT id FROM psychologists WHERE user_id = $1", [
+        req.user?.id,
+      ]);
       let psyId = "";
       if (psyResult.rows.length > 0) {
         psyId = psyResult.rows[0].id;
       } else {
-        const psyEmailResult = await query("SELECT id FROM psychologists WHERE email = $1", [req.user?.email]);
+        const psyEmailResult = await query("SELECT id FROM psychologists WHERE email = $1", [
+          req.user?.email,
+        ]);
         if (psyEmailResult.rows.length > 0) {
           psyId = psyEmailResult.rows[0].id;
         }
@@ -78,12 +87,17 @@ export const getAllAppointments = async (req: AuthenticatedRequest, res: Respons
 };
 
 // POST /api/appointments - Schedule a new appointment
-export const createAppointment = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const createAppointment = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
   const data = req.body;
 
   const isInternal = data.patientId === "INTERNAL";
   if (!data.patientName || !data.date || !data.time || (!isInternal && !data.doctorId)) {
-    res.status(400).json({ ok: false, error: "Missing required appointment scheduling parameters" });
+    res
+      .status(400)
+      .json({ ok: false, error: "Missing required appointment scheduling parameters" });
     return;
   }
 
@@ -138,9 +152,14 @@ export const createAppointment = async (req: AuthenticatedRequest, res: Response
     if (data.notify && data.notify !== "none") {
       if (isInternal && data.doctorId) {
         // Notify each psychologist assigned to the internal schedule
-        const psyIds = data.doctorId.split(",").map((s: string) => s.trim()).filter(Boolean);
+        const psyIds = data.doctorId
+          .split(",")
+          .map((s: string) => s.trim())
+          .filter(Boolean);
         for (const psyId of psyIds) {
-          const psyRes = await query("SELECT name, email, phone FROM psychologists WHERE id = $1", [psyId]);
+          const psyRes = await query("SELECT name, email, phone FROM psychologists WHERE id = $1", [
+            psyId,
+          ]);
           if (psyRes.rows.length > 0) {
             const psy = psyRes.rows[0];
             await sendNotification({
@@ -173,7 +192,10 @@ export const createAppointment = async (req: AuthenticatedRequest, res: Response
 };
 
 // PUT /api/appointments/:id - Update appointment status or info
-export const updateAppointment = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const updateAppointment = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
   const { id } = req.params;
   const data = req.body;
 
@@ -204,7 +226,9 @@ export const updateAppointment = async (req: AuthenticatedRequest, res: Response
         data.notify || current.notify,
         data.notifyPhone !== undefined ? data.notifyPhone : current.notify_phone,
         data.notifyEmail !== undefined ? data.notifyEmail : current.notify_email,
-        data.visibleToRegular !== undefined ? (data.visibleToRegular === true || data.visibleToRegular === "true") : current.visible_to_regular,
+        data.visibleToRegular !== undefined
+          ? data.visibleToRegular === true || data.visibleToRegular === "true"
+          : current.visible_to_regular,
         id,
       ]
     );
@@ -223,7 +247,10 @@ export const updateAppointment = async (req: AuthenticatedRequest, res: Response
 };
 
 // DELETE /api/appointments/:id - Cancel/Delete appointment
-export const deleteAppointment = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const deleteAppointment = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
   const { id } = req.params;
 
   try {

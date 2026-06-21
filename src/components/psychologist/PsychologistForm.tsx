@@ -1,92 +1,105 @@
-import React, { useState, useEffect, useRef } from "react"
-import { ArrowLeft, CheckCircle2, PenTool, AlertCircle } from "lucide-react"
-import { motion, AnimatePresence } from "motion/react"
-import { Psychologist } from "../../types"
+import React, { useState, useEffect, useRef } from "react";
+import { ArrowLeft, CheckCircle2, PenTool, AlertCircle } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { Psychologist } from "../../types";
 
 type FormData = {
-  name: string
-  origin: string
-  age: string
-  phone: string
-  address: string
-  email: string
-  sipp: string
-  signature: string | null
-}
+  name: string;
+  origin: string;
+  age: string;
+  phone: string;
+  address: string;
+  email: string;
+  sipp: string;
+  signature: string | null;
+};
 
-type FormErrors = Partial<Record<keyof FormData, string>>
+type FormErrors = Partial<Record<keyof FormData, string>>;
 
 // Validation helper
 function validateField(key: keyof FormData, value: string): string {
   switch (key) {
     case "name": {
-      if (!value.trim()) return "Nama lengkap wajib diisi."
-      if (value.trim().length < 2) return "Nama minimal 2 karakter."
-      if (value.trim().length > 100) return "Nama maksimal 100 karakter."
-      return ""
+      if (!value.trim()) return "Nama lengkap wajib diisi.";
+      if (value.trim().length < 2) return "Nama minimal 2 karakter.";
+      if (value.trim().length > 100) return "Nama maksimal 100 karakter.";
+      return "";
     }
     case "origin": {
-      if (!value.trim()) return "Asal kota wajib diisi."
-      return ""
+      if (!value.trim()) return "Asal kota wajib diisi.";
+      return "";
     }
     case "age": {
-      if (!value) return "Umur wajib diisi."
-      const parsed = parseInt(value)
-      if (isNaN(parsed) || parsed < 20 || parsed > 100) return "Umur harus di antara 20 - 100 tahun."
-      return ""
+      if (!value) return "Umur wajib diisi.";
+      const parsed = parseInt(value);
+      if (isNaN(parsed) || parsed < 20 || parsed > 100)
+        return "Umur harus di antara 20 - 100 tahun.";
+      return "";
     }
     case "phone": {
-      if (!value.trim()) return "Nomor telepon wajib diisi."
-      return ""
+      if (!value.trim()) return "Nomor telepon wajib diisi.";
+      return "";
     }
     case "email": {
-      if (!value.trim()) return "Email wajib diisi."
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim()))
-        return "Format email tidak valid."
-      return ""
+      if (!value.trim()) return "Email wajib diisi.";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim())) return "Format email tidak valid.";
+      return "";
     }
     case "sipp": {
-      if (!value.trim()) return "Nomor SIPP wajib diisi."
-      return ""
+      if (!value.trim()) return "Nomor SIPP wajib diisi.";
+      return "";
     }
     case "address": {
-      if (!value.trim()) return "Alamat lengkap wajib diisi."
-      return ""
+      if (!value.trim()) return "Alamat lengkap wajib diisi.";
+      return "";
     }
     default:
-      return ""
+      return "";
   }
 }
 
 function validateAll(form: FormData): FormErrors {
-  const keys: (keyof FormData)[] = [
-    "name", "origin", "age", "phone", "email", "sipp", "address"
-  ]
-  const errs: FormErrors = {}
+  const keys: (keyof FormData)[] = ["name", "origin", "age", "phone", "email", "sipp", "address"];
+  const errs: FormErrors = {};
   for (const k of keys) {
-    const msg = validateField(k, form[k] as string)
-    if (msg) errs[k] = msg
+    const msg = validateField(k, form[k] as string);
+    if (msg) errs[k] = msg;
   }
-  return errs
+  return errs;
 }
 
 // Styling Constants
 const inputCls =
   "px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 " +
   "placeholder:text-slate-400 focus:outline-none focus:border-[#01696f]/60 " +
-  "focus:ring-2 focus:ring-[#01696f]/10 transition-all"
+  "focus:ring-2 focus:ring-[#01696f]/10 transition-all";
 
 const inputErrCls =
   "px-3.5 py-2.5 rounded-lg border border-red-300 bg-red-50/30 text-sm text-slate-800 " +
   "placeholder:text-slate-400 focus:outline-none focus:border-red-400 " +
-  "focus:ring-2 focus:ring-red-100 transition-all"
+  "focus:ring-2 focus:ring-red-100 transition-all";
 
-function Field({ label, id, required, hint, error, children }: {
-  label: string; id?: string; required?: boolean; hint?: string; error?: string; children: React.ReactNode
+function Field({
+  label,
+  id,
+  required,
+  hint,
+  error,
+  children,
+}: {
+  label: string;
+  id?: string;
+  required?: boolean;
+  hint?: string;
+  error?: string;
+  children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="flex items-center gap-1.5 text-[13px] font-medium text-slate-700">
+      <label
+        htmlFor={id}
+        className="flex items-center gap-1.5 text-[13px] font-medium text-slate-700"
+      >
         {label}
         {required && <span className="text-red-500">*</span>}
         {hint && <span className="ml-auto text-[11px] font-normal text-slate-400">{hint}</span>}
@@ -108,11 +121,17 @@ function Field({ label, id, required, hint, error, children }: {
         )}
       </AnimatePresence>
     </div>
-  )
+  );
 }
 
-function SectionCard({ title, badge, children }: {
-  title: string; badge?: React.ReactNode; children: React.ReactNode
+function SectionCard({
+  title,
+  badge,
+  children,
+}: {
+  title: string;
+  badge?: React.ReactNode;
+  children: React.ReactNode;
 }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
@@ -120,29 +139,24 @@ function SectionCard({ title, badge, children }: {
         <p className="text-[13px] font-semibold text-slate-700">{title}</p>
         {badge}
       </div>
-      <div className="p-5 flex flex-col gap-5">
-        {children}
-      </div>
+      <div className="p-5 flex flex-col gap-5">{children}</div>
     </div>
-  )
+  );
 }
 
 function ProgressBar({ value }: { value: number }) {
-  const color =
-    value >= 80 ? "#15803d" :
-    value >= 40 ? "#b45309" :
-    "#e11d48"
+  const color = value >= 80 ? "#15803d" : value >= 40 ? "#b45309" : "#e11d48";
 
   const label =
-    value >= 80 ? "Hampir selesai" :
-    value >= 40 ? "Sebagian terisi" :
-    "Perlu dilengkapi"
+    value >= 80 ? "Hampir selesai" : value >= 40 ? "Sebagian terisi" : "Perlu dilengkapi";
 
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex justify-between items-center">
         <span className="text-[12px] text-slate-500">Kelengkapan</span>
-        <span className="text-[12px] font-semibold" style={{ color }}>{value}%</span>
+        <span className="text-[12px] font-semibold" style={{ color }}>
+          {value}%
+        </span>
       </div>
       <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
         <motion.div
@@ -152,9 +166,11 @@ function ProgressBar({ value }: { value: number }) {
           transition={{ duration: 0.4, ease: "easeOut" }}
         />
       </div>
-      <p className="text-[11px]" style={{ color }}>{label}</p>
+      <p className="text-[11px]" style={{ color }}>
+        {label}
+      </p>
     </div>
-  )
+  );
 }
 
 interface UserOption {
@@ -165,11 +181,11 @@ interface UserOption {
 }
 
 type PsychologistFormProps = {
-  initialPsychologist?: Psychologist | null
-  currentUser?: { id: string; role: string; email: string } | null
-  onBack: () => void
-  onSave: (p: Psychologist, userId?: string) => void
-}
+  initialPsychologist?: Psychologist | null;
+  currentUser?: { id: string; role: string; email: string } | null;
+  onBack: () => void;
+  onSave: (p: Psychologist, userId?: string) => void;
+};
 
 export function PsychologistForm({
   initialPsychologist = null,
@@ -177,8 +193,8 @@ export function PsychologistForm({
   onBack,
   onSave,
 }: PsychologistFormProps) {
-  const fileRef = useRef<HTMLInputElement>(null)
-  
+  const fileRef = useRef<HTMLInputElement>(null);
+
   const [form, setForm] = useState<FormData>({
     name: initialPsychologist?.name ?? "",
     origin: initialPsychologist?.origin ?? "",
@@ -188,14 +204,14 @@ export function PsychologistForm({
     email: initialPsychologist?.email ?? "",
     sipp: initialPsychologist?.sipp ?? "",
     signature: initialPsychologist?.signature ?? null,
-  })
+  });
 
-  const [users, setUsers] = useState<UserOption[]>([])
-  const [selectedUserId, setSelectedUserId] = useState<string>("")
-  const [touched, setTouched] = useState<Partial<Record<keyof FormData, boolean>>>({})
-  const [errors, setErrors] = useState<FormErrors>({})
-  const [completeness, setCompleteness] = useState(0)
-  const [submitted, setSubmitted] = useState(false)
+  const [users, setUsers] = useState<UserOption[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [touched, setTouched] = useState<Partial<Record<keyof FormData, boolean>>>({});
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [completeness, setCompleteness] = useState(0);
+  const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
     if (!initialPsychologist && currentUser) {
@@ -206,88 +222,88 @@ export function PsychologistForm({
               "x-user-id": currentUser.id,
               "x-user-role": currentUser.role,
               "x-user-email": currentUser.email,
-            }
-          })
-          const json = await res.json()
+            },
+          });
+          const json = await res.json();
           if (json.ok) {
-            setUsers(json.data.filter((u: any) => u.role !== "psikolog"))
+            setUsers(json.data.filter((u: any) => u.role !== "psikolog"));
           }
         } catch (err) {
-          console.error(err)
+          console.error(err);
         }
-      }
-      fetchUsers()
+      };
+      fetchUsers();
     }
-  }, [initialPsychologist, currentUser])
+  }, [initialPsychologist, currentUser]);
 
   const handleSelectUser = (userId: string) => {
-    setSelectedUserId(userId)
-    const user = users.find(u => u.id === userId)
+    setSelectedUserId(userId);
+    const user = users.find((u) => u.id === userId);
     if (user) {
-      setForm(p => ({
+      setForm((p) => ({
         ...p,
         name: user.name,
         email: user.email,
-      }))
+      }));
     }
-  }
+  };
 
   const set = (key: keyof FormData, val: string) => {
-    setForm(prev => ({ ...prev, [key]: val }))
+    setForm((prev) => ({ ...prev, [key]: val }));
     if (touched[key] || submitted) {
-      const msg = validateField(key, val)
-      setErrors(prev => ({ ...prev, [key]: msg }))
+      const msg = validateField(key, val);
+      setErrors((prev) => ({ ...prev, [key]: msg }));
     }
-  }
+  };
 
   const touch = (key: keyof FormData) => {
-    if (touched[key]) return
-    setTouched(prev => ({ ...prev, [key]: true }))
-    const msg = validateField(key, form[key] as string)
-    setErrors(prev => ({ ...prev, [key]: msg }))
-  }
+    if (touched[key]) return;
+    setTouched((prev) => ({ ...prev, [key]: true }));
+    const msg = validateField(key, form[key] as string);
+    setErrors((prev) => ({ ...prev, [key]: msg }));
+  };
 
   useEffect(() => {
-    const req = ["name", "origin", "age", "phone", "email", "sipp", "address"]
-    const filled = req.filter(k => form[k as keyof FormData]).length
-    setCompleteness(Math.round((filled / req.length) * 100))
-  }, [form])
+    const req = ["name", "origin", "age", "phone", "email", "sipp", "address"];
+    const filled = req.filter((k) => form[k as keyof FormData]).length;
+    setCompleteness(Math.round((filled / req.length) * 100));
+  }, [form]);
 
-  const allErrors = validateAll(form)
-  const hasErrors = Object.values(allErrors).some(Boolean)
-  const isReadyToSubmit = completeness === 100 && !hasErrors
+  const allErrors = validateAll(form);
+  const hasErrors = Object.values(allErrors).some(Boolean);
+  const isReadyToSubmit = completeness === 100 && !hasErrors;
 
   const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => setForm(prev => ({ ...prev, signature: ev.target?.result as string }))
-    reader.readAsDataURL(file)
-  }
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) =>
+      setForm((prev) => ({ ...prev, signature: ev.target?.result as string }));
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setSubmitted(true)
-    const errs = validateAll(form)
-    setErrors(errs)
-    if (Object.values(errs).some(Boolean) || !isReadyToSubmit) return
+    e.preventDefault();
+    setSubmitted(true);
+    const errs = validateAll(form);
+    setErrors(errs);
+    if (Object.values(errs).some(Boolean) || !isReadyToSubmit) return;
 
     const savedPsychologist: Psychologist = {
-      id:        initialPsychologist?.id ?? `psy-${Date.now()}`,
-      name:      form.name,
-      origin:    form.origin,
-      age:       parseInt(form.age) || 0,
-      phone:     form.phone,
-      address:   form.address,
-      email:     form.email,
-      sipp:      form.sipp,
+      id: initialPsychologist?.id ?? `psy-${Date.now()}`,
+      name: form.name,
+      origin: form.origin,
+      age: parseInt(form.age) || 0,
+      phone: form.phone,
+      address: form.address,
+      email: form.email,
+      sipp: form.sipp,
       signature: form.signature,
-    }
-    onSave(savedPsychologist, selectedUserId || undefined)
-  }
+    };
+    onSave(savedPsychologist, selectedUserId || undefined);
+  };
 
-  const err = (key: keyof FormData) =>
-    (touched[key] || submitted) ? errors[key] : undefined
+  const err = (key: keyof FormData) => (touched[key] || submitted ? errors[key] : undefined);
 
   return (
     <div className="flex flex-col gap-6">
@@ -304,7 +320,9 @@ export function PsychologistForm({
           <h1 className="text-xl font-semibold text-slate-900">
             {initialPsychologist ? "Edit Profil Psikolog" : "Registrasi Psikolog Baru"}
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">Kolom bertanda <span className="text-red-500">*</span> wajib diisi.</p>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Kolom bertanda <span className="text-red-500">*</span> wajib diisi.
+          </p>
         </div>
       </div>
 
@@ -323,11 +341,11 @@ export function PsychologistForm({
                   <select
                     id="select-user"
                     value={selectedUserId}
-                    onChange={e => handleSelectUser(e.target.value)}
+                    onChange={(e) => handleSelectUser(e.target.value)}
                     className={`${inputCls} w-full`}
                   >
                     <option value="">-- Pilih Akun Terdaftar (Opsional) --</option>
-                    {users.map(u => (
+                    {users.map((u) => (
                       <option key={u.id} value={u.id}>
                         {u.name} ({u.email}) - Role: {u.role}
                       </option>
@@ -341,7 +359,7 @@ export function PsychologistForm({
                 <input
                   id="name"
                   value={form.name}
-                  onChange={e => set("name", e.target.value)}
+                  onChange={(e) => set("name", e.target.value)}
                   onBlur={() => touch("name")}
                   placeholder="contoh: Dr. Abyansyah Dewanto, M.Psi."
                   className={err("name") ? `${inputErrCls} w-full` : `${inputCls} w-full`}
@@ -351,7 +369,7 @@ export function PsychologistForm({
                 <input
                   id="origin"
                   value={form.origin}
-                  onChange={e => set("origin", e.target.value)}
+                  onChange={(e) => set("origin", e.target.value)}
                   onBlur={() => touch("origin")}
                   placeholder="contoh: Surabaya"
                   className={err("origin") ? `${inputErrCls} w-full` : `${inputCls} w-full`}
@@ -364,7 +382,7 @@ export function PsychologistForm({
                   min={20}
                   max={100}
                   value={form.age}
-                  onChange={e => set("age", e.target.value)}
+                  onChange={(e) => set("age", e.target.value)}
                   onBlur={() => touch("age")}
                   placeholder="contoh: 35"
                   className={err("age") ? `${inputErrCls} w-full` : `${inputCls} w-full`}
@@ -374,7 +392,7 @@ export function PsychologistForm({
                 <input
                   id="phone"
                   value={form.phone}
-                  onChange={e => set("phone", e.target.value)}
+                  onChange={(e) => set("phone", e.target.value)}
                   onBlur={() => touch("phone")}
                   placeholder="+62 812 0000 0000"
                   className={err("phone") ? `${inputErrCls} w-full` : `${inputCls} w-full`}
@@ -385,7 +403,7 @@ export function PsychologistForm({
                   id="email"
                   type="email"
                   value={form.email}
-                  onChange={e => set("email", e.target.value)}
+                  onChange={(e) => set("email", e.target.value)}
                   onBlur={() => touch("email")}
                   placeholder="psikolog@asisya.com"
                   className={err("email") ? `${inputErrCls} w-full` : `${inputCls} w-full`}
@@ -402,7 +420,7 @@ export function PsychologistForm({
                   <input
                     id="sipp"
                     value={form.sipp}
-                    onChange={e => set("sipp", e.target.value)}
+                    onChange={(e) => set("sipp", e.target.value)}
                     onBlur={() => touch("sipp")}
                     placeholder="contoh: SIPP/09/2026/01-DT"
                     className={err("sipp") ? `${inputErrCls} w-full` : `${inputCls} w-full`}
@@ -414,11 +432,15 @@ export function PsychologistForm({
                   <textarea
                     id="address"
                     value={form.address}
-                    onChange={e => set("address", e.target.value)}
+                    onChange={(e) => set("address", e.target.value)}
                     onBlur={() => touch("address")}
                     placeholder="Jl. Raya No. 123, Ruko Grand City..."
                     rows={3}
-                    className={err("address") ? `${inputErrCls} w-full resize-none` : `${inputCls} w-full resize-none`}
+                    className={
+                      err("address")
+                        ? `${inputErrCls} w-full resize-none`
+                        : `${inputCls} w-full resize-none`
+                    }
                   />
                 </Field>
               </div>
@@ -435,23 +457,38 @@ export function PsychologistForm({
             </div>
             <div className="p-5 flex flex-col gap-3 items-center">
               <motion.div
-                whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.985 }}
+                whileHover={{ scale: 1.015 }}
+                whileTap={{ scale: 0.985 }}
                 onClick={() => fileRef.current?.click()}
                 className="w-full h-32 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center bg-slate-50 hover:border-[#01696f]/40 hover:bg-[#01696f]/[0.03] transition-all cursor-pointer overflow-hidden p-2"
               >
                 {form.signature ? (
-                  <img src={form.signature} alt="Tanda Tangan" className="w-full h-full object-contain" />
+                  <img
+                    src={form.signature}
+                    alt="Tanda Tangan"
+                    className="w-full h-full object-contain"
+                  />
                 ) : (
                   <div className="flex flex-col items-center gap-2">
                     <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
                       <PenTool size={18} className="text-slate-400" />
                     </div>
-                    <span className="text-[11px] text-slate-400 font-medium">Unggah Gambar TTD</span>
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      Unggah Gambar TTD
+                    </span>
                   </div>
                 )}
               </motion.div>
-              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleSignatureUpload} />
-              <p className="text-[11px] text-slate-400 text-center">PNG (Sangat disarankan transparent) · Maks. 2 MB</p>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleSignatureUpload}
+              />
+              <p className="text-[11px] text-slate-400 text-center">
+                PNG (Sangat disarankan transparent) · Maks. 2 MB
+              </p>
             </div>
           </div>
 
@@ -482,6 +519,6 @@ export function PsychologistForm({
         </div>
       </form>
     </div>
-  )
+  );
 }
 export default PsychologistForm;

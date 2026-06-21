@@ -1,18 +1,18 @@
-import { useState } from "react"
-import { AnimatePresence, motion } from "motion/react"
-import { Modal, Button, Text, Group } from "@mantine/core"
-import { Patient, Batch } from "../../types"
-import { PatientDirectory } from "./PatientDirectory"
-import { RegistrationForm } from "./RegistrationForm"
+import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { Modal, Button, Text, Group } from "@mantine/core";
+import { Patient, Batch } from "../../types";
+import { PatientDirectory } from "./PatientDirectory";
+import { RegistrationForm } from "./RegistrationForm";
 
-export const BATCHES: readonly Batch[] = []
+export const BATCHES: readonly Batch[] = [];
 
 type PatientRegistrationProps = {
-  patients: Patient[]
-  onPatientsChange: React.Dispatch<React.SetStateAction<Patient[]>>
-  currentUser: { id: string; role: string; email: string }
-  batches: Batch[]
-}
+  patients: Patient[];
+  onPatientsChange: React.Dispatch<React.SetStateAction<Patient[]>>;
+  currentUser: { id: string; role: string; email: string };
+  batches: Batch[];
+};
 
 export function PatientRegistration({
   patients,
@@ -20,21 +20,21 @@ export function PatientRegistration({
   currentUser,
   batches,
 }: PatientRegistrationProps) {
-  const isPsychologist = currentUser.role === "psikolog"
-  const [view, setView] = useState<"list" | "form">(isPsychologist ? "form" : "list")
-  const [editTarget, setEditTarget] = useState<Patient | null>(null)
-  const [formResetKey, setFormResetKey] = useState(0)
+  const isPsychologist = currentUser.role === "psikolog";
+  const [view, setView] = useState<"list" | "form">(isPsychologist ? "form" : "list");
+  const [editTarget, setEditTarget] = useState<Patient | null>(null);
+  const [formResetKey, setFormResetKey] = useState(0);
 
   // Mantine Modal State
-  const [modalOpen, setModalOpen] = useState(false)
-  const [modalTitle, setModalTitle] = useState("")
-  const [modalMessage, setModalMessage] = useState("")
-  const [modalType, setModalType] = useState<"success" | "error">("success")
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalTitle, setModalTitle] = useState("");
+  const [modalMessage, setModalMessage] = useState("");
+  const [modalType, setModalType] = useState<"success" | "error">("success");
 
   const handleSave = async (p: Patient) => {
-    const isEdit = !!editTarget
-    const url = isEdit ? `/api/patients/${p.id}` : "/api/patients"
-    const method = isEdit ? "PUT" : "POST"
+    const isEdit = !!editTarget;
+    const url = isEdit ? `/api/patients/${p.id}` : "/api/patients";
+    const method = isEdit ? "PUT" : "POST";
 
     try {
       const res = await fetch(url, {
@@ -46,15 +46,19 @@ export function PatientRegistration({
           "x-user-email": currentUser.email,
         },
         body: JSON.stringify(p),
-      })
-      const json = await res.json()
+      });
+      const json = await res.json();
       if (json.ok) {
-        setModalType("success")
-        setModalTitle(isEdit ? "Perubahan Disimpan" : "Registrasi Berhasil")
-        setModalMessage(isEdit ? "Perubahan data pasien berhasil disimpan!" : "Registrasi data pasien baru berhasil!")
-        setModalOpen(true)
+        setModalType("success");
+        setModalTitle(isEdit ? "Perubahan Disimpan" : "Registrasi Berhasil");
+        setModalMessage(
+          isEdit
+            ? "Perubahan data pasien berhasil disimpan!"
+            : "Registrasi data pasien baru berhasil!"
+        );
+        setModalOpen(true);
 
-        onPatientsChange(prev => {
+        onPatientsChange((prev) => {
           const mapPatient = (pData: any) => ({
             id: pData.id,
             name: pData.name,
@@ -82,60 +86,77 @@ export function PatientRegistration({
           const mappedSaved = json.data ? mapPatient(json.data) : p;
 
           if (isEdit) {
-            return prev.map(item => item.id === p.id ? mappedSaved : item)
+            return prev.map((item) => (item.id === p.id ? mappedSaved : item));
           } else {
-            return [mappedSaved, ...prev]
+            return [mappedSaved, ...prev];
           }
-        })
+        });
         if (isPsychologist) {
-          setFormResetKey(prev => prev + 1)
-          setView("form")
-          setEditTarget(null)
+          setFormResetKey((prev) => prev + 1);
+          setView("form");
+          setEditTarget(null);
         } else {
-          setView("list")
-          setEditTarget(null)
+          setView("list");
+          setEditTarget(null);
         }
       } else {
-        setModalType("error")
-        setModalTitle("Gagal Menyimpan")
-        setModalMessage(json.error || "Gagal menyimpan data pasien.")
-        setModalOpen(true)
+        setModalType("error");
+        setModalTitle("Gagal Menyimpan");
+        setModalMessage(json.error || "Gagal menyimpan data pasien.");
+        setModalOpen(true);
       }
     } catch (e) {
-      console.error(e)
-      setModalType("error")
-      setModalTitle("Koneksi Error")
-      setModalMessage("Koneksi gagal saat menghubungi backend.")
-      setModalOpen(true)
+      console.error(e);
+      setModalType("error");
+      setModalTitle("Koneksi Error");
+      setModalMessage("Koneksi gagal saat menghubungi backend.");
+      setModalOpen(true);
     }
-  }
+  };
 
   return (
     <div className="p-6 max-w-[1400px] w-full mx-auto">
       <AnimatePresence mode="wait">
         {view === "list" ? (
-          <motion.div key="list"
-            initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.18 }}>
+          <motion.div
+            key="list"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.18 }}
+          >
             <PatientDirectory
               patients={patients}
               batches={batches}
               setPatients={onPatientsChange}
               currentUser={currentUser}
-              onNew={() => { setEditTarget(null); setView("form") }}
-              onEdit={(p) => { setEditTarget(p); setView("form") }}
+              onNew={() => {
+                setEditTarget(null);
+                setView("form");
+              }}
+              onEdit={(p) => {
+                setEditTarget(p);
+                setView("form");
+              }}
             />
           </motion.div>
         ) : (
-          <motion.div key="form"
-            initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.18 }}>
+          <motion.div
+            key="form"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.18 }}
+          >
             <RegistrationForm
               key={editTarget ? editTarget.id : `new-${formResetKey}`}
               initialPatient={editTarget}
               batches={batches}
               hideBack={isPsychologist}
-              onBack={() => { setEditTarget(null); setView("list") }}
+              onBack={() => {
+                setEditTarget(null);
+                setView("list");
+              }}
               onSave={handleSave}
             />
           </motion.div>
@@ -161,7 +182,7 @@ export function PatientRegistration({
           },
           body: {
             paddingTop: "20px",
-          }
+          },
         }}
       >
         <Text size="sm" c="dimmed" className="leading-relaxed mb-6">
@@ -181,8 +202,8 @@ export function PatientRegistration({
                 ...(modalType === "success" ? { backgroundColor: "#0f766e" } : {}),
                 "&:hover": {
                   ...(modalType === "success" ? { backgroundColor: "#0d5c56" } : {}),
-                }
-              }
+                },
+              },
             }}
           >
             Selesai
@@ -190,6 +211,6 @@ export function PatientRegistration({
         </Group>
       </Modal>
     </div>
-  )
+  );
 }
 export default PatientRegistration;

@@ -1,10 +1,13 @@
 import { Pool } from "pg";
 import dotenv from "dotenv";
+import bcrypt from "bcryptjs";
 
 dotenv.config();
 
 // PostgreSQL connection configuration
-const connectionString = process.env.DATABASE_URL || `postgresql://${process.env.PGUSER || 'postgres'}:${process.env.PGPASSWORD || 'postgres'}@${process.env.PGHOST || 'localhost'}:${process.env.PGPORT || 5432}/${process.env.PGDATABASE || 'asisya_db'}`;
+const connectionString =
+  process.env.DATABASE_URL ||
+  `postgresql://${process.env.PGUSER || "postgres"}:${process.env.PGPASSWORD || "postgres"}@${process.env.PGHOST || "localhost"}:${process.env.PGPORT || 5432}/${process.env.PGDATABASE || "asisya_db"}`;
 
 const isProduction = process.env.NODE_ENV === "production";
 const useSsl = isProduction || connectionString.includes("neon.tech");
@@ -13,8 +16,8 @@ export const pool = new Pool({
   connectionString,
   ssl: useSsl ? { rejectUnauthorized: false } : false,
   connectionTimeoutMillis: 5000, // Fail fast (5s) instead of hanging the serverless function
-  idleTimeoutMillis: 10000,      // Close idle clients fast in serverless environment
-  max: 10,                       // Limit connections
+  idleTimeoutMillis: 10000, // Close idle clients fast in serverless environment
+  max: 10, // Limit connections
 });
 
 // Prevent process crash on unexpected database client errors
@@ -57,7 +60,9 @@ export const initDb = async () => {
     `);
     await pool.query("ALTER TABLE batches ADD COLUMN IF NOT EXISTS deleted BOOLEAN DEFAULT FALSE;");
     await pool.query("ALTER TABLE batches ADD COLUMN IF NOT EXISTS logo TEXT;");
-    await pool.query("ALTER TABLE batches ADD COLUMN IF NOT EXISTS use_logo_in_report BOOLEAN DEFAULT FALSE;");
+    await pool.query(
+      "ALTER TABLE batches ADD COLUMN IF NOT EXISTS use_logo_in_report BOOLEAN DEFAULT FALSE;"
+    );
     await pool.query("ALTER TABLE batches ADD COLUMN IF NOT EXISTS logo_scale REAL DEFAULT 1.0;");
 
     // Create psychologists table
@@ -124,13 +129,23 @@ export const initDb = async () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    await pool.query("ALTER TABLE appointments DROP CONSTRAINT IF EXISTS appointments_psychologist_id_fkey;");
-    await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_name VARCHAR(255);");
-    await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS duration INTEGER DEFAULT 60;");
+    await pool.query(
+      "ALTER TABLE appointments DROP CONSTRAINT IF EXISTS appointments_psychologist_id_fkey;"
+    );
+    await pool.query(
+      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_name VARCHAR(255);"
+    );
+    await pool.query(
+      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS duration INTEGER DEFAULT 60;"
+    );
     await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS type VARCHAR(255);");
-    await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS notify VARCHAR(50) DEFAULT 'none';");
+    await pool.query(
+      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS notify VARCHAR(50) DEFAULT 'none';"
+    );
     await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS notify_phone VARCHAR(50);");
-    await pool.query("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS notify_email VARCHAR(255);");
+    await pool.query(
+      "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS notify_email VARCHAR(255);"
+    );
 
     // Create activity_logs table
     await pool.query(`
@@ -175,9 +190,8 @@ export const initDb = async () => {
     // For local testing, we can insert an apex user, staff user, and regular user
     const userCheck = await pool.query("SELECT COUNT(*) FROM users");
     if (parseInt(userCheck.rows[0].count) === 0) {
-      const bcrypt = require("bcryptjs");
       const passwordHash = await bcrypt.hash("password", 10);
-      
+
       // Seed users
       await pool.query(`
         INSERT INTO users (id, name, email, password_hash, role, status) VALUES
@@ -202,13 +216,21 @@ export const initDb = async () => {
     const reportNodesCheck = await pool.query("SELECT COUNT(*) FROM report_nodes");
     if (parseInt(reportNodesCheck.rows[0].count) === 0) {
       // Root folders
-      await pool.query("INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ('f1', 'PT PLN (Persero)', 'folder', NULL, NULL, NULL, NULL, '2026-01-10')");
-      await pool.query("INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ('f2', 'Kimia Farma', 'folder', NULL, NULL, NULL, NULL, '2026-02-01')");
-      await pool.query("INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ('f3', 'Bank Mandiri', 'folder', NULL, NULL, NULL, NULL, '2026-03-05')");
-      
+      await pool.query(
+        "INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ('f1', 'PT PLN (Persero)', 'folder', NULL, NULL, NULL, NULL, '2026-01-10')"
+      );
+      await pool.query(
+        "INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ('f2', 'Kimia Farma', 'folder', NULL, NULL, NULL, NULL, '2026-02-01')"
+      );
+      await pool.query(
+        "INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ('f3', 'Bank Mandiri', 'folder', NULL, NULL, NULL, NULL, '2026-03-05')"
+      );
+
       // Nested folder
-      await pool.query("INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ('f1-1', 'Batch 2026', 'folder', 'f1', NULL, NULL, NULL, '2026-01-15')");
-      
+      await pool.query(
+        "INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ('f1-1', 'Batch 2026', 'folder', 'f1', NULL, NULL, NULL, '2026-01-15')"
+      );
+
       // Seed files (PDF reports with mock JSON content representing ReportForm)
       const mockForm1 = JSON.stringify({
         namaLengkap: "Andi Firmansyah",
@@ -220,12 +242,15 @@ export const initDb = async () => {
         anakKeberapa: "1",
         jumlahSaudara: "3",
         alamat: "Jl. Sudirman No. 10, Jakarta",
-        permasalahan: "Mengalami stres kerja yang tinggi akibat beban proyek akhir tahun yang menumpuk.",
-        prosesKonseling: "Dilakukan konseling kognitif perilaku (CBT) selama 3 sesi untuk mengelola stres dan mengatur waktu secara lebih adaptif.",
+        permasalahan:
+          "Mengalami stres kerja yang tinggi akibat beban proyek akhir tahun yang menumpuk.",
+        prosesKonseling:
+          "Dilakukan konseling kognitif perilaku (CBT) selama 3 sesi untuk mengelola stres dan mengatur waktu secara lebih adaptif.",
         diagnosisKlinis: "Z73.0 Burn-out (Kelelahan Kerja)",
-        saranPengembangan: "Disarankan untuk melakukan regulasi emosi, relaksasi otot progresif, dan berdiskusi dengan atasan mengenai pendelegasian tugas."
+        saranPengembangan:
+          "Disarankan untuk melakukan regulasi emosi, relaksasi otot progresif, dan berdiskusi dengan atasan mengenai pendelegasian tugas.",
       });
-      
+
       const mockForm2 = JSON.stringify({
         namaLengkap: "Siti Rahayu",
         tempatLahir: "Bandung",
@@ -237,9 +262,11 @@ export const initDb = async () => {
         jumlahSaudara: "2",
         alamat: "Jl. Dipatiukur No. 45, Bandung",
         permasalahan: "Kecemasan berlebih saat menghadapi presentasi di depan direksi perusahaan.",
-        prosesKonseling: "Dilakukan teknik restrukturisasi kognitif dan latihan pernapasan diafragma untuk mengontrol gejala fisik kecemasan.",
+        prosesKonseling:
+          "Dilakukan teknik restrukturisasi kognitif dan latihan pernapasan diafragma untuk mengontrol gejala fisik kecemasan.",
         diagnosisKlinis: "F41.9 Gangguan Kecemasan YTT",
-        saranPengembangan: "Disarankan melakukan simulasi presentasi mandiri dan latihan mindfulness secara teratur sebelum sesi formal."
+        saranPengembangan:
+          "Disarankan melakukan simulasi presentasi mandiri dan latihan mindfulness secara teratur sebelum sesi formal.",
       });
 
       const mockForm3 = JSON.stringify({
@@ -253,15 +280,53 @@ export const initDb = async () => {
         jumlahSaudara: "4",
         alamat: "Jl. Dharmahusada No. 12, Surabaya",
         permasalahan: "Kesulitan beradaptasi dengan sistem pelaporan digital baru di kantor.",
-        prosesKonseling: "Dilakukan konseling suportif dan pelatihan asertif untuk membantu penyesuaian diri terhadap perubahan organisasional.",
+        prosesKonseling:
+          "Dilakukan konseling suportif dan pelatihan asertif untuk membantu penyesuaian diri terhadap perubahan organisasional.",
         diagnosisKlinis: "F43.2 Gangguan Penyesuaian",
-        saranPengembangan: "Disarankan mengikuti pendampingan teknis intensif dari rekan kerja senior (buddy system)."
+        saranPengembangan:
+          "Disarankan mengikuti pendampingan teknis intensif dari rekan kerja senior (buddy system).",
       });
 
-      await pool.query("INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)", ['p1', 'Laporan_Andi Firmansyah.pdf', 'file', 'f1-1', 'application/pdf', '245 KB', mockForm1, '2026-02-03']);
-      await pool.query("INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)", ['p2', 'Laporan_Siti Rahayu.pdf', 'file', 'f1-1', 'application/pdf', '198 KB', mockForm2, '2026-02-05']);
-      await pool.query("INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)", ['p3', 'Laporan_Budi Santoso.pdf', 'file', 'f2', 'application/pdf', '312 KB', mockForm3, '2026-02-20']);
-      
+      await pool.query(
+        "INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+        [
+          "p1",
+          "Laporan_Andi Firmansyah.pdf",
+          "file",
+          "f1-1",
+          "application/pdf",
+          "245 KB",
+          mockForm1,
+          "2026-02-03",
+        ]
+      );
+      await pool.query(
+        "INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+        [
+          "p2",
+          "Laporan_Siti Rahayu.pdf",
+          "file",
+          "f1-1",
+          "application/pdf",
+          "198 KB",
+          mockForm2,
+          "2026-02-05",
+        ]
+      );
+      await pool.query(
+        "INSERT INTO report_nodes (id, name, kind, parent_id, mime_type, size, file_content, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+        [
+          "p3",
+          "Laporan_Budi Santoso.pdf",
+          "file",
+          "f2",
+          "application/pdf",
+          "312 KB",
+          mockForm3,
+          "2026-02-20",
+        ]
+      );
+
       console.log("[db] Seeded initial report bank directory nodes.");
     }
 
