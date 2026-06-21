@@ -1,6 +1,6 @@
 import { Router, Response } from "express";
 import * as bcryptModule from "bcryptjs";
-const bcrypt = (bcryptModule.default || bcryptModule) as any;
+const bcrypt = ((bcryptModule as any).default || bcryptModule) as any;
 import { query, logActivity } from "../config/db";
 import { requireAuth, requireRole, AuthenticatedRequest } from "../middlewares/authMiddleware";
 

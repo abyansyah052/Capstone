@@ -1,8 +1,8 @@
 import { Response } from "express";
 import * as PDFDocumentModule from "pdfkit";
 import * as archiverModule from "archiver";
-const PDFDocument = (PDFDocumentModule.default || PDFDocumentModule) as any;
-const archiver = (archiverModule.default || archiverModule) as any;
+const PDFDocument = ((PDFDocumentModule as any).default || PDFDocumentModule) as any;
+const archiver = ((archiverModule as any).default || archiverModule) as any;
 import { query, logActivity } from "../config/db";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 
