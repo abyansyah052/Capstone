@@ -39,6 +39,14 @@ app.get("/health", (_req: Request, res: Response) => {
   });
 });
 
+app.get("/api/health", (_req: Request, res: Response) => {
+  res.json({
+    status: "ok",
+    message: "Asisya IHMS Backend API is running on VPS",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Default fallback route
 app.use((_req: Request, res: Response) => {
   res.status(404).json({
